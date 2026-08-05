@@ -1,0 +1,6 @@
+package com.example.trillo.dto.response;
+
+public record AuthResponse(
+        String token,
+        UserResponse user
+) {}

@@ -1,13 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/authProvider'
-import { AppShell } from './components/AppShell'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { PublicRoute } from './components/PublicRoute'
 import { AccessDeniedPage } from './pages/AccessDeniedPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { MainLayout } from './components/layout'
 import './App.css'
+import { BoardsPage } from './pages/BoardsPage'
 
 function App() {
   return (
@@ -34,7 +35,9 @@ function App() {
             path="/access-denied"
             element={
               <ProtectedRoute>
-                <AccessDeniedPage />
+                <MainLayout>
+                  <AccessDeniedPage />
+                </MainLayout>
               </ProtectedRoute>
             }
           />
@@ -42,11 +45,12 @@ function App() {
             path="/app"
             element={
               <ProtectedRoute>
-                <AppShell />
+                <MainLayout />
               </ProtectedRoute>
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="boards" element={<BoardsPage />} />
             <Route
               path="pm"
               element={

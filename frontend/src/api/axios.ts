@@ -31,6 +31,7 @@ apiClient.interceptors.response.use(
       // Clear authentication storage on 401 Unauthorized
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('trillo-role-map');
     }
     return Promise.reject(error);
   }

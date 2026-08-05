@@ -30,8 +30,8 @@ public class BoardController {
     }
 
     @GetMapping("/public")
-    public ResponseEntity<List<BoardSummaryResponse>> getPublicBoards() {
-        return ResponseEntity.ok(boardService.getPublicBoards());
+    public ResponseEntity<List<BoardSummaryResponse>> getPublicBoards(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(boardService.getPublicBoards(user));
     }
 
     @PostMapping

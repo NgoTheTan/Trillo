@@ -120,10 +120,10 @@ public class BoardService {
 
     // ── Get Public Boards ─────────────────────────────────────────────────────
     @Transactional(readOnly = true)
-    public List<BoardSummaryResponse> getPublicBoards() {
+    public List<BoardSummaryResponse> getPublicBoards(User currentUser) {
         return boardRepository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC)
                 .stream()
-                .map(board -> toBoardSummaryResponse(board, null))
+                .map(board -> toBoardSummaryResponse(board, currentUser))
                 .toList();
     }
 
@@ -315,9 +315,13 @@ public class BoardService {
     public BoardSummaryResponse toBoardSummaryResponse(Board board, User currentUser) {
         BoardRole role = null;
         if (currentUser != null) {
-            role = boardMemberRepository.findByBoardIdAndUserId(board.getId(), currentUser.getId())
-                    .map(BoardMember::getRole)
-                    .orElse(null);
+            if (board.getOwner() != null && board.getOwner().getId().equals(currentUser.getId())) {
+                role = BoardRole.OWNER;
+            } else {
+                role = boardMemberRepository.findByBoardIdAndUserId(board.getId(), currentUser.getId())
+                        .map(BoardMember::getRole)
+                        .orElse(null);
+            }
         }
 
         int memberCount = (int) boardMemberRepository.countByBoardId(board.getId());

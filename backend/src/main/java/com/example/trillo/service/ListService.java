@@ -6,6 +6,7 @@ import com.example.trillo.dto.request.UpdateListRequest;
 import com.example.trillo.dto.response.ListResponse;
 import com.example.trillo.entity.Board;
 import com.example.trillo.entity.BoardList;
+import com.example.trillo.entity.Card;
 import com.example.trillo.entity.User;
 import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.BoardListRepository;
@@ -96,12 +97,16 @@ public class ListService {
     }
 
     private ListResponse toListResponse(BoardList list) {
+        List<String> cardIds = list.getCards() != null ? list.getCards().stream()
+                .map(Card::getId)
+                .toList() : List.of();
+
         return new ListResponse(
                 list.getId(),
                 list.getBoard().getId(),
                 list.getTitle(),
                 list.getPosition(),
-                List.of(), // Cards loaded separately or via board
+                cardIds,
                 list.getCreatedAt()
         );
     }

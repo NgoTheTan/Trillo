@@ -338,13 +338,13 @@ public class BoardService {
     }
 
     private ListResponse toListResponse(BoardList list) {
-        List<CardSummaryResponse> cards = list.getCards().stream()
-                .map(this::toCardSummaryResponse)
-                .toList();
+        List<String> cardIds = list.getCards() != null ? list.getCards().stream()
+                .map(Card::getId)
+                .toList() : List.of();
 
         return new ListResponse(
                 list.getId(), list.getBoard().getId(), list.getTitle(),
-                list.getPosition(), cards, list.getCreatedAt()
+                list.getPosition(), cardIds, list.getCreatedAt()
         );
     }
 

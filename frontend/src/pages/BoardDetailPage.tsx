@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import React, { useEffect, useRef, useState } from 'react'
+import { data, useParams } from 'react-router-dom'
 import {
     Search,
     Filter,
@@ -9,22 +9,52 @@ import {
     Bookmark,
     Loader2
 } from 'lucide-react'
-import { useBoardDetailQuery } from '../services/boardServices'
+import { useBoardDetailQuery, type BoardList } from '../services/boardServices'
 import { KanbanColumn } from '../components/kanban/KanbanColumn'
 import { BoardListFormModal } from '../components/boardList/BoardListFormModal'
 import {
     useBoardListsQuery,
     useCreateBoardListMutation,
     useUpdateBoardListMutation,
-    useDeleteBoardListMutation
+    useDeleteBoardListMutation,
+    reorderBoardLists
 } from "../services/boardListServices"
-import { useCreateCardMutation } from '../services/listCardServices'
+import { useQueryClient } from '@tanstack/react-query';
+import {
+    DndContext,
+    DragOverlay,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    pointerWithin,
+    closestCenter,
+    type CollisionDetection,
+    type DragStartEvent,
+    type DragEndEvent,
+    type DragOverEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { moveCard, reorderCards, type ListCardResponse } from '../services/listCardServices'
+import { KanbanCard } from '../components/kanban/KanbanCard'
+
+const customCollisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+        return pointerCollisions;
+    }
+    return closestCenter(args);
+};
+
+const ACTIVE_DRAG_ITEM_TYPE = {
+    LIST: 'ACTIVE_DRAG_ITEM_TYPE_LIST',
+    CARD: 'ACTIVE_DRAG_ITEM_TYPE_CARD'
+}
 
 export const BoardDetailPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>()
     const [searchCardQuery, setSearchCardQuery] = useState('')
     const [isCreateOpen, setIsCreateOpen] = useState(false)
-
+    const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
     const boardQuery = useBoardDetailQuery(boardId)
     const listsQuery = useBoardListsQuery(boardId)
 
@@ -33,7 +63,212 @@ export const BoardDetailPage: React.FC = () => {
     const deleteBoardListMutation = useDeleteBoardListMutation()
 
     const board = boardQuery.data
-    const lists = listsQuery.data || board?.lists || []
+    useEffect(() => {
+        if (listsQuery.data) {
+            setOrderedLists(listsQuery.data);
+        }
+    }, [listsQuery.data]);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        // useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 500 } }),
+    );
+
+    const findListByCardId = (cardOrListId: string) => {
+        const directList = orderedLists.find(list => list.id === cardOrListId);
+        if (directList) return directList;
+
+        return orderedLists.find(list =>
+            list.cards?.some((card: any) =>
+                typeof card === 'string' ? card === cardOrListId : card?.id === cardOrListId
+            )
+        );
+    }
+
+    const [activeDraggingItemType, setActiveDraggingItemType] = useState<string | null>(null);
+    const [activeDraggingId, setActiveDraggingId] = useState<string | null>(null);
+    const [activeDraggingData, setActiveDraggingData] = useState<BoardList | ListCardResponse | null>(null)
+
+    const handleDragStart = (event: DragStartEvent) => {
+        const { active } = event;
+        const { data: { current } } = active;
+        if (current?.boardId) {
+            setActiveDraggingId(active.id as string)
+            setActiveDraggingItemType(ACTIVE_DRAG_ITEM_TYPE.LIST);
+            setActiveDraggingData(current as BoardList);
+            return;
+        }
+        if (current?.listId || findListByCardId(active.id as string)) {
+            setActiveDraggingId(active.id as string)
+            setActiveDraggingItemType(ACTIVE_DRAG_ITEM_TYPE.CARD);
+            setActiveDraggingData(current as ListCardResponse);
+            return;
+        }
+    };
+
+    const queryClient = useQueryClient();
+
+    const moveCardBetweenDifferentLists = (
+        _bId: string,
+        sourceListId: string,
+        destinationListId: string,
+        newIndex: number,
+        cardId: string
+    ) => {
+        const sourceCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', sourceListId]) || [];
+        const movingCard = sourceCards.find(c => c.id === cardId);
+
+        if (movingCard) {
+            queryClient.setQueryData<ListCardResponse[]>(['list-cards', sourceListId], (old = []) =>
+                old.filter(c => c.id !== cardId)
+            );
+
+            queryClient.setQueryData<ListCardResponse[]>(['list-cards', destinationListId], (old = []) => {
+                const filtered = old.filter(c => c.id !== cardId);
+                const targetIdx = Math.max(0, Math.min(newIndex, filtered.length));
+                const updatedCard = { ...movingCard, listId: destinationListId };
+                filtered.splice(targetIdx, 0, updatedCard);
+                return filtered;
+            });
+        }
+
+        setOrderedLists(prevLists => {
+            return prevLists.map(list => {
+                if (list.id === sourceListId) {
+                    const newReOrdered = (list.cards || []).filter((c: any) =>
+                        typeof c === 'string' ? c !== cardId : c.id !== cardId
+                    )
+                    return {
+                        ...list,
+                        cards: newReOrdered
+                    };
+                }
+                if (list.id === destinationListId) {
+                    const currentCards = [...(list.cards || [])];
+                    const existingIndex = currentCards.findIndex((c: any) =>
+                        typeof c === 'string' ? c === cardId : c.id === cardId
+                    );
+                    if (existingIndex !== -1) {
+                        currentCards.splice(existingIndex, 1);
+                    }
+                    const targetIndex = Math.max(0, Math.min(newIndex, currentCards.length));
+                    currentCards.splice(targetIndex, 0, cardId as any);
+                    return {
+                        ...list,
+                        cards: currentCards
+                    };
+                }
+                return list;
+            });
+        });
+        moveCard(cardId, destinationListId, newIndex);
+    };
+
+    // trigger trong quá trình kéo 1 phần tử card/list vào column khác
+    const handleDragOver = (event: DragOverEvent) => {
+        if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST) {
+            return;
+        }
+        const { active, over } = event;
+        if (!over) return;
+
+        const { id: activeCardId } = active;
+        const { id: overCardId } = over;
+
+        const activeList = findListByCardId(activeCardId as string);
+        const overList = findListByCardId(overCardId as string);
+
+        if (!activeList || !overList) return;
+
+        if (activeList.id !== overList.id) {
+            let newIndex = 0;
+            const isOverACard = overList.cards?.some((c: any) =>
+                typeof c === 'string' ? c === overCardId : c?.id === overCardId
+            );
+            if (isOverACard) {
+                const overCardIndex = overList.cards?.findIndex((c: any) =>
+                    typeof c === 'string' ? c === overCardId : c?.id === overCardId
+                ) ?? 0;
+                newIndex = overCardIndex >= 0 ? overCardIndex : (overList.cards?.length || 0);
+            } else {
+                newIndex = overList.cards?.length || 0;
+            }
+
+            moveCardBetweenDifferentLists(
+                boardId || '',
+                activeList.id,
+                overList.id,
+                newIndex,
+                activeCardId as string
+            );
+        }
+    };
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over) {
+            setActiveDraggingId(null);
+            setActiveDraggingItemType(null);
+            setActiveDraggingData(null);
+            return;
+        }
+
+        // Dragging Column
+        if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST) {
+            if (active.id !== over.id) {
+                setOrderedLists(prev => {
+                    const oldIndex = prev.findIndex(list => list.id === active.id);
+                    const newIndex = prev.findIndex(list => list.id === over.id);
+                    const newList = arrayMove(prev, oldIndex, newIndex);
+                    const orderedIds = newList.map(list => list.id);
+                    if (boardId) {
+                        reorderBoardLists(boardId, { orderedIds });
+                    }
+                    return newList;
+                });
+            }
+        }
+
+        // Dragging Card within SAME column
+        if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.CARD) {
+            const activeCardId = active.id as string;
+            const overCardId = over.id as string;
+            const activeList = findListByCardId(activeCardId);
+            const overList = findListByCardId(overCardId);
+
+            if (activeList && overList && activeList.id === overList.id) {
+                const listId = activeList.id;
+                const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', listId]) || [];
+                const oldIndex = cachedCards.findIndex(c => c.id === activeCardId);
+                const newIndex = cachedCards.findIndex(c => c.id === overCardId);
+
+                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                    const reordered = arrayMove(cachedCards, oldIndex, newIndex);
+                    queryClient.setQueryData(['list-cards', listId], reordered);
+                }
+
+                const oldStateIndex = activeList.cards?.findIndex((c: any) =>
+                    typeof c === 'string' ? c === activeCardId : c?.id === activeCardId
+                ) ?? -1;
+                const newStateIndex = overList.cards?.findIndex((c: any) =>
+                    typeof c === 'string' ? c === overCardId : c?.id === overCardId
+                ) ?? -1;
+
+                if (oldStateIndex !== -1 && newStateIndex !== -1 && oldStateIndex !== newStateIndex) {
+                    const newCards = arrayMove(activeList.cards || [], oldStateIndex, newStateIndex);
+                    const updateCard = newCards.map((card: any) => typeof card === 'string' ? card : card.id)
+                    setOrderedLists(prev =>
+                        prev.map(l => (l.id === activeList.id ? { ...l, cards: newCards } : l))
+                    );
+                    reorderCards(activeList.id, updateCard as string[]);
+                }
+            }
+        }
+
+        setActiveDraggingId(null);
+        setActiveDraggingItemType(null);
+        setActiveDraggingData(null);
+    };
 
     const handleCreateBoardList = async (title: string) => {
         if (!boardId) return
@@ -72,6 +307,7 @@ export const BoardDetailPage: React.FC = () => {
     }
 
     return (
+
         <div className="space-y-6 max-w-[1600px] mx-auto text-slate-800">
             {/* ── Top Header Navigation Bar ────────────────────────────────────────── */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4  p-4 rounded-2xl">
@@ -147,14 +383,41 @@ export const BoardDetailPage: React.FC = () => {
 
             {/* ── KANBAN BOARD COLUMNS ──────────────────────────────────────────────── */}
             <div className="flex gap-3">
-                {lists.map(list => (
-                    <KanbanColumn
-                        key={list.id}
-                        list={list}
-                        handleDeleteColumn={handleDeleteColumn}
-                        handleUpdateTitleColumn={handleUpdateTitleColumn}
-                    />
-                ))}
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={customCollisionDetection}
+                    onDragOver={handleDragOver}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={orderedLists.map(l => l.id)}
+                        strategy={horizontalListSortingStrategy}
+                    >
+                        {orderedLists.map(list => (
+                            <KanbanColumn
+                                key={list.id}
+                                list={list}
+                                handleDeleteColumn={handleDeleteColumn}
+                                handleUpdateTitleColumn={handleUpdateTitleColumn}
+                            />
+                        ))}
+                    </SortableContext>
+
+                    <DragOverlay>
+                        {activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST && activeDraggingData ? (
+                            <KanbanColumn
+                                list={activeDraggingData as BoardList}
+                                isOverlay
+                            />
+                        ) : activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.CARD && activeDraggingData ? (
+                            <KanbanCard
+                                card={activeDraggingData as ListCardResponse}
+                                isOverlay
+                            />
+                        ) : null}
+                    </DragOverlay>
+                </DndContext>
                 {
                     <BoardListFormModal
                         isOpen={isCreateOpen}

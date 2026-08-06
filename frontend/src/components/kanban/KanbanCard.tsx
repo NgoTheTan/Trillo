@@ -2,9 +2,12 @@ import React, { useState } from 'react'
 import { Calendar } from 'lucide-react'
 import type { ListCardResponse } from '../../services/listCardServices'
 import { EditCardModel } from '../listCard/EditCardModel'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities';
 
 interface KanbanCardProps {
   card: ListCardResponse
+  isOverlay?: boolean
 }
 
 const renderPriorityTag = (priority?: string) => {
@@ -37,17 +40,33 @@ const renderPriorityTag = (priority?: string) => {
   )
 }
 
-export const KanbanCard: React.FC<KanbanCardProps> = ({ card }) => {
+export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false }) => {
   const [openEditCardModal, setOpenEditCardModal] = useState<boolean>(false);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: card.id,
+    data: { ...card },
+    disabled: isOverlay,
+  });
+
+  const dndKitCardStyle: React.CSSProperties = {
+    transform: isOverlay ? undefined : CSS.Translate.toString(transform),
+    transition: isOverlay ? undefined : transition,
+    opacity: isDragging ? 0.7 : 1,
+  };
 
   return (
     <>
       <div
+        ref={isOverlay ? undefined : setNodeRef}
+        style={dndKitCardStyle}
+        {...(isOverlay ? {} : attributes)}
+        {...(isOverlay ? {} : listeners)}
         onClick={() => setOpenEditCardModal(true)}
-        className="bg-white rounded-2xl p-4 border border-slate-100 shadow-2xs hover:shadow-md transition-all cursor-pointer space-y-3 group"
+        className={`bg-white rounded p-4 border border-slate-100 transition-all cursor-pointer space-y-3 group/card ${isOverlay ? 'shadow-xl rotate-1 scale-102 ring-2 ring-blue-500/30' : 'shadow-2xs hover:shadow-md'
+          }`}
       >
         {/* Card Title */}
-        <h3 className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-blue-600 transition-colors">
+        <h3 className="font-semibold text-slate-800 text-sm leading-snug group-hover/card:text-blue-600 transition-colors">
           {card.title}
         </h3>
 

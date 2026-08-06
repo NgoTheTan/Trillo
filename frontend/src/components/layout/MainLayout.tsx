@@ -13,7 +13,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
     return (
-        <div className="min-h-screen flex bg-slate-50 font-sans">
+        <div className="h-screen w-screen flex bg-slate-50 font-sans overflow-hidden">
             {/* Sidebar */}
             <Sidebar
                 isOpenMobile={isMobileSidebarOpen}
@@ -21,7 +21,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             />
 
             {/* Main Area */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
                 {/* Header (No Search Input) */}
                 <Header
                     onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}

@@ -58,8 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Sidebar Container (Light Theme) */}
             <aside
                 className={`
-                    fixed lg:static top-0 left-0 bottom-0 z-50
-                    w-64 bg-white text-slate-700 flex flex-col justify-between
+                    fixed lg:sticky top-0 left-0 bottom-0 z-50 h-screen
+                    w-64 bg-white text-slate-700 flex flex-col justify-between shrink-0
                     transition-transform duration-300 ease-in-out border-r border-slate-200/80 shadow-xl lg:shadow-none
                     ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                 `}
@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-600/20">
                                 <Shield className="w-5 h-5 fill-white/20" />
                             </div>
-                            <span className="text-lg font-extrabold text-slate-900 tracking-tight">TaskBoard</span>
+                            <span className="text-lg font-extrabold text-slate-900 tracking-tight">Trillo</span>
                         </div>
                         {onCloseMobile && (
                             <button

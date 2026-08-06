@@ -2,6 +2,7 @@ import React from 'react'
 import { Plus, Dot } from 'lucide-react'
 import type { BoardSummaryResponse } from '../../services/boardServices'
 import { BoardActionMenu } from './BoardActionMenu'
+import { useNavigate } from 'react-router-dom'
 
 interface BoardCardViewProps {
   boards: BoardSummaryResponse[]
@@ -17,6 +18,8 @@ export const BoardCardView: React.FC<BoardCardViewProps> = ({
   onEditBoard,
   onDeleteBoard
 }) => {
+  const navigate = useNavigate()
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
       {boards.map(board => {
@@ -30,6 +33,7 @@ export const BoardCardView: React.FC<BoardCardViewProps> = ({
           <div
             key={board.id}
             style={style}
+            onClick={() => board.id && navigate(`/app/boards/${board.id}`)}
             className={`relative ${bgClass} rounded-2xl p-6 text-white shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 flex flex-col justify-between h-48 cursor-pointer group`}
           >
             <div className="flex items-start justify-between gap-2">
@@ -44,11 +48,13 @@ export const BoardCardView: React.FC<BoardCardViewProps> = ({
                 </span>
               </div>
 
-              <BoardActionMenu
-                board={board}
-                onEdit={onEditBoard}
-                onDeleted={onDeleteBoard}
-              />
+              <div onClick={e => e.stopPropagation()}>
+                <BoardActionMenu
+                  board={board}
+                  onEdit={onEditBoard}
+                  onDeleted={onDeleteBoard}
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between text-xs font-medium text-white/90">

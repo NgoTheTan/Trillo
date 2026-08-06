@@ -2,6 +2,7 @@ import React from 'react'
 import { Plus, Dot } from 'lucide-react'
 import type { BoardSummaryResponse } from '../../services/boardServices'
 import { BoardActionMenu } from './BoardActionMenu'
+import { useNavigate } from 'react-router-dom'
 
 interface BoardListViewProps {
   boards: BoardSummaryResponse[]
@@ -17,6 +18,8 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
   onEditBoard,
   onDeleteBoard
 }) => {
+  const navigate = useNavigate()
+
   return (
     <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden pt-2">
       <div className="overflow-x-auto">
@@ -39,6 +42,7 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
               return (
                 <tr
                   key={board.id}
+                  onClick={() => board.id && navigate(`/app/boards/${board.id}`)}
                   className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                 >
                   <td className="py-4 px-6 font-semibold text-slate-800">
@@ -71,7 +75,7 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
                     {board.cardCount ?? 0} cards
                   </td>
 
-                  <td className="py-4 px-6 text-right">
+                  <td className="py-4 px-6 text-right" onClick={e => e.stopPropagation()}>
                     <BoardActionMenu
                       board={board}
                       onEdit={onEditBoard}

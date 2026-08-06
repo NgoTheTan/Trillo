@@ -1,41 +1,44 @@
-import { useEffect, useState } from 'react'
-import { Plus, Search, Filter, LayoutGrid, List, ActivityIcon } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Search, Filter, LayoutGrid, List } from 'lucide-react'
 import { BoardCardView } from '../components/board/BoardCardView'
 import { BoardListView } from '../components/board/BoardListView'
 import { BoardFormModal } from '../components/board/BoardFormModal'
 import {
-    createNewBoard,
-    getAllBoards,
-    updateBoard,
+    useBoardsQuery,
+    usePublicBoardsQuery,
+    useCreateBoardMutation,
+    useUpdateBoardMutation,
+    useDeleteBoardMutation,
     type BoardSummaryResponse,
     type BoardFormPayload,
-    getPublicBoards
 } from '../services/boardServices'
 
 export const BoardsPage = () => {
     const [activeTab, setActiveTab] = useState<'All' | 'Public' | 'Mine' | 'Shared'>('All')
     const [searchQuery, setSearchQuery] = useState('')
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-    const [boards, setBoards] = useState<BoardSummaryResponse[]>([])
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [editingBoard, setEditingBoard] = useState<BoardSummaryResponse | null>(null)
     const [isEditOpen, setIsEditOpen] = useState(false)
 
-    const toggleStar = (id: string) => {
+    const allBoardsQuery = useBoardsQuery()
+    const publicBoardsQuery = usePublicBoardsQuery()
 
-    }
+    const createBoardMutation = useCreateBoardMutation()
+    const updateBoardMutation = useUpdateBoardMutation()
+    const deleteBoardMutation = useDeleteBoardMutation()
+
+    const rawBoards = activeTab === 'Public' ? publicBoardsQuery.data : allBoardsQuery.data
+    const boards = (rawBoards || []).filter(board =>
+        board.title.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+
+    const toggleStar = (_id: string) => {}
 
     const handleCreateBoard = async (newBoardData: BoardFormPayload) => {
         try {
-            const newBoard = await createNewBoard(newBoardData)
-            setBoards(prevBoards => {
-                const formattedData: BoardSummaryResponse = {
-                    ...newBoard,
-                    memberCount: 1,
-                    cardCount: 0,
-                }
-                return [formattedData, ...prevBoards]
-            })
+            await createBoardMutation.mutateAsync(newBoardData)
+            setIsCreateOpen(false)
         } catch (error) {
             console.error('Failed to create board:', error)
         }
@@ -49,10 +52,7 @@ export const BoardsPage = () => {
     const handleUpdateBoard = async (updatedData: BoardFormPayload) => {
         if (!editingBoard) return
         try {
-            const updated = await updateBoard(editingBoard.id, updatedData)
-            setBoards(prev =>
-                prev.map(b => (b.id === editingBoard.id ? { ...b, ...updated } : b))
-            )
+            await updateBoardMutation.mutateAsync({ id: editingBoard.id, payload: updatedData })
             setIsEditOpen(false)
             setEditingBoard(null)
         } catch (error) {
@@ -60,35 +60,12 @@ export const BoardsPage = () => {
         }
     }
 
-    const handleGetAllBoards = async () => {
+    const handleDeleteBoard = async (boardId: string) => {
         try {
-            const payload = await getAllBoards()
-            setBoards(payload || [])
+            await deleteBoardMutation.mutateAsync(boardId)
         } catch (error) {
-            console.error('Failed to fetch boards:', error)
+            console.error('Failed to delete board:', error)
         }
-    }
-
-    const handleGetPublicjBoards = async () => {
-        try {
-            const payload = await getPublicBoards()
-            setBoards(payload || [])
-        } catch (error) {
-            console.error('Failed to fetch boards:', error)
-        }
-    }
-
-    useEffect(() => {
-        if (activeTab === 'All') {
-            handleGetAllBoards()
-        } else if (activeTab === 'Public') {
-            handleGetPublicjBoards()
-        }
-    }, [activeTab])
-
-
-    const handleDeleteBoard = (boardId: string) => {
-        setBoards(prev => prev.filter(b => b.id !== boardId))
     }
 
     return (

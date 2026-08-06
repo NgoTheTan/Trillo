@@ -57,6 +57,14 @@ public class CardController {
         return ResponseEntity.ok(cardService.updateCard(cardId, request, user));
     }
 
+    @PatchMapping("/api/cards/{cardId}/completed")
+    public ResponseEntity<CardSummaryResponse> toggleCardCompleted(
+            @PathVariable String cardId,
+            @RequestParam(required = false) Boolean completed,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(cardService.toggleCompleted(cardId, completed, user));
+    }
+
     @DeleteMapping("/api/cards/{cardId}")
     public ResponseEntity<Void> deleteCard(
             @PathVariable String cardId,

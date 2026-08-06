@@ -77,6 +77,21 @@ public class CardService {
     }
 
     @Transactional
+    public CardSummaryResponse toggleCompleted(String cardId, Boolean completed, User currentUser) {
+        Card card = findCardOrThrow(cardId);
+        boardService.requireMember(card.getList().getBoard(), currentUser);
+
+        boolean newStatus = (completed != null) ? completed : !card.isCompleted();
+        card.setCompleted(newStatus);
+
+        Card saved = cardRepository.save(card);
+        logActivity(saved, currentUser, "status_changed", newStatus ? "Card marked as completed" : "Card marked as incomplete");
+        broadcastBoardEvent(card.getList().getBoard().getId(), "CARD_STATUS_UPDATED");
+
+        return toCardSummaryResponse(saved);
+    }
+
+    @Transactional
     public void deleteCard(String cardId, User currentUser) {
         Card card = findCardOrThrow(cardId);
         boardService.requireMember(card.getList().getBoard(), currentUser);

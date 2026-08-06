@@ -9,6 +9,7 @@ import { RegisterPage } from './pages/RegisterPage'
 import { MainLayout } from './components/layout'
 import './App.css'
 import { BoardsPage } from './pages/BoardsPage'
+import { BoardDetailPage } from './pages/BoardDetailPage'
 
 function App() {
   return (
@@ -50,7 +51,10 @@ function App() {
             }
           >
             <Route index element={<DashboardPage />} />
-            <Route path="boards" element={<BoardsPage />} />
+            <Route path="boards">
+              <Route index element={<BoardsPage />} />
+              <Route path=":boardId" element={<BoardDetailPage />} />
+            </Route>
             <Route
               path="pm"
               element={

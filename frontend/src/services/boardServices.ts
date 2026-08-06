@@ -59,7 +59,7 @@ export interface BoardList {
   boardId: string
   title: string
   position: number
-  cards: BoardCard[]
+  cards: (string | BoardCard)[]
   createdAt?: string
 }
 

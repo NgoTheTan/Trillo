@@ -46,6 +46,16 @@ export const getAllListCards = async (listId: string) => {
     return await Api.get<ListCardResponse[]>(`/lists/${listId}/cards`);
 };
 
+// patch /api/lists/{listId}/cards/reorder
+export const reorderCards = async (listId: string, orderedIds: string[]) => {
+    return await Api.patch<ListCardResponse[]>(`/lists/${listId}/cards/reorder`, { orderedIds });
+};
+
+// patch api/cards/{cardId}/move
+export const moveCard = async (cardId: string, targetListId: string, targetPosition: number) => {
+    return await Api.patch<ListCardResponse[]>(`/cards/${cardId}/move`, { targetListId, targetPosition });
+};
+
 // ── React Query Hooks ────────────────────────────────────────────────────────
 
 export const useListCardsQuery = (listId: string | undefined) => {

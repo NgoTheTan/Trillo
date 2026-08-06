@@ -97,16 +97,16 @@ export const useDeleteBoardListMutation = () => {
   });
 };
 
-export const useReorderBoardListsMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ boardId, payload }: { boardId: string; payload: ReorderBoardListsPayload }) =>
-      reorderBoardLists(boardId, payload),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['board-lists', variables.boardId] });
-      queryClient.invalidateQueries({ queryKey: ['boards', variables.boardId] });
-    },
-  });
-};
+// export const useReorderBoardListsMutation = () => {
+//   const queryClient = useQueryClient();
+//   return useMutation({
+//     mutationFn: ({ boardId, payload }: { boardId: string; payload: ReorderBoardListsPayload }) =>
+//       reorderBoardLists(boardId, payload),
+//     onSuccess: (_, variables) => {
+//       queryClient.invalidateQueries({ queryKey: ['board-lists', variables.boardId] });
+//       queryClient.invalidateQueries({ queryKey: ['boards', variables.boardId] });
+//     },
+//   });
+// };
 
 

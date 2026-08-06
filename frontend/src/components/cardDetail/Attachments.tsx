@@ -1,10 +1,31 @@
+import { useState } from 'react';
 import { Paperclip } from 'lucide-react';
 
+interface Attachment {
+  id: number;
+  name: string;
+  type: string;
+  date: string;
+}
+
 export default function Attachments() {
-  const attachments = [
+  const [attachments, setAttachments] = useState<Attachment[]>([
     { id: 1, name: 'Tai_lieu_thiet_ke.pdf', type: 'PDF', date: 'Vài giây trước' },
     { id: 2, name: 'Link Figma UI', type: 'Link', date: '1 giờ trước' },
-  ];
+  ]);
+
+  const handleAddAttachment = () => {
+    // Giả lập việc thêm 1 file mới
+    const newFile: Attachment = {
+      id: Date.now(),
+      name: `File_moi_upload_${Math.floor(Math.random() * 100)}.png`,
+      type: 'IMG',
+      date: 'Vừa xong'
+    };
+    
+    // Đẩy file mới lên đầu danh sách
+    setAttachments([newFile, ...attachments]);
+  };
 
   return (
     <div className="space-y-4">
@@ -13,7 +34,10 @@ export default function Attachments() {
           <Paperclip className="w-5 h-5" />
           <h3>Đính kèm</h3>
         </div>
-        <button className="text-sm bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded font-medium transition">
+        <button 
+          onClick={handleAddAttachment}
+          className="text-sm bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded font-medium transition"
+        >
           Thêm đính kèm
         </button>
       </div>

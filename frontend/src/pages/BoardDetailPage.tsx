@@ -36,6 +36,7 @@ import {
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { moveCard, reorderCards, type ListCardResponse } from '../services/listCardServices'
 import { KanbanCard } from '../components/kanban/KanbanCard'
+import { InviteMemberModal } from '../components/board/InviteMemberModal'
 
 const customCollisionDetection: CollisionDetection = (args) => {
     const pointerCollisions = pointerWithin(args);
@@ -54,6 +55,7 @@ export const BoardDetailPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>()
     const [searchCardQuery, setSearchCardQuery] = useState('')
     const [isCreateOpen, setIsCreateOpen] = useState(false)
+    const [isInviteOpen, setIsInviteOpen] = useState(false)
     const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
     const boardQuery = useBoardDetailQuery(boardId)
     const listsQuery = useBoardListsQuery(boardId)
@@ -90,6 +92,9 @@ export const BoardDetailPage: React.FC = () => {
     const [activeDraggingData, setActiveDraggingData] = useState<BoardList | ListCardResponse | null>(null)
 
     const handleDragStart = (event: DragStartEvent) => {
+        if (document.querySelector('[data-slot="dialog-content"]')) {
+            return;
+        }
         const { active } = event;
         const { data: { current } } = active;
         if (current?.boardId) {
@@ -166,6 +171,9 @@ export const BoardDetailPage: React.FC = () => {
 
     // trigger trong quá trình kéo 1 phần tử card/list vào column khác
     const handleDragOver = (event: DragOverEvent) => {
+        if (document.querySelector('[data-slot="dialog-content"]')) {
+            return;
+        }
         if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST) {
             return;
         }
@@ -352,7 +360,10 @@ export const BoardDetailPage: React.FC = () => {
                     </button>
 
                     {/* Invite Button */}
-                    <button className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer">
+                    <button
+                        onClick={() => setIsInviteOpen(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                    >
                         <span>Invite</span>
                     </button>
                 </div>
@@ -427,6 +438,23 @@ export const BoardDetailPage: React.FC = () => {
                     />
                 }
             </div>
+
+            {/* ── INVITE MEMBER MODAL ───────────────────────────────────────────────── */}
+            <InviteMemberModal
+                boardId={boardId}
+                open={isInviteOpen}
+                onOpenChange={setIsInviteOpen}
+                projectName={board?.title}
+                initialMembers={board?.members?.map(m => ({
+                    id: m.id,
+                    fullName: m.user.fullName,
+                    email: m.user.email || '',
+                    avatarUrl: m.user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+                    role: (m.role as any) || 'Developer',
+                    status: 'joined',
+                    isYou: false,
+                }))}
+            />
         </div>
     )
 }

@@ -56,6 +56,35 @@ export const moveCard = async (cardId: string, targetListId: string, targetPosit
     return await Api.patch<ListCardResponse[]>(`/cards/${cardId}/move`, { targetListId, targetPosition });
 };
 
+// delete api/cards/{cardId}
+export const deleteCard = async (cardId: string) => {
+    return await Api.delete<ListCardResponse>(`/cards/${cardId}`);
+};
+
+export interface UpdateCardPayload {
+    title?: string;
+    description?: string;
+    deadline?: string | null;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | string;
+    completed?: boolean;
+}
+
+// put /api/cards/{cardId}
+export const updateCard = async (cardId: string, cardData: UpdateCardPayload) => {
+    return await Api.put<ListCardResponse>(`/cards/${cardId}`, cardData);
+};
+
+// patch /api/cards/{cardId}/completed
+export const toggleCardCompleted = async (cardId: string, completed?: boolean) => {
+    try {
+        const query = completed !== undefined ? `?completed=${completed}` : '';
+        return await Api.patch<ListCardResponse>(`/cards/${cardId}/completed${query}`);
+    } catch (err) {
+        // Fallback to PUT /api/cards/{cardId} endpoint if server has not been restarted
+        return await updateCard(cardId, { completed });
+    }
+};
+
 // ── React Query Hooks ────────────────────────────────────────────────────────
 
 export const useListCardsQuery = (listId: string | undefined) => {
@@ -66,6 +95,43 @@ export const useListCardsQuery = (listId: string | undefined) => {
     });
 };
 
+export const useUpdateCardMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, cardData }: { cardId: string; cardData: UpdateCardPayload }) =>
+            updateCard(cardId, cardData),
+        onSuccess: (updatedCard) => {
+            if (updatedCard?.listId) {
+                queryClient.setQueryData<ListCardResponse[]>(['list-cards', updatedCard.listId], (oldCards = []) => {
+                    return oldCards.map(c => c.id === updatedCard.id ? { ...c, ...updatedCard } : c);
+                });
+                queryClient.invalidateQueries({ queryKey: ['list-cards', updatedCard.listId] });
+            }
+            queryClient.invalidateQueries({ queryKey: ['boards'] });
+            queryClient.invalidateQueries({ queryKey: ['board-lists'] });
+        },
+    });
+};
+
+export const useToggleCardCompletedMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, completed, listId }: { cardId: string; completed?: boolean; listId?: string }) =>
+            toggleCardCompleted(cardId, completed),
+        onSuccess: (updatedCard, variables) => {
+            const targetListId = updatedCard?.listId || variables.listId;
+            if (targetListId) {
+                queryClient.setQueryData<ListCardResponse[]>(['list-cards', targetListId], (oldCards = []) => {
+                    return oldCards.map(c => c.id === variables.cardId ? { ...c, completed: variables.completed ?? !c.completed } : c);
+                });
+                queryClient.invalidateQueries({ queryKey: ['list-cards', targetListId] });
+            }
+            queryClient.invalidateQueries({ queryKey: ['boards'] });
+            queryClient.invalidateQueries({ queryKey: ['board-lists'] });
+        },
+    });
+};
+
 export const useCreateCardMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
@@ -73,6 +139,25 @@ export const useCreateCardMutation = () => {
             createNewCard(listId, payload),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['list-cards', variables.listId] });
+            queryClient.invalidateQueries({ queryKey: ['board-lists'] });
+            queryClient.invalidateQueries({ queryKey: ['boards'] });
+        },
+    });
+};
+
+export const useDeleteCardMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId }: { cardId: string; listId?: string }) => deleteCard(cardId),
+        onSuccess: (_, variables) => {
+            if (variables.listId) {
+                queryClient.setQueryData<ListCardResponse[]>(['list-cards', variables.listId], (oldCards = []) => {
+                    return oldCards.filter(c => c.id !== variables.cardId);
+                });
+                queryClient.invalidateQueries({ queryKey: ['list-cards', variables.listId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+            }
             queryClient.invalidateQueries({ queryKey: ['board-lists'] });
             queryClient.invalidateQueries({ queryKey: ['boards'] });
         },

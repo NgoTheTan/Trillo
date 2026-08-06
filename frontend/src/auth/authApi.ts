@@ -41,7 +41,19 @@ export async function loginRequest(payload: LoginRequest) {
 export async function registerRequest(payload: RegisterRequest) {
   const response = await authFetch('/api/auth/register', payload)
 
-  return parseAuthResponse(response)
+  if (!response.ok) {
+    return response
+      .json()
+      .catch(() => null)
+      .then((body: BackendErrorResponse | null) => {
+        const validationMessage = body?.errors ? Object.values(body.errors).join(', ') : null
+        throw new Error(
+          validationMessage ?? body?.message ?? body?.error ?? 'Không thể tạo tài khoản.',
+        )
+      })
+  }
+
+  return response.json() as Promise<BackendUserResponse>
 }
 
 export async function meRequest(token: string) {

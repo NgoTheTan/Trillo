@@ -26,7 +26,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public UserResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new DuplicateResourceException("Email already registered: " + request.email());
         }
@@ -40,8 +40,7 @@ public class AuthService {
 
         userRepository.save(user);
 
-        String token = jwtService.generateToken(user);
-        return new AuthResponse(token, toUserResponse(user));
+        return toUserResponse(user);
     }
 
     public AuthResponse login(LoginRequest request) {

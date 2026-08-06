@@ -13,7 +13,16 @@ const registerSchema = z
   .object({
     fullName: z.string().trim().min(2, 'Full name is required'),
     email: z.string().trim().min(1, 'Email is required').email('Email is invalid'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .refine((password) => /[a-z]/.test(password), 'Password must contain at least one lowercase letter')
+      .refine((password) => /[A-Z]/.test(password), 'Password must contain at least one uppercase letter')
+      .refine((password) => /\d/.test(password), 'Password must contain at least one number')
+      .refine(
+        (password) => /[^a-zA-Z0-9]/.test(password),
+        'Password must contain at least one special character'
+      ),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     role: z.enum(['PM', 'User']),
   })
@@ -46,8 +55,8 @@ export function RegisterPage() {
         password: values.password,
         role: values.role as Role,
       })
-      toast.success('Tạo tài khoản thành công')
-      navigate('/app', { replace: true })
+      toast.success('Tạo tài khoản thành công. Giờ bạn có thể đăng nhập.')
+      navigate('/login', { replace: true })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Không thể tạo tài khoản')
     }
@@ -96,7 +105,7 @@ export function RegisterPage() {
               <input
                 className={`input${errors.password ? ' input--error' : ''}`}
                 type={showPassword ? 'text' : 'password'}
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
                 {...register('password')}
               />
               <button

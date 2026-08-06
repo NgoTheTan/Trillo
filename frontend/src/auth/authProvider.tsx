@@ -51,16 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return nextUser
     },
     register: async (input) => {
-      const response = await registerRequest({
+      await registerRequest({
         fullName: input.fullName,
         email: input.email,
         password: input.password,
       })
-      const nextUser = toAuthUser(response.user, input.role)
-      rememberRole(nextUser.email, nextUser.role)
-      setSession({ token: response.token, user: nextUser })
-      setUser(nextUser)
-      return nextUser
     },
     logout: () => {
       clearSession()

@@ -121,9 +121,14 @@ export function AppShell() {
         </div>
         <NavLink to="/app/schedule">
         <div>
-          <IconCalendar />
+          <Calendar />
         <span>Schedule</span>
         </div>
+        </NavLink>
+        <NavLink to="/app/settings">
+          <div>
+            <span>Settings</span>
+          </div>
         </NavLink>
         <Outlet />
       </main>

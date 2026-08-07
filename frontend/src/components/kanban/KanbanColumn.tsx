@@ -13,6 +13,7 @@ interface KanbanColumnProps {
   handleDeleteColumn?: (boardId: string, listId: string) => void
   handleUpdateTitleColumn?: (boardId: string, listId: string, title: string) => void
   isOverlay?: boolean
+  filteredCardIds?: Set<string> | null
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -20,6 +21,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   handleUpdateTitleColumn,
   handleDeleteColumn,
   isOverlay = false,
+  filteredCardIds = null,
 }) => {
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(list.title);
@@ -37,26 +39,34 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   }, [fetchedCards]);
 
   const cardsToRender = React.useMemo(() => {
-    if (!list.cards || list.cards.length === 0) return fetchedCards;
-    return list.cards.map((c: any) => {
-      if (typeof c === 'string') {
-        return cardsMap.get(c) || {
-          id: c,
-          listId: list.id,
-          title: 'Card',
-          priority: 'LOW',
-          position: 0,
-          completed: false,
-          assignedMembers: [],
-          labels: [],
-          checklistTotal: 0,
-          checklistCompleted: 0,
-          commentCount: 0
-        };
-      }
-      return c;
-    });
-  }, [list.cards, fetchedCards, cardsMap, list.id]);
+    let baseCards = fetchedCards;
+    if (list.cards && list.cards.length > 0) {
+      baseCards = list.cards.map((c: any) => {
+        if (typeof c === 'string') {
+          return cardsMap.get(c) || {
+            id: c,
+            listId: list.id,
+            title: 'Card',
+            priority: 'LOW',
+            position: 0,
+            completed: false,
+            assignedMembers: [],
+            labels: [],
+            checklistTotal: 0,
+            checklistCompleted: 0,
+            commentCount: 0
+          };
+        }
+        return c;
+      });
+    }
+
+    if (filteredCardIds) {
+      return baseCards.filter(c => filteredCardIds.has(c.id));
+    }
+
+    return baseCards;
+  }, [list.cards, fetchedCards, cardsMap, list.id, filteredCardIds]);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
@@ -166,6 +176,19 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             </div>
           </div>
         </div>
+
+
+        {filteredCardIds !== null && (
+          <div className="mb-2 px-2.5 py-1.5 bg-blue-50/80 border border-blue-200/60 rounded-xl flex items-center justify-between text-xs font-semibold text-blue-700 shadow-2xs">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+              Filtered result
+            </span>
+            <span className="text-[11px] font-bold bg-blue-100/90 text-blue-800 px-2 py-0.5 rounded-md border border-blue-200/50">
+              {cardsToRender.length} / {fetchedCards.length || (list.cards?.length || 0)} cards
+            </span>
+          </div>
+        )}
 
         {/* Column Cards */}
         <div className="space-y-3 flex-1 overflow-y-auto pr-0.5">

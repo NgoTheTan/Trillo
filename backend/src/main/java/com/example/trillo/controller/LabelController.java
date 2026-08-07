@@ -1,6 +1,7 @@
 package com.example.trillo.controller;
 
 import com.example.trillo.dto.request.CreateLabelRequest;
+import com.example.trillo.dto.request.UpdateLabelRequest;
 import com.example.trillo.dto.response.LabelResponse;
 import com.example.trillo.entity.User;
 import com.example.trillo.service.LabelService;
@@ -33,6 +34,14 @@ public class LabelController {
             @AuthenticationPrincipal User user) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(labelService.createLabel(boardId, request, user));
+    }
+
+    @PutMapping("/api/labels/{labelId}")
+    public ResponseEntity<LabelResponse> updateLabel(
+            @PathVariable String labelId,
+            @Valid @RequestBody UpdateLabelRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(labelService.updateLabel(labelId, request, user));
     }
 
     @DeleteMapping("/api/labels/{labelId}")

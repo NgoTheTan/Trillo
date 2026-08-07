@@ -17,4 +17,6 @@ public interface CardLabelRepository extends JpaRepository<CardLabel, String> {
     boolean existsByCardIdAndLabelId(String cardId, String labelId);
 
     void deleteByCardIdAndLabelId(String cardId, String labelId);
+
+    void deleteByLabelId(String labelId);
 }

@@ -1,6 +1,7 @@
 package com.example.trillo.service;
 
 import com.example.trillo.dto.request.CreateLabelRequest;
+import com.example.trillo.dto.request.UpdateLabelRequest;
 import com.example.trillo.dto.response.LabelResponse;
 import com.example.trillo.entity.*;
 import com.example.trillo.exception.DuplicateResourceException;
@@ -37,10 +38,27 @@ public class LabelService {
     }
 
     @Transactional
+    public LabelResponse updateLabel(String labelId, UpdateLabelRequest request, User currentUser) {
+        Label label = labelRepository.findById(labelId)
+                .orElseThrow(() -> new ResourceNotFoundException("Label", labelId));
+        boardService.requireMember(label.getBoard(), currentUser);
+
+        if (request.name() != null && !request.name().isBlank()) {
+            label.setName(request.name());
+        }
+        if (request.color() != null && !request.color().isBlank()) {
+            label.setColor(request.color());
+        }
+
+        return toResponse(labelRepository.save(label));
+    }
+
+    @Transactional
     public void deleteLabel(String labelId, User currentUser) {
         Label label = labelRepository.findById(labelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Label", labelId));
-        boardService.requireOwner(label.getBoard(), currentUser);
+        boardService.requireMember(label.getBoard(), currentUser);
+        cardLabelRepository.deleteByLabelId(labelId);
         labelRepository.delete(label);
     }
 

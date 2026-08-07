@@ -10,6 +10,7 @@ import { MainLayout } from './components/layout'
 import './App.css'
 import { BoardsPage } from './pages/BoardsPage'
 import { BoardDetailPage } from './pages/BoardDetailPage'
+import CalendarView  from './components/CalendarView';
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
               <Route index element={<BoardsPage />} />
               <Route path=":boardId" element={<BoardDetailPage />} />
             </Route>
+            <Route path="schedule" element={<CalendarView />} />
             <Route
               path="pm"
               element={

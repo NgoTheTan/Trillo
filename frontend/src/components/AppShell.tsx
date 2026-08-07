@@ -58,7 +58,7 @@ export function AppShell() {
                 <p className="stat-card__label">blocked items</p>
               </article>
             </div>
-
+            
             <div className="task-list">
               <div className="task-item">
                 <div>
@@ -119,7 +119,12 @@ export function AppShell() {
             </div>
           </div>
         </div>
-
+        <NavLink to="/app/schedule">
+        <div>
+          <IconCalendar />
+        <span>Schedule</span>
+        </div>
+        </NavLink>
         <Outlet />
       </main>
     </div>

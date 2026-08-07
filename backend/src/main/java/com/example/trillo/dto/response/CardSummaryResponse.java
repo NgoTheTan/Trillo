@@ -9,6 +9,7 @@ public record CardSummaryResponse(
         String id,
         String listId,
         String title,
+        String description,
         LocalDateTime deadline,
         Priority priority,
         int position,

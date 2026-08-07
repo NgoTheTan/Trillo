@@ -120,12 +120,13 @@ public class CardController {
     @GetMapping("/api/boards/{boardId}/cards/filter")
     public ResponseEntity<List<CardSummaryResponse>> filterCards(
             @PathVariable String boardId,
-            @RequestParam(required = false) String labelId,
-            @RequestParam(required = false) String memberId,
+            @RequestParam(required = false) List<String> labelIds,
+            @RequestParam(required = false) List<String> memberIds,
+            @RequestParam(required = false) List<String> listIds,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime deadlineFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime deadlineTo,
             @RequestParam(required = false) String search,
             @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(cardService.filterCards(boardId, labelId, memberId, deadlineFrom, deadlineTo, search, user));
+        return ResponseEntity.ok(cardService.filterCards(boardId, labelIds, memberIds, listIds, deadlineFrom, deadlineTo, search, user));
     }
 }

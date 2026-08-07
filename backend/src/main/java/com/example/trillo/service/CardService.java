@@ -63,9 +63,9 @@ public class CardService {
         boardService.requireMember(card.getList().getBoard(), currentUser);
 
         StringBuilder changes = new StringBuilder("Card updated: ");
-        if (request.title() != null) { changes.append("title, "); card.setTitle(request.title()); }
-        if (request.description() != null) { changes.append("description, "); card.setDescription(request.description()); }
-        if (request.deadline() != null) { changes.append("deadline, "); card.setDeadline(request.deadline()); }
+        if (request.title() != null && !request.title().isBlank()) { changes.append("title, "); card.setTitle(request.title()); }
+        card.setDescription(request.description());
+        card.setDeadline(request.deadline());
         if (request.priority() != null) { changes.append("priority, "); card.setPriority(request.priority()); }
         if (request.completed() != null) { card.setCompleted(request.completed()); changes.append(request.completed() ? "marked complete" : "marked incomplete"); }
 
@@ -163,6 +163,7 @@ public class CardService {
                 .card(card)
                 .user(assignee)
                 .build();
+        card.getAssignedMembers().add(cm);
         cardMemberRepository.save(cm);
 
         logActivity(card, currentUser, "assigned", currentUser.getFullName() + " assigned " + assignee.getFullName());
@@ -177,18 +178,21 @@ public class CardService {
         );
 
         broadcastBoardEvent(card.getList().getBoard().getId(), "CARD_UPDATED");
-        return toCardResponse(cardRepository.findById(cardId).orElseThrow());
+        return toCardResponse(cardRepository.save(card));
     }
 
     @Transactional
     public CardResponse unassignMember(String cardId, String userId, User currentUser) {
         Card card = findCardOrThrow(cardId);
         boardService.requireMember(card.getList().getBoard(), currentUser);
+
+        card.getAssignedMembers().removeIf(cm -> cm.getUser().getId().equals(userId));
         cardMemberRepository.deleteByCardIdAndUserId(cardId, userId);
 
-        logActivity(card, currentUser, "unassigned", "Member removed from card");
-        broadcastBoardEvent(card.getList().getBoard().getId(), "CARD_UPDATED");
-        return toCardResponse(cardRepository.findById(cardId).orElseThrow());
+        Card saved = cardRepository.save(card);
+        logActivity(saved, currentUser, "unassigned", "Member removed from card");
+        broadcastBoardEvent(saved.getList().getBoard().getId(), "CARD_UPDATED");
+        return toCardResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -217,29 +221,55 @@ public class CardService {
 
     // Filter & Search
     @Transactional(readOnly = true)
-    public List<CardSummaryResponse> filterCards(String boardId, String labelId, String memberId,
-                                                  LocalDateTime deadlineFrom, LocalDateTime deadlineTo,
+    public List<CardSummaryResponse> filterCards(String boardId, List<String> labelIds, List<String> memberIds,
+                                                  List<String> listIds, LocalDateTime deadlineFrom, LocalDateTime deadlineTo,
                                                   String search, User currentUser) {
         Board board = boardService.findBoardOrThrow(boardId);
         boardService.checkAccess(board, currentUser);
 
-        List<Card> cards;
+        List<Card> cards = cardRepository.findAllByBoardId(boardId);
 
+        // 1. Keyword search (in title or description)
         if (search != null && !search.isBlank()) {
-            cards = cardRepository.searchByTitleInBoard(boardId, search);
-        } else if (labelId != null) {
-            cards = cardRepository.findByLabelId(labelId);
-        } else if (deadlineFrom != null && deadlineTo != null) {
-            cards = cardRepository.findByBoardAndDeadlineBetween(boardId, deadlineFrom, deadlineTo);
-        } else {
-            cards = cardRepository.findAllByBoardId(boardId);
+            String lowerSearch = search.trim().toLowerCase();
+            cards = cards.stream()
+                    .filter(c -> (c.getTitle() != null && c.getTitle().toLowerCase().contains(lowerSearch)) ||
+                                 (c.getDescription() != null && c.getDescription().toLowerCase().contains(lowerSearch)))
+                    .toList();
         }
 
-        // Filter by member if specified
-        if (memberId != null) {
+        // 2. Filter by Columns (listIds)
+        if (listIds != null && !listIds.isEmpty()) {
+            cards = cards.stream()
+                    .filter(c -> listIds.contains(c.getList().getId()))
+                    .toList();
+        }
+
+        // 3. Filter by Labels (labelIds)
+        if (labelIds != null && !labelIds.isEmpty()) {
+            cards = cards.stream()
+                    .filter(c -> c.getLabels().stream()
+                            .anyMatch(cl -> labelIds.contains(cl.getLabel().getId())))
+                    .toList();
+        }
+
+        // 4. Filter by Members (memberIds)
+        if (memberIds != null && !memberIds.isEmpty()) {
             cards = cards.stream()
                     .filter(c -> c.getAssignedMembers().stream()
-                            .anyMatch(cm -> cm.getUser().getId().equals(memberId)))
+                            .anyMatch(cm -> memberIds.contains(cm.getUser().getId())))
+                    .toList();
+        }
+
+        // 5. Filter by Deadline range
+        if (deadlineFrom != null) {
+            cards = cards.stream()
+                    .filter(c -> c.getDeadline() != null && !c.getDeadline().isBefore(deadlineFrom))
+                    .toList();
+        }
+        if (deadlineTo != null) {
+            cards = cards.stream()
+                    .filter(c -> c.getDeadline() != null && !c.getDeadline().isAfter(deadlineTo))
                     .toList();
         }
 
@@ -283,7 +313,7 @@ public class CardService {
                 .mapToInt(c -> (int) c.getItems().stream().filter(ChecklistItem::isCompleted).count()).sum();
 
         return new CardSummaryResponse(
-                card.getId(), card.getList().getId(), card.getTitle(),
+                card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
                 card.getDeadline(), card.getPriority(), card.getPosition(),
                 card.isCompleted(), members, labels,
                 totalItems, completedItems, card.getComments().size(), card.getCreatedAt()

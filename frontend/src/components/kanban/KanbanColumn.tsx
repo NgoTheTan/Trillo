@@ -3,7 +3,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react'
 import type { BoardList, BoardCard } from '../../services/boardServices'
 import { KanbanCard } from './KanbanCard'
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal'
-import { useCreateCardMutation, useListCardsQuery } from '../../services/listCardServices'
+import { useCreateCardMutation, useListCardsQuery } from '../../services/cardService.ts'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -27,7 +27,6 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const [openDelete, setOpenDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAddingCard, setIsAddingCard] = useState(false);
-
   // Fetch full card details from DB
   const { data: fetchedCards = [] } = useListCardsQuery(list.id);
 

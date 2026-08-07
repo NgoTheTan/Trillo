@@ -1,10 +1,10 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Calendar, Check, Trash2 } from 'lucide-react'
 import {
   useDeleteCardMutation,
   useToggleCardCompletedMutation,
   type ListCardResponse,
-} from '../../services/listCardServices'
+} from '../../services/cardService.ts'
 import { EditCardModel } from '../listCard/EditCardModel'
 import { ConfirmDeleteCardModal } from '../listCard/ConfirmDeleteCardModal'
 import { useSortable } from '@dnd-kit/sortable'
@@ -13,6 +13,7 @@ import { formatDeadlineDisplay } from '../../utils/dateUtils'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface KanbanCardProps {
+  isOpenEditCardRef?: React.MutableRefObject<boolean>
   card: ListCardResponse
   isOverlay?: boolean
 }
@@ -21,7 +22,7 @@ const renderPriorityTag = (priority?: string) => {
   const p = (priority || 'Low').toLowerCase()
   if (p === 'high') {
     return (
-      <span className="px-2.5 py-0.5 rounded-md bg-orange-100/80 text-orange-700 font-semibold text-xs inline-block">
+      <span className="px-2.5 py-0.5 rounded-md bg-red-100/80 text-red-500 font-semibold text-xs inline-block">
         High
       </span>
     )
@@ -94,12 +95,11 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
         {...(isOverlay ? {} : attributes)}
         {...(isOverlay ? {} : listeners)}
         onClick={() => setOpenEditCardModal(true)}
-        className={`bg-white rounded-lg p-4 border border-slate-100 transition-all cursor-pointer space-y-3 group/card relative ${
-          isOverlay ? 'shadow-xl rotate-1 scale-102 ring-2 ring-blue-500/30' : 'shadow-2xs hover:shadow-md'
-        }`}
+        className={`bg-white rounded-lg p-4 border border-slate-100 transition-all cursor-pointer space-y-3 group/card relative ${isOverlay ? 'shadow-xl rotate-1 scale-102 ring-2 ring-blue-500/30' : 'shadow-2xs hover:shadow-md'
+          }`}
       >
         {/* Card Header: Checkbox, Title & Trash Icon */}
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 relative">
           {/* Completion Check Circle */}
           {!isOverlay && (
             <button
@@ -108,11 +108,10 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
                 e.stopPropagation()
                 handleToggleComplete()
               }}
-              className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
-                card.completed
+              className={`mt-0.5 w-4 h-4 rounded-full positive border flex items-center justify-center shrink-0 transition-all cursor-pointer ${card.completed
                   ? 'bg-emerald-500 border-emerald-500 text-white  block'
                   : 'border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 text-emerald-600 hidden group-hover/card:block'
-              }`}
+                }`}
               title={card.completed ? 'Mark as incomplete' : 'Mark as completed'}
             >
               {card.completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
@@ -121,11 +120,10 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
 
           {/* Card Title */}
           <h3
-            className={`font-semibold text leading-snug transition-colors flex-1 ${
-              card.completed
+            className={`font-semibold text leading-snug transition-colors flex-1 ${card.completed
                 ? 'line-through text-slate-400'
                 : 'text-slate-800 group-hover/card:text-blue-600'
-            }`}
+              }`}
           >
             {card.title}
           </h3>
@@ -151,9 +149,17 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
 
         {/* Card Footer: Date & User Avatar */}
         <div className="flex items-center justify-between pt-1 border-t border-slate-50 text-slate-400 text-xs">
-          <div className="flex items-center gap-1.5 font-medium">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <span>{formatDeadlineDisplay(card.deadline)}</span>
+          <div
+            className={`flex items-center gap-1.5 font-medium ${card.deadline && !card.completed && new Date(card.deadline).getTime() < Date.now()
+                ? 'text-red-500 font-semibold'
+                : 'text-slate-400'
+              }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>
+              {formatDeadlineDisplay(card.deadline)}
+              {card.deadline && !card.completed && new Date(card.deadline).getTime() < Date.now() && ' (Overdue)'}
+            </span>
           </div>
 
           {card.assignedMembers && card.assignedMembers.length > 0 && (
@@ -173,9 +179,9 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
                   ? card.assignedMembers[0].fullName.trim().split(/\s+/).length === 1
                     ? card.assignedMembers[0].fullName.substring(0, 2).toUpperCase()
                     : (
-                        card.assignedMembers[0].fullName.trim().split(/\s+/)[0][0] +
-                        card.assignedMembers[0].fullName.trim().split(/\s+/).slice(-1)[0][0]
-                      ).toUpperCase()
+                      card.assignedMembers[0].fullName.trim().split(/\s+/)[0][0] +
+                      card.assignedMembers[0].fullName.trim().split(/\s+/).slice(-1)[0][0]
+                    ).toUpperCase()
                   : 'U'}
               </div>
             )

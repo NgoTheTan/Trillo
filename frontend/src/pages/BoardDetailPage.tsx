@@ -1,12 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { data, useParams } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import {
-    Search,
-    Filter,
-    MoreHorizontal,
     Globe,
-    MoreVertical,
-    Bookmark,
     Loader2
 } from 'lucide-react'
 import { useBoardDetailQuery, type BoardList } from '../services/boardServices'
@@ -38,6 +33,7 @@ import { moveCard, reorderCards, useFilterCardsQuery, type FilterCardsPayload, t
 import { KanbanCard } from '../components/kanban/KanbanCard'
 import { InviteMemberModal } from '../components/board/InviteMemberModal'
 import { CardFilterPopover } from '../components/kanban/CardFilterPopover.tsx'
+import { useWebSocketBoard } from '../services/websocketService'
 
 class SmartPointerSensor extends PointerSensor {
     static activators = [
@@ -72,6 +68,7 @@ const ACTIVE_DRAG_ITEM_TYPE = {
 
 export const BoardDetailPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>()
+    useWebSocketBoard(boardId)
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isInviteOpen, setIsInviteOpen] = useState(false)
     const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
@@ -442,12 +439,12 @@ export const BoardDetailPage: React.FC = () => {
                     </SortableContext>
 
                     <DragOverlay>
-                        {activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST && activeDraggingData ? (
+                        {activeDraggingId && activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST && activeDraggingData ? (
                             <KanbanColumn
                                 list={activeDraggingData as BoardList}
                                 isOverlay
                             />
-                        ) : activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.CARD && activeDraggingData ? (
+                        ) : activeDraggingId && activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.CARD && activeDraggingData ? (
                             <KanbanCard
                                 card={activeDraggingData as ListCardResponse}
                                 isOverlay

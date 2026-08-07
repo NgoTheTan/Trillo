@@ -123,10 +123,18 @@ public class CardController {
             @RequestParam(required = false) List<String> labelIds,
             @RequestParam(required = false) List<String> memberIds,
             @RequestParam(required = false) List<String> listIds,
+            @RequestParam(required = false) List<String> columnIds,
+            @RequestParam(required = false) Boolean status,
+            @RequestParam(required = false) Boolean completed,
+            @RequestParam(required = false) Boolean noDeadline,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime deadlineFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime deadlineTo,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String keywords,
             @AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(cardService.filterCards(boardId, labelIds, memberIds, listIds, deadlineFrom, deadlineTo, search, user));
+        List<String> targetLists = (listIds != null && !listIds.isEmpty()) ? listIds : columnIds;
+        String targetSearch = (search != null && !search.isBlank()) ? search : keywords;
+        Boolean targetStatus = (status != null) ? status : completed;
+        return ResponseEntity.ok(cardService.filterCards(boardId, labelIds, memberIds, targetLists, targetStatus, noDeadline, deadlineFrom, deadlineTo, targetSearch, user));
     }
 }

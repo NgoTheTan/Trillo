@@ -34,7 +34,7 @@ import {
     type DragOverEvent,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { moveCard, reorderCards, type ListCardResponse } from '../services/cardService.ts'
+import { moveCard, reorderCards, useFilterCardsQuery, type FilterCardsPayload, type ListCardResponse } from '../services/cardService.ts'
 import { KanbanCard } from '../components/kanban/KanbanCard'
 import { InviteMemberModal } from '../components/board/InviteMemberModal'
 import { CardFilterPopover } from '../components/kanban/CardFilterPopover.tsx'
@@ -72,10 +72,22 @@ const ACTIVE_DRAG_ITEM_TYPE = {
 
 export const BoardDetailPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>()
-    const [searchCardQuery, setSearchCardQuery] = useState('')
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isInviteOpen, setIsInviteOpen] = useState(false)
     const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
+
+    const [cardfillterFeatures, setCardFillterFeatures] = useState<FilterCardsPayload>({
+        search: '',
+        listIds: [],
+        memberIds: [],
+        status: null,
+        labelIds: [],
+        noDeadline: false,
+        deadlineFrom: null,
+        deadlineTo: null,
+    })
+
+    const filterCardsQuery = useFilterCardsQuery(boardId, cardfillterFeatures)
 
     const boardQuery = useBoardDetailQuery(boardId)
     const listsQuery = useBoardListsQuery(boardId)
@@ -333,6 +345,31 @@ export const BoardDetailPage: React.FC = () => {
         )
     }
 
+    const hasActiveFilter = React.useMemo(() => {
+        return (
+            (cardfillterFeatures.listIds && cardfillterFeatures.listIds.length > 0) ||
+            (cardfillterFeatures.memberIds && cardfillterFeatures.memberIds.length > 0) ||
+            (cardfillterFeatures.labelIds && cardfillterFeatures.labelIds.length > 0) ||
+            (cardfillterFeatures.search && cardfillterFeatures.search.trim().length > 0) ||
+            (cardfillterFeatures.status !== null && cardfillterFeatures.status !== undefined) ||
+            !!cardfillterFeatures.noDeadline ||
+            !!cardfillterFeatures.deadlineFrom ||
+            !!cardfillterFeatures.deadlineTo
+        );
+    }, [cardfillterFeatures]);
+
+    const filteredCardIds = React.useMemo(() => {
+        if (!hasActiveFilter || !filterCardsQuery.data) return null;
+        return new Set(filterCardsQuery.data.map(c => c.id));
+    }, [hasActiveFilter, filterCardsQuery.data]);
+
+    const orderedListsToRender = React.useMemo(() => {
+        if (cardfillterFeatures.listIds && cardfillterFeatures.listIds.length > 0) {
+            return orderedLists.filter(list => cardfillterFeatures.listIds.includes(list.id));
+        }
+        return orderedLists;
+    }, [orderedLists, cardfillterFeatures.listIds]);
+
     return (
 
         <div className="space-y-6 max-w-[1600px] mx-auto text-slate-800">
@@ -376,7 +413,7 @@ export const BoardDetailPage: React.FC = () => {
                     >
                         <span>Invite</span>
                     </button>
-                    <CardFilterPopover boardId={boardId} />
+                    <CardFilterPopover boardId={boardId || ''} cardfillterFeatures={cardfillterFeatures} setCardFillterFeatures={setCardFillterFeatures} />
                 </div>
             </div>
 
@@ -390,13 +427,14 @@ export const BoardDetailPage: React.FC = () => {
                     onDragEnd={handleDragEnd}
                 >
                     <SortableContext
-                        items={orderedLists.map(l => l.id)}
+                        items={orderedListsToRender.map(l => l.id)}
                         strategy={horizontalListSortingStrategy}
                     >
-                        {orderedLists.map(list => (
+                        {orderedListsToRender.map(list => (
                             <KanbanColumn
                                 key={list.id}
                                 list={list}
+                                filteredCardIds={filteredCardIds}
                                 handleDeleteColumn={handleDeleteColumn}
                                 handleUpdateTitleColumn={handleUpdateTitleColumn}
                             />

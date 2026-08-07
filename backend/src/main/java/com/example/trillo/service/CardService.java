@@ -222,7 +222,8 @@ public class CardService {
     // Filter & Search
     @Transactional(readOnly = true)
     public List<CardSummaryResponse> filterCards(String boardId, List<String> labelIds, List<String> memberIds,
-                                                  List<String> listIds, LocalDateTime deadlineFrom, LocalDateTime deadlineTo,
+                                                  List<String> listIds, Boolean status, Boolean noDeadline,
+                                                  LocalDateTime deadlineFrom, LocalDateTime deadlineTo,
                                                   String search, User currentUser) {
         Board board = boardService.findBoardOrThrow(boardId);
         boardService.checkAccess(board, currentUser);
@@ -245,7 +246,14 @@ public class CardService {
                     .toList();
         }
 
-        // 3. Filter by Labels (labelIds)
+        // 3. Filter by Status (completed vs pending)
+        if (status != null) {
+            cards = cards.stream()
+                    .filter(c -> c.isCompleted() == status)
+                    .toList();
+        }
+
+        // 4. Filter by Labels (labelIds)
         if (labelIds != null && !labelIds.isEmpty()) {
             cards = cards.stream()
                     .filter(c -> c.getLabels().stream()
@@ -253,7 +261,7 @@ public class CardService {
                     .toList();
         }
 
-        // 4. Filter by Members (memberIds)
+        // 5. Filter by Members (memberIds)
         if (memberIds != null && !memberIds.isEmpty()) {
             cards = cards.stream()
                     .filter(c -> c.getAssignedMembers().stream()
@@ -261,16 +269,22 @@ public class CardService {
                     .toList();
         }
 
-        // 5. Filter by Deadline range
-        if (deadlineFrom != null) {
+        // 6. Filter by No Deadline vs Deadline range
+        if (Boolean.TRUE.equals(noDeadline)) {
             cards = cards.stream()
-                    .filter(c -> c.getDeadline() != null && !c.getDeadline().isBefore(deadlineFrom))
+                    .filter(c -> c.getDeadline() == null)
                     .toList();
-        }
-        if (deadlineTo != null) {
-            cards = cards.stream()
-                    .filter(c -> c.getDeadline() != null && !c.getDeadline().isAfter(deadlineTo))
-                    .toList();
+        } else {
+            if (deadlineFrom != null) {
+                cards = cards.stream()
+                        .filter(c -> c.getDeadline() != null && !c.getDeadline().isBefore(deadlineFrom))
+                        .toList();
+            }
+            if (deadlineTo != null) {
+                cards = cards.stream()
+                        .filter(c -> c.getDeadline() != null && !c.getDeadline().isAfter(deadlineTo))
+                        .toList();
+            }
         }
 
         return cards.stream().map(this::toCardSummaryResponse).toList();

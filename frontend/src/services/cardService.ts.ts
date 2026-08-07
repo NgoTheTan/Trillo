@@ -38,6 +38,25 @@ export interface ListCardResponse {
     createdAt?: string;
 }
 
+export interface UpdateCardPayload {
+    title?: string;
+    description?: string;
+    deadline?: string | null;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | string;
+    completed?: boolean;
+}
+
+export interface FilterCardsPayload {
+    search: string,
+    listIds: string[],
+    memberIds: string[],
+    labelIds: string[],
+    status: boolean | null,
+    noDeadline?: boolean,
+    deadlineFrom: string | Date | null,
+    deadlineTo: string | Date | null,
+}
+
 export const createNewCard = async (listId: string, listCardPayload: ListCardPayload) => {
     return await Api.post<ListCardResponse>(`/lists/${listId}/cards`, listCardPayload);
 };
@@ -62,13 +81,6 @@ export const deleteCard = async (cardId: string) => {
     return await Api.delete<ListCardResponse>(`/cards/${cardId}`);
 };
 
-export interface UpdateCardPayload {
-    title?: string;
-    description?: string;
-    deadline?: string | null;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | string;
-    completed?: boolean;
-}
 
 // put /api/cards/{cardId}
 export const updateCard = async (cardId: string, cardData: UpdateCardPayload) => {
@@ -126,6 +138,61 @@ export const removeLabelFromCard = async (cardId: string, labelId: string) => {
     return await Api.delete<void>(`/cards/${cardId}/labels/${labelId}`);
 };
 
+const formatToIsoString = (val: string | Date | null | undefined): string | null => {
+    if (!val) return null;
+    if (val instanceof Date) {
+        if (isNaN(val.getTime())) return null;
+        const tzOffset = val.getTimezoneOffset() * 60000;
+        return new Date(val.getTime() - tzOffset).toISOString().slice(0, 19);
+    }
+    if (typeof val === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?/.test(val)) return val;
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return val;
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - tzOffset).toISOString().slice(0, 19);
+    }
+    return null;
+};
+
+// /api/boards/{boardId}/cards/filter
+export const filterCards = async (boardId: string, filters: FilterCardsPayload) => {
+    const searchParams = new URLSearchParams();
+
+    if (filters.search && filters.search.trim()) {
+        searchParams.append('search', filters.search.trim());
+    }
+    const listIds = filters.listIds || (filters as any).columnIds || [];
+    if (listIds.length > 0) {
+        listIds.forEach((id: string) => searchParams.append('listIds', id));
+    }
+    if (filters.status !== null && filters.status !== undefined) {
+        searchParams.append('status', String(filters.status));
+    }
+    if (filters.noDeadline) {
+        searchParams.append('noDeadline', 'true');
+    }
+    if (filters.memberIds && filters.memberIds.length > 0) {
+        filters.memberIds.forEach(id => searchParams.append('memberIds', id));
+    }
+    if (filters.labelIds && filters.labelIds.length > 0) {
+        filters.labelIds.forEach(id => searchParams.append('labelIds', id));
+    }
+    const fromIso = formatToIsoString(filters.deadlineFrom);
+    if (fromIso) {
+        searchParams.append('deadlineFrom', fromIso);
+    }
+    const toIso = formatToIsoString(filters.deadlineTo);
+    if (toIso) {
+        searchParams.append('deadlineTo', toIso);
+    }
+
+    const queryString = searchParams.toString();
+    const url = queryString ? `/boards/${boardId}/cards/filter?${queryString}` : `/boards/${boardId}/cards/filter`;
+    return await Api.get<ListCardResponse[]>(url);
+};
+
+
 // ── React Query Hooks ────────────────────────────────────────────────────────
 
 export const useListCardsQuery = (listId: string | undefined) => {
@@ -143,13 +210,11 @@ export const useUpdateCardMutation = () => {
             updateCard(cardId, cardData),
         onSuccess: (updatedCard) => {
             if (updatedCard?.listId) {
-                queryClient.setQueryData<ListCardResponse[]>(['list-cards', updatedCard.listId], (oldCards = []) => {
-                    return oldCards.map(c => c.id === updatedCard.id ? { ...c, ...updatedCard } : c);
-                });
                 queryClient.invalidateQueries({ queryKey: ['list-cards', updatedCard.listId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['list-cards'] });
             }
             queryClient.invalidateQueries({ queryKey: ['boards'] });
-            queryClient.invalidateQueries({ queryKey: ['board-lists'] });
         },
     });
 };
@@ -157,18 +222,16 @@ export const useUpdateCardMutation = () => {
 export const useToggleCardCompletedMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ cardId, completed, listId }: { cardId: string; completed?: boolean; listId?: string }) =>
+        mutationFn: ({ cardId, completed, listId }: { cardId: string; completed: boolean; listId?: string }) =>
             toggleCardCompleted(cardId, completed),
         onSuccess: (updatedCard, variables) => {
-            const targetListId = updatedCard?.listId || variables.listId;
-            if (targetListId) {
-                queryClient.setQueryData<ListCardResponse[]>(['list-cards', targetListId], (oldCards = []) => {
-                    return oldCards.map(c => c.id === variables.cardId ? { ...c, completed: variables.completed ?? !c.completed } : c);
-                });
-                queryClient.invalidateQueries({ queryKey: ['list-cards', targetListId] });
+            const listId = updatedCard?.listId || variables.listId;
+            if (listId) {
+                queryClient.invalidateQueries({ queryKey: ['list-cards', listId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['list-cards'] });
             }
             queryClient.invalidateQueries({ queryKey: ['boards'] });
-            queryClient.invalidateQueries({ queryKey: ['board-lists'] });
         },
     });
 };
@@ -192,14 +255,10 @@ export const useDeleteCardMutation = () => {
         mutationFn: ({ cardId }: { cardId: string; listId?: string }) => deleteCard(cardId),
         onSuccess: (_, variables) => {
             if (variables.listId) {
-                queryClient.setQueryData<ListCardResponse[]>(['list-cards', variables.listId], (oldCards = []) => {
-                    return oldCards.filter(c => c.id !== variables.cardId);
-                });
                 queryClient.invalidateQueries({ queryKey: ['list-cards', variables.listId] });
             } else {
                 queryClient.invalidateQueries({ queryKey: ['list-cards'] });
             }
-            queryClient.invalidateQueries({ queryKey: ['board-lists'] });
             queryClient.invalidateQueries({ queryKey: ['boards'] });
         },
     });
@@ -254,6 +313,7 @@ export const useCreateBoardLabelMutation = () => {
             createBoardLabel(boardId, payload),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['board-labels', variables.boardId] });
+            queryClient.invalidateQueries({ queryKey: ['boards'] });
         },
     });
 };
@@ -277,14 +337,14 @@ export const useDeleteBoardLabelMutation = () => {
 export const useUpdateBoardLabelMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ labelId, payload }: { labelId: string; payload: { name?: string; color?: string }; boardId?: string }) =>
+        mutationFn: ({ labelId, payload, boardId }: { labelId: string; payload: { name?: string; color?: string }; boardId?: string }) =>
             updateBoardLabel(labelId, payload),
         onSuccess: (_, variables) => {
             if (variables.boardId) {
                 queryClient.invalidateQueries({ queryKey: ['board-labels', variables.boardId] });
             } else {
                 queryClient.invalidateQueries({ queryKey: ['board-labels'] });
-            }   
+            }
             queryClient.invalidateQueries({ queryKey: ['list-cards'] });
         },
     });
@@ -320,3 +380,20 @@ export const useRemoveLabelFromCardMutation = () => {
     });
 };
 
+export const useFilterCardsQuery = (boardId: string | undefined, filters: FilterCardsPayload) => {
+    const hasActiveFilter =
+        (filters.listIds && filters.listIds.length > 0) ||
+        (filters.memberIds && filters.memberIds.length > 0) ||
+        (filters.labelIds && filters.labelIds.length > 0) ||
+        (filters.search && filters.search.trim().length > 0) ||
+        (filters.status !== null && filters.status !== undefined) ||
+        !!filters.noDeadline ||
+        !!filters.deadlineFrom ||
+        !!filters.deadlineTo;
+
+    return useQuery({
+        queryKey: ['filter-cards', boardId, filters],
+        queryFn: () => filterCards(boardId!, filters),
+        enabled: !!boardId && hasActiveFilter,
+    });
+};

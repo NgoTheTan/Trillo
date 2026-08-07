@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { Calendar, ChevronDown, Search, X, Check, Edit2, Loader2, Palette, Trash } from 'lucide-react'
+import { ChevronDown, Search, X, Check, Edit2, Loader2, Palette, Trash } from 'lucide-react'
 import {
   type ListCardResponse,
   type CardMember,
@@ -19,6 +19,7 @@ import {
 import { useBoardDetailQuery } from '../../services/boardServices'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal'
+import { DateTimeInput } from '../common/DateTimeInput'
 
 interface EditCardModelProps {
   card?: ListCardResponse
@@ -492,37 +493,20 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
               <label className="block text-xs font-semibold text-slate-700">
                 Deadline & Time
               </label>
-              <div className="flex items-center gap-1.5">
-                <div
-                  className={`flex-1 flex items-center gap-2 px-3 py-2 bg-slate-50/50 border rounded-lg focus-within:bg-white transition-all min-w-0 ${deadline && !completed && new Date(deadline).getTime() < Date.now()
-                      ? 'border-red-300 bg-red-50/30'
-                      : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10'
-                    }`}
-                >
-                  <Calendar className={`w-4 h-4 shrink-0 ${deadline && !completed && new Date(deadline).getTime() < Date.now()
-                      ? 'text-red-500'
-                      : 'text-slate-500'
-                    }`} />
-                  <input
-                    type="datetime-local"
-                    value={deadline}
-                    onChange={e => setDeadline(e.target.value)}
-                    className="w-full text-xs font-medium text-slate-800 bg-transparent outline-none min-w-0 cursor-pointer"
-                  />
-                </div>
-                {deadline && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDeadline('')
-                      setDeadlineError('')
-                    }}
-                    className="p-2 border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors shrink-0 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+              <DateTimeInput
+              className='w-full h-[37.8px]'
+                value={deadline}
+                onChange={(newDate) => {
+                  if (newDate) {
+                    const tzOffset = newDate.getTimezoneOffset() * 60000;
+                    const localIso = new Date(newDate.getTime() - tzOffset).toISOString().slice(0, 16);
+                    setDeadline(localIso);
+                  } else {
+                    setDeadline('');
+                  }
+                  setDeadlineError('');
+                }}
+              />
               {deadline && !completed && new Date(deadline).getTime() < Date.now() && (
                 <p className="text-xs text-red-500 font-semibold mt-1 flex items-center gap-1">
                   Overdue

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
-import type { BoardList, BoardCard } from '../../services/boardServices'
+import type { BoardList } from '../../services/boardServices'
 import { KanbanCard } from './KanbanCard'
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal'
 import { useCreateCardMutation, useListCardsQuery } from '../../services/cardService.ts'

@@ -222,7 +222,7 @@ export const useUpdateCardMutation = () => {
 export const useToggleCardCompletedMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ cardId, completed, listId }: { cardId: string; completed: boolean; listId?: string }) =>
+        mutationFn: ({ cardId, completed }: { cardId: string; completed: boolean; listId?: string }) =>
             toggleCardCompleted(cardId, completed),
         onSuccess: (updatedCard, variables) => {
             const listId = updatedCard?.listId || variables.listId;
@@ -321,7 +321,7 @@ export const useCreateBoardLabelMutation = () => {
 export const useDeleteBoardLabelMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ labelId, boardId }: { labelId: string; boardId?: string }) =>
+        mutationFn: ({ labelId }: { labelId: string; boardId?: string }) =>
             deleteBoardLabel(labelId),
         onSuccess: (_, variables) => {
             if (variables.boardId) {
@@ -337,7 +337,7 @@ export const useDeleteBoardLabelMutation = () => {
 export const useUpdateBoardLabelMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ labelId, payload, boardId }: { labelId: string; payload: { name?: string; color?: string }; boardId?: string }) =>
+        mutationFn: ({ labelId, payload }: { labelId: string; payload: { name?: string; color?: string }; boardId?: string }) =>
             updateBoardLabel(labelId, payload),
         onSuccess: (_, variables) => {
             if (variables.boardId) {

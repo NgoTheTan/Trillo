@@ -2,7 +2,6 @@ import React from 'react'
 import {
     Popover,
     PopoverContent,
-    PopoverDescription,
     PopoverHeader,
     PopoverTitle,
     PopoverTrigger,

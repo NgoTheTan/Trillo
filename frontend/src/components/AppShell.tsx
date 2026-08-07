@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LogOut, ShieldCheck, Users } from 'lucide-react'
+import { Calendar, LogOut, ShieldCheck, Users } from 'lucide-react'
 import { useAuth } from '../auth/authContext'
 import { getInitials } from '../auth/authStorage'
 
@@ -121,7 +121,7 @@ export function AppShell() {
         </div>
         <NavLink to="/app/schedule">
         <div>
-          <IconCalendar />
+          <Calendar size={16} />
         <span>Schedule</span>
         </div>
         </NavLink>

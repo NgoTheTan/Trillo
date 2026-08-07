@@ -39,7 +39,7 @@ export interface MemberItem {
   id: string
   fullName: string
   email?: string
-  avatarUrl: string
+  avatarUrl?: string
 }
 
 const PRIORITY_OPTIONS: PriorityOption[] = [
@@ -77,14 +77,6 @@ const formatToDatetimeLocal = (rawDate?: string | null): string => {
   }
   return ''
 }
-
-const getCurrentDatetimeLocal = (): string => {
-  const d = new Date()
-  const tzOffset = d.getTimezoneOffset() * 60000
-  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16)
-}
-
-
 
 const formatDeadlineForApi = (dateStr?: string | null): string | null => {
   if (!dateStr || !dateStr.trim()) return null
@@ -192,7 +184,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
           id: m.id,
           fullName: m.fullName,
           email: m.email,
-          avatarUrl: m.avatarUrl
+          avatarUrl: m.avatarUrl ?? undefined
         }))
         setSelectedMembers(mappedMembers)
       } else {
@@ -507,6 +499,9 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                   setDeadlineError('');
                 }}
               />
+              {deadlineError && (
+                <p className="text-xs text-red-500 font-semibold mt-1">{deadlineError}</p>
+              )}
               {deadline && !completed && new Date(deadline).getTime() < Date.now() && (
                 <p className="text-xs text-red-500 font-semibold mt-1 flex items-center gap-1">
                   Overdue

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Calendar, Check, Trash2 } from 'lucide-react'
 import {
   useDeleteCardMutation,
@@ -10,7 +10,6 @@ import { ConfirmDeleteCardModal } from '../listCard/ConfirmDeleteCardModal'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { formatDeadlineDisplay } from '../../utils/dateUtils'
-import { useQueryClient } from '@tanstack/react-query'
 
 interface KanbanCardProps {
   isOpenEditCardRef?: React.MutableRefObject<boolean>

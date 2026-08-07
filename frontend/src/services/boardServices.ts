@@ -128,7 +128,15 @@ export const updateBoard = async (id: string, payload: BoardFormPayload): Promis
 }
 
 export const deleteBoard = async (id: string): Promise<void> => {
-  await Api.delete<void>(`/boards/${id}`);
+  try {
+    await Api.delete<void>(`/boards/${id}`);
+  } catch (err: any) {
+    // If board was already deleted from DB, treat as success so UI syncs cleanly
+    if (err?.response?.status === 404) {
+      return;
+    }
+    throw err;
+  }
 }
 
 export const removeMember = async (boardId: string, userId: string): Promise<void> => {
@@ -193,6 +201,9 @@ export const useDeleteBoardMutation = () => {
   return useMutation({
     mutationFn: (id: string) => deleteBoard(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['boards'] });
+    },
+    onError: () => {
       queryClient.invalidateQueries({ queryKey: ['boards'] });
     },
   });

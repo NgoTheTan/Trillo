@@ -25,6 +25,7 @@ export interface ListCardResponse {
     id: string;
     listId: string;
     title: string;
+    description?: string | null;
     deadline?: string | null;
     priority: 'LOW' | 'MEDIUM' | 'HIGH' | string;
     position: number;
@@ -83,6 +84,46 @@ export const toggleCardCompleted = async (cardId: string, completed?: boolean) =
         // Fallback to PUT /api/cards/{cardId} endpoint if server has not been restarted
         return await updateCard(cardId, { completed });
     }
+};
+
+// patch /api/cards/{cardId}/assign/{userId}
+export const assignMemberToCard = async (cardId: string, userId: string) => {
+    return await Api.patch<ListCardResponse>(`/cards/${cardId}/assign/${userId}`);
+};
+
+// delete /api/cards/{cardId}/assign/{userId}
+export const unassignMemberFromCard = async (cardId: string, userId: string) => {
+    return await Api.delete<ListCardResponse>(`/cards/${cardId}/assign/${userId}`);
+};
+
+// get /api/boards/{boardId}/labels
+export const getBoardLabels = async (boardId: string) => {
+    return await Api.get<CardLabel[]>(`/boards/${boardId}/labels`);
+};
+
+// post /api/boards/{boardId}/labels
+export const createBoardLabel = async (boardId: string, payload: { name: string; color: string }) => {
+    return await Api.post<CardLabel>(`/boards/${boardId}/labels`, payload);
+};
+
+// delete /api/labels/{labelId}
+export const deleteBoardLabel = async (labelId: string) => {
+    return await Api.delete<void>(`/labels/${labelId}`);
+};
+
+// put /api/labels/{labelId}
+export const updateBoardLabel = async (labelId: string, payload: { name?: string; color?: string }) => {
+    return await Api.put<CardLabel>(`/labels/${labelId}`, payload);
+};
+
+// post /api/cards/{cardId}/labels/{labelId}
+export const addLabelToCard = async (cardId: string, labelId: string) => {
+    return await Api.post<void>(`/cards/${cardId}/labels/${labelId}`);
+};
+
+// delete /api/cards/{cardId}/labels/{labelId}
+export const removeLabelFromCard = async (cardId: string, labelId: string) => {
+    return await Api.delete<void>(`/cards/${cardId}/labels/${labelId}`);
 };
 
 // ── React Query Hooks ────────────────────────────────────────────────────────
@@ -160,6 +201,121 @@ export const useDeleteCardMutation = () => {
             }
             queryClient.invalidateQueries({ queryKey: ['board-lists'] });
             queryClient.invalidateQueries({ queryKey: ['boards'] });
+        },
+    });
+};
+
+export const useAssignMemberMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, userId }: { cardId: string; userId: string; listId?: string }) =>
+            assignMemberToCard(cardId, userId),
+        onSuccess: (updatedCard, variables) => {
+            const listId = updatedCard?.listId || variables.listId;
+            if (listId) {
+                queryClient.invalidateQueries({ queryKey: ['list-cards', listId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+            }
+            queryClient.invalidateQueries({ queryKey: ['boards'] });
+        },
+    });
+};
+
+export const useUnassignMemberMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, userId }: { cardId: string; userId: string; listId?: string }) =>
+            unassignMemberFromCard(cardId, userId),
+        onSuccess: (updatedCard, variables) => {
+            const listId = updatedCard?.listId || variables.listId;
+            if (listId) {
+                queryClient.invalidateQueries({ queryKey: ['list-cards', listId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+            }
+            queryClient.invalidateQueries({ queryKey: ['boards'] });
+        },
+    });
+};
+
+export const useBoardLabelsQuery = (boardId: string | undefined) => {
+    return useQuery({
+        queryKey: ['board-labels', boardId],
+        queryFn: () => getBoardLabels(boardId!),
+        enabled: !!boardId,
+    });
+};
+
+export const useCreateBoardLabelMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ boardId, payload }: { boardId: string; payload: { name: string; color: string } }) =>
+            createBoardLabel(boardId, payload),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['board-labels', variables.boardId] });
+        },
+    });
+};
+
+export const useDeleteBoardLabelMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ labelId, boardId }: { labelId: string; boardId?: string }) =>
+            deleteBoardLabel(labelId),
+        onSuccess: (_, variables) => {
+            if (variables.boardId) {
+                queryClient.invalidateQueries({ queryKey: ['board-labels', variables.boardId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['board-labels'] });
+            }
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useUpdateBoardLabelMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ labelId, payload }: { labelId: string; payload: { name?: string; color?: string }; boardId?: string }) =>
+            updateBoardLabel(labelId, payload),
+        onSuccess: (_, variables) => {
+            if (variables.boardId) {
+                queryClient.invalidateQueries({ queryKey: ['board-labels', variables.boardId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['board-labels'] });
+            }   
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useAddLabelToCardMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, labelId }: { cardId: string; labelId: string; listId?: string }) =>
+            addLabelToCard(cardId, labelId),
+        onSuccess: (_, variables) => {
+            if (variables.listId) {
+                queryClient.invalidateQueries({ queryKey: ['list-cards', variables.listId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+            }
+        },
+    });
+};
+
+export const useRemoveLabelFromCardMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, labelId }: { cardId: string; labelId: string; listId?: string }) =>
+            removeLabelFromCard(cardId, labelId),
+        onSuccess: (_, variables) => {
+            if (variables.listId) {
+                queryClient.invalidateQueries({ queryKey: ['list-cards', variables.listId] });
+            } else {
+                queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+            }
         },
     });
 };

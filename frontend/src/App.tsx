@@ -11,6 +11,7 @@ import './App.css'
 import { BoardsPage } from './pages/BoardsPage'
 import { BoardDetailPage } from './pages/BoardDetailPage'
 import CalendarView  from './components/CalendarView';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
   return (
@@ -73,6 +74,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="/" element={<Navigate to="/app" replace />} />
           <Route path="*" element={<Navigate to="/app" replace />} />

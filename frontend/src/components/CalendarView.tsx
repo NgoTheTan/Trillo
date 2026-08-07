@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -7,30 +7,40 @@ import interactionPlugin from '@fullcalendar/interaction';
 import axios from 'axios';
 
 export default function CalendarView() {
+  const calendarRef = useRef<any>(null);
   const [events, setEvents] = useState<any[]>([]);
-  const [selectedDay, setSelectedDay] = useState<{ date: string; tasks: any[] } | null>(null);
 
   useEffect(() => {
-    axios.get('http://localhost:8080/api/cards/calendar') 
+    axios.get('http://localhost:8080/api/cards/calendar')
       .then(response => {
         const formattedEvents = response.data.map((card: any) => ({
           title: card.title,
-          date: card.deadline 
+          start: card.deadline, 
+          allDay: true 
         }));
         setEvents(formattedEvents);
       })
-      .catch(error => {
-        console.error("Lỗi tải dữ liệu lịch:", error);
-        setEvents([]);
-      });
+      .catch(() => setEvents([]));
   }, []);
 
   const handleDateClick = (info: any) => {
-    const tasksOnDay = events.filter(e => e.date === info.dateStr);
-    setSelectedDay({
-      date: info.dateStr,
-      tasks: tasksOnDay
-    });
+    const calendarApi = calendarRef.current.getApi();
+    calendarApi.changeView('timeGridDay', info.dateStr);
+  };
+
+  const handleSelect = (info: any) => {
+    const title = prompt('Nhập tên công việc/lịch trình mới:');
+    if (title) {
+      const newEvent = {
+        title,
+        start: info.startStr,
+        end: info.endStr,
+        allDay: info.allDay
+      };
+      
+      setEvents([...events, newEvent]);
+      
+    }
   };
 
   return (
@@ -66,23 +76,11 @@ export default function CalendarView() {
           border: 1px solid #e2e8f0 !important;
           background-color: #ffffff;
         }
-        .fc-theme-standard td, .fc-theme-standard th {
-          border-color: #e2e8f0;
-        }
-        .fc-col-header-cell-cushion {
-          color: #475569;
-          font-weight: 600;
-          padding: 12px 0 !important;
-        }
-        .fc-daygrid-day-number {
-          color: #1e293b;
-          font-weight: 500;
-          padding: 8px !important;
-        }
       `}</style>
 
       <div className="flex-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <FullCalendar
+          ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, multiMonthPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           headerToolbar={{
@@ -98,39 +96,14 @@ export default function CalendarView() {
             day: 'Ngày'
           }}
           events={events}
-          dateClick={handleDateClick}
+          selectable={true} 
+          select={handleSelect} 
+          dateClick={handleDateClick} 
           height="75vh"
+          slotMinTime="06:00:00" 
+          slotMaxTime="23:00:00" 
         />
       </div>
-
-      {selectedDay && (
-        <div className="mt-6 p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-900">
-              Việc cần làm: <span className="text-blue-600">{selectedDay.date}</span>
-            </h3>
-            <button 
-              onClick={() => setSelectedDay(null)}
-              className="text-slate-400 hover:text-red-500 font-medium bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded-lg transition-colors"
-            >
-              Đóng
-            </button>
-          </div>
-          <ul className="space-y-2">
-            {selectedDay.tasks.length > 0 ? (
-              selectedDay.tasks.map((task, idx) => (
-                <li key={idx} className="p-3 bg-blue-50 text-blue-900 rounded-xl font-medium border border-blue-100">
-                  {task.title}
-                </li>
-              ))
-            ) : (
-              <li className="p-3 bg-slate-50 text-slate-500 rounded-xl font-medium border border-slate-100">
-                Không có lịch trình cho ngày này.
-              </li>
-            )}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }

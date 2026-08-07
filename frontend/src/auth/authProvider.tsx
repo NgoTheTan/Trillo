@@ -56,6 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: input.email,
         password: input.password,
       })
+      const loginRes = await loginRequest({ email: input.email, password: input.password })
+      const nextUser = toAuthUser(loginRes.user, input.role || resolveRole(loginRes.user.email))
+      rememberRole(nextUser.email, nextUser.role)
+      setSession({ token: loginRes.token, user: nextUser })
+      setUser(nextUser)
+      return nextUser
     },
     logout: () => {
       clearSession()

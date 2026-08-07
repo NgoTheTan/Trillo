@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     Bell,
@@ -11,53 +11,31 @@ import {
     LogOut,
     CheckCheck,
     Clock,
-    Sparkles
+    Sparkles,
+    UserPlus,
+    Calendar,
+    Kanban,
+    MessageSquare,
+    MailCheck,
+    MailOpen
 } from 'lucide-react'
+import { formatDistanceToNow, parseISO } from 'date-fns'
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '../ui/popover'
 import { useAuth } from '../../auth/authContext'
-
-interface NotificationItem {
-    id: string
-    title: string
-    time: string
-    isUnread: boolean
-    type: 'board' | 'card' | 'deadline' | 'review'
-}
-
-const initialNotifications: NotificationItem[] = [
-    {
-        id: '1',
-        title: 'You were added to board "Website Redesign"',
-        time: '2 mins ago',
-        isUnread: true,
-        type: 'board'
-    },
-    {
-        id: '2',
-        title: 'You were assigned to card "Wireframe Design"',
-        time: '10 mins ago',
-        isUnread: true,
-        type: 'card'
-    },
-    {
-        id: '3',
-        title: 'Card "Build Prototype" is due soon',
-        time: '1 hour ago',
-        isUnread: true,
-        type: 'deadline'
-    },
-    {
-        id: '4',
-        title: 'Card "UI/UX Review" is due soon',
-        time: '3 hours ago',
-        isUnread: true,
-        type: 'review'
-    },
-]
+import {
+    useNotificationsQuery,
+    useMarkReadMutation,
+    useMarkUnreadMutation,
+    useMarkAllReadMutation,
+} from '../../services/notificationService'
+import type {
+    NotificationType,
+    NotificationResponse
+} from '../../services/notificationService'
 
 interface HeaderProps {
     onToggleMobileSidebar?: () => void
@@ -74,7 +52,11 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
     const { user, logout } = useAuth()
     const navigate = useNavigate()
-    const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications)
+
+    const { data: notifications = [] } = useNotificationsQuery()
+    const markReadMutation = useMarkReadMutation()
+    const markUnreadMutation = useMarkUnreadMutation()
+    const markAllReadMutation = useMarkAllReadMutation()
 
     const displayName = user?.fullName || userName || 'User'
     const displayRole = user?.role === 'PM' ? 'Project Manager' : user?.role || userRole || 'Member'
@@ -87,10 +69,32 @@ export const Header: React.FC<HeaderProps> = ({
             .toUpperCase()
         : 'US'
 
-    const unreadCount = notifications.filter(n => n.isUnread).length
+    const unreadCount = notifications.filter(n => !n.read).length
 
-    const handleMarkAllRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, isUnread: false })))
+    const handleMarkAllRead = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        markAllReadMutation.mutate()
+    }
+
+    const handleToggleRead = (notif: NotificationResponse, e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (notif.read) {
+            markUnreadMutation.mutate(notif.id)
+        } else {
+            markReadMutation.mutate(notif.id)
+        }
+    }
+
+    const handleNotificationClick = (notif: NotificationResponse) => {
+        if (!notif.read) {
+            markReadMutation.mutate(notif.id)
+        }
+        if (notif.referenceType === 'BOARD' && notif.referenceId) {
+            navigate(`/board/${notif.referenceId}`)
+        } else if (notif.referenceType === 'CARD' && notif.referenceId) {
+            // Can navigate to board or card view if applicable
+            navigate('/dashboard')
+        }
     }
 
     const handleLogout = () => {
@@ -98,18 +102,28 @@ export const Header: React.FC<HeaderProps> = ({
         navigate('/login', { replace: true })
     }
 
-    const getNotifIconBg = (type: NotificationItem['type']) => {
+    const getNotifIcon = (type: NotificationType) => {
         switch (type) {
-            case 'board':
-                return 'bg-rose-100 text-rose-600'
-            case 'card':
-                return 'bg-blue-100 text-blue-600'
-            case 'deadline':
-                return 'bg-amber-100 text-amber-600'
-            case 'review':
-                return 'bg-emerald-100 text-emerald-600'
+            case 'BOARD_INVITE':
+                return { icon: <Kanban className="w-4 h-4" />, bg: 'bg-rose-100 text-rose-600' }
+            case 'MEMBER_JOINED':
+                return { icon: <UserPlus className="w-4 h-4" />, bg: 'bg-purple-100 text-purple-600' }
+            case 'CARD_ASSIGNED':
+                return { icon: <Sparkles className="w-4 h-4" />, bg: 'bg-blue-100 text-blue-600' }
+            case 'DEADLINE_REMINDER':
+                return { icon: <Calendar className="w-4 h-4" />, bg: 'bg-amber-100 text-amber-600' }
+            case 'COMMENT_ADDED':
+                return { icon: <MessageSquare className="w-4 h-4" />, bg: 'bg-emerald-100 text-emerald-600' }
             default:
-                return 'bg-slate-100 text-slate-600'
+                return { icon: <Bell className="w-4 h-4" />, bg: 'bg-slate-100 text-slate-600' }
+        }
+    }
+
+    const formatTime = (dateStr: string) => {
+        try {
+            return formatDistanceToNow(parseISO(dateStr), { addSuffix: true })
+        } catch {
+            return dateStr
         }
     }
 
@@ -138,7 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                         <Bell className="w-5 h-5" />
                         {unreadCount > 0 && (
-                            <span className="absolute top-1.5 right-1.5 min-w-[18px] h-4.5 px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs">
+                            <span className="absolute top-1.5 right-1.5 min-w-[18px] h-4.5 px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-pulse">
                                 {unreadCount}
                             </span>
                         )}
@@ -169,47 +183,57 @@ export const Header: React.FC<HeaderProps> = ({
                             )}
                         </div>
 
-                        <div className="max-h-[340px] overflow-y-auto divide-y divide-slate-50">
+                        <div className="max-h-[360px] overflow-y-auto divide-y divide-slate-50">
                             {notifications.length === 0 ? (
                                 <div className="p-6 text-center text-slate-400 text-sm">
                                     No notifications
                                 </div>
                             ) : (
-                                notifications.map(notif => (
-                                    <div
-                                        key={notif.id}
-                                        className={`p-3.5 hover:bg-slate-50 transition-colors flex items-start gap-3 cursor-pointer ${
-                                            notif.isUnread ? 'bg-blue-50/40' : ''
-                                        }`}
-                                        onClick={() => {
-                                            setNotifications(prev =>
-                                                prev.map(n => (n.id === notif.id ? { ...n, isUnread: false } : n))
-                                            )
-                                        }}
-                                    >
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${getNotifIconBg(notif.type)}`}>
-                                            <Sparkles className="w-4 h-4" />
+                                notifications.map(notif => {
+                                    const { icon, bg } = getNotifIcon(notif.type)
+                                    return (
+                                        <div
+                                            key={notif.id}
+                                            className={`p-3.5 hover:bg-slate-50 transition-colors flex items-start gap-3 cursor-pointer group ${
+                                                !notif.read ? 'bg-blue-50/50' : ''
+                                            }`}
+                                            onClick={() => handleNotificationClick(notif)}
+                                        >
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${bg}`}>
+                                                {icon}
+                                            </div>
+                                            <div className="flex-1 text-xs sm:text-sm">
+                                                <p className={`text-slate-800 leading-snug ${!notif.read ? 'font-medium' : ''}`}>
+                                                    {notif.message}
+                                                </p>
+                                                <span className="flex items-center gap-1 text-[11px] text-slate-400 mt-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {formatTime(notif.createdAt)}
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={(e) => handleToggleRead(notif, e)}
+                                                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-200/60 rounded transition-colors cursor-pointer"
+                                                title={notif.read ? "Mark as unread" : "Mark as read"}
+                                            >
+                                                {notif.read ? (
+                                                    <MailOpen className="w-4 h-4" />
+                                                ) : (
+                                                    <MailCheck className="w-4 h-4 text-blue-600" />
+                                                )}
+                                            </button>
                                         </div>
-                                        <div className="flex-1 text-xs sm:text-sm">
-                                            <p className={`text-slate-800 leading-snug ${notif.isUnread ? 'font-medium' : ''}`}>
-                                                {notif.title}
-                                            </p>
-                                            <span className="flex items-center gap-1 text-[11px] text-slate-400 mt-1">
-                                                <Clock className="w-3 h-3" />
-                                                {notif.time}
-                                            </span>
-                                        </div>
-                                        {notif.isUnread && (
-                                            <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0" />
-                                        )}
-                                    </div>
-                                ))
+                                    )
+                                })
                             )}
                         </div>
 
                         <div className="p-3 border-t border-slate-100 text-center bg-slate-50/50">
-                            <button className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline w-full cursor-pointer">
-                                View all
+                            <button
+                                onClick={() => navigate('/dashboard')}
+                                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline w-full cursor-pointer"
+                            >
+                                Dashboard
                             </button>
                         </div>
                     </PopoverContent>

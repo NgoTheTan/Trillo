@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { useWebSocketNotifications } from '../../services/websocketService'
 
 interface MainLayoutProps {
     children?: React.ReactNode
@@ -11,6 +12,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     children
 }) => {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+    useWebSocketNotifications()
 
     return (
         <div className="h-screen w-screen flex bg-slate-50 font-sans overflow-hidden">

@@ -25,21 +25,23 @@ public class DeadlineReminderScheduler {
     private final InviteTokenRepository inviteTokenRepository;
 
     /**
-     * Every day at 8:00 AM: notify card assignees whose cards have a deadline tomorrow.
+     * Every hour: notify card assignees whose uncompleted cards are due within the next 24 hours.
      */
-    @Scheduled(cron = "0 0 8 * * *")
+    @Scheduled(cron = "0 0 * * * *")
     @Transactional
     public void sendDeadlineReminders() {
         log.info("Running deadline reminder scheduler...");
 
-        LocalDateTime tomorrowStart = LocalDateTime.now().plusDays(1).toLocalDate().atStartOfDay();
-        LocalDateTime tomorrowEnd = tomorrowStart.plusDays(1).minusSeconds(1);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime next24h = now.plusHours(24);
 
-        List<Card> cards = cardRepository.findCardsWithDeadlineBetween(tomorrowStart, tomorrowEnd);
-        log.info("Found {} cards with deadlines tomorrow", cards.size());
+        List<Card> cards = cardRepository.findCardsWithDeadlineBetween(now, next24h);
+        log.info("Found {} cards with deadlines in the next 24 hours", cards.size());
 
         for (Card card : cards) {
-            String message = "⏰ Card '" + card.getTitle() + "' is due tomorrow!";
+            if (card.isCompleted()) continue;
+
+            String message = "⏰ Card '" + card.getTitle() + "' is due soon (deadline: " + card.getDeadline() + ")!";
 
             // Notify all assigned members
             for (CardMember member : card.getAssignedMembers()) {

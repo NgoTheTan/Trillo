@@ -153,7 +153,7 @@ public class BoardService {
                     .build();
             boardMemberRepository.save(member);
 
-            // Create notification
+            // Create notification for invitee
             notificationService.createNotification(
                     invitee,
                     NotificationType.BOARD_INVITE,
@@ -161,6 +161,17 @@ public class BoardService {
                     boardId,
                     "BOARD"
             );
+
+            // Create notification for PM / Board owner (if different from currentUser and invitee)
+            if (board.getOwner() != null && !board.getOwner().getId().equals(invitee.getId()) && !board.getOwner().getId().equals(currentUser.getId())) {
+                notificationService.createNotification(
+                        board.getOwner(),
+                        NotificationType.MEMBER_JOINED,
+                        invitee.getFullName() + " has joined your board: " + board.getTitle(),
+                        boardId,
+                        "BOARD"
+                );
+            }
 
             // Push WebSocket event
             messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_ADDED");
@@ -225,6 +236,26 @@ public class BoardService {
         // Mark token as used
         invite.setUsed(true);
         inviteTokenRepository.save(invite);
+
+        // Create notification for joining user
+        notificationService.createNotification(
+                currentUser,
+                NotificationType.BOARD_INVITE,
+                "You have joined board: " + board.getTitle(),
+                board.getId(),
+                "BOARD"
+        );
+
+        // Create notification for PM / Board Owner
+        if (board.getOwner() != null && !board.getOwner().getId().equals(currentUser.getId())) {
+            notificationService.createNotification(
+                    board.getOwner(),
+                    NotificationType.MEMBER_JOINED,
+                    currentUser.getFullName() + " joined your board: " + board.getTitle(),
+                    board.getId(),
+                    "BOARD"
+            );
+        }
 
         messagingTemplate.convertAndSend("/topic/board/" + invite.getBoardId(), "MEMBER_ADDED");
 

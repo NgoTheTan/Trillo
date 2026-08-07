@@ -11,7 +11,7 @@ export default function CalendarView() {
   const [selectedDay, setSelectedDay] = useState<{ date: string; tasks: any[] } | null>(null);
 
   useEffect(() => {
-    axios.get('http://localhost:8080/api/cards/calendar')
+    axios.get('http://localhost:8080/api/cards/calendar') 
       .then(response => {
         const formattedEvents = response.data.map((card: any) => ({
           title: card.title,
@@ -19,13 +19,9 @@ export default function CalendarView() {
         }));
         setEvents(formattedEvents);
       })
-      .catch(() => {
-        // Mock data
-        setEvents([
-          { title: 'Hoàn thiện UI Card', date: '2026-08-07' },
-          { title: 'Nộp báo cáo', date: '2026-08-07' },
-          { title: 'Cập nhật Backend', date: '2026-08-10' }
-        ]);
+      .catch(error => {
+        console.error("Lỗi tải dữ liệu lịch:", error);
+        setEvents([]);
       });
   }, []);
 

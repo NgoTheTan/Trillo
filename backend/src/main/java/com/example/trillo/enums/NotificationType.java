@@ -5,5 +5,6 @@ public enum NotificationType {
     CARD_ASSIGNED,
     DEADLINE_REMINDER,
     CARD_UPDATED,
-    COMMENT_ADDED
+    COMMENT_ADDED,
+    MEMBER_JOINED
 }

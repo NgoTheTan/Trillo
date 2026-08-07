@@ -40,6 +40,13 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.markAsRead(notificationId, user));
     }
 
+    @PatchMapping("/{notificationId}/unread")
+    public ResponseEntity<NotificationResponse> markAsUnread(
+            @PathVariable String notificationId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(notificationService.markAsUnread(notificationId, user));
+    }
+
     @PatchMapping("/read-all")
     public ResponseEntity<Void> markAllAsRead(@AuthenticationPrincipal User user) {
         notificationService.markAllAsRead(user);

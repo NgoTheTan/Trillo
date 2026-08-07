@@ -78,6 +78,19 @@ public class NotificationService {
     }
 
     @Transactional
+    public NotificationResponse markAsUnread(String notificationId, User user) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Notification", notificationId));
+
+        if (!notification.getRecipient().getId().equals(user.getId())) {
+            throw new com.example.trillo.exception.AccessDeniedException();
+        }
+
+        notification.setRead(false);
+        return toResponse(notificationRepository.save(notification));
+    }
+
+    @Transactional
     public void markAllAsRead(User user) {
         notificationRepository.markAllReadByUserId(user.getId());
     }

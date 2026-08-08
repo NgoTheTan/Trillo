@@ -51,7 +51,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
     return (
         <Popover>
             <PopoverTrigger>
-                <Button className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer">
+                <Button className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer">
                     <Filter className="w-3.5 h-3.5 text-slate-500" />
                     <span>Filter</span>
                     {((cardfillterFeatures?.listIds?.length || 0) +
@@ -169,7 +169,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                     </div>
                     <div>
                         <p className='text-sm font-medium'>Members</p>
-                        <div className='flex flex-wrap gap-2 mt-2'>
+                        <div className='grid grid-cols-2 gap-2 mt-2'>
                             {availableMembers?.map((member) => (
                                 <div key={member.id} className='flex items-center gap-5'>
                                     <input
@@ -199,7 +199,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                                                 {getInitials(member.fullName)}
                                             </div>
                                         )}
-                                        <p className='text font-medium'>{member.fullName}</p>
+                                        <p className='font-medium line-clamp-1'>{member.fullName}</p>
                                     </label>
                                 </div>
                             ))}

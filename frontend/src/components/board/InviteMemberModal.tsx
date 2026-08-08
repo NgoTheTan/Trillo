@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link as LinkIcon, Trash2, X, Check, Shield, Loader2 } from 'lucide-react'
-import { Dialog, DialogContent } from '../ui/dialog'
-import { inviteMember, removeMember } from '../../services/boardServices'
+import { Dialog, DialogContent, DialogHeader } from '../ui/dialog'
+import { inviteMember, removeMember, useInviteMemberMutation, useRemoveMemberMutation } from '../../services/boardServices'
 import { useQueryClient } from '@tanstack/react-query'
 
 export interface Member {
@@ -44,8 +44,10 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
   const [members, setMembers] = useState<Member[]>(initialMembers)
   const [copiedLink, setCopiedLink] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
   const queryClient = useQueryClient()
-
+  const inviteMemberMutation = useInviteMemberMutation()
+  const removeMemberMutation = useRemoveMemberMutation()
   useEffect(() => {
     setMembers(initialMembers)
   }, [initialMembers, open])
@@ -64,8 +66,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     if (boardId) {
       try {
         setIsSubmitting(true)
-        const res = await inviteMember(boardId, trimmed)
-        queryClient.invalidateQueries({ queryKey: ['boards', boardId] })
+        const res = await inviteMemberMutation.mutateAsync({ boardId, email: trimmed })
         if (res.inviteUrl) {
           navigator.clipboard.writeText(res.inviteUrl)
           setCopiedLink(true)
@@ -90,14 +91,14 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     setEmailOrUser('')
   }
 
-  const handleRemoveMember = async (id: string) => {
+  const handleConfirmRemove = async (id: string) => {
     if (onRemoveMember) {
       onRemoveMember(id)
     }
 
     if (boardId) {
       try {
-        await removeMember(boardId, id)
+        await removeMemberMutation.mutateAsync({ boardId, userId: id })
         queryClient.invalidateQueries({ queryKey: ['boards', boardId] })
       } catch (err) {
         console.error('Failed to remove member via API:', err)
@@ -105,6 +106,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     }
 
     setMembers(prev => prev.filter(m => m.id !== id))
+    setConfirmRemoveId(null)
   }
 
   const handleCopyLink = () => {
@@ -117,21 +119,23 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="sm:max-w-2xl max-w-2xl w-[640px] max-h-[92vh] overflow-y-auto bg-white p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100">
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-slate-100 sticky top-0 bg-white z-20">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Invite Members to Project</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Invite members to join project <span className="font-semibold text-slate-700">{projectName}</span>
-            </p>
+        <DialogHeader>
+          <div className="flex items-start justify-between pb-4 border-b border-slate-100 sticky top-0 bg-white z-20">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Invite Members to Project</h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Invite members to join project <span className="font-semibold text-slate-700">{projectName}</span>
+              </p>
+            </div>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={() => onOpenChange(false)}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
+        </DialogHeader>
         {/* Invite Input Section */}
         <form onSubmit={handleInvite} className="py-5 space-y-2 border-b border-slate-100">
           <label className="block text-xs font-semibold text-slate-700">
@@ -235,16 +239,37 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                       </div>
 
                       {/* Action Icon (Delete if not Owner and not You) */}
-                      <div className="w-6 flex justify-end">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {!member.isYou && !isOwner && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMember(member.id)}
-                            className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-                            title="Remove member"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          confirmRemoveId === member.id ? (
+                            // Inline confirm row
+                            <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                              <button
+                                type="button"
+                                onClick={() => setConfirmRemoveId(null)}
+                                className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmRemove(member.id)}
+                                disabled={removeMemberMutation.isPending}
+                                className="px-2.5 py-1 text-[11px] font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                {removeMemberMutation.isPending ? 'Removing…' : 'Remove'}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmRemoveId(member.id)}
+                              className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Remove member"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )
                         )}
                       </div>
                     </div>

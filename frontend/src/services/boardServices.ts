@@ -209,3 +209,23 @@ export const useDeleteBoardMutation = () => {
   });
 };
 
+export const useInviteMemberMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ boardId, email }: { boardId: string; email: string }) => inviteMember(boardId, email),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['boards', variables.boardId] });
+    },
+  });
+};
+
+export const useRemoveMemberMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ boardId, userId }: { boardId: string; userId: string }) => removeMember(boardId, userId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['boards', variables.boardId] });
+    },
+  });
+};
+

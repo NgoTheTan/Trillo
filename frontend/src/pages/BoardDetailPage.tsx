@@ -469,10 +469,10 @@ export const BoardDetailPage: React.FC = () => {
                 onOpenChange={setIsInviteOpen}
                 projectName={board?.title}
                 initialMembers={board?.members?.map(m => ({
-                    id: m.id,
+                    id: m.user.id,
                     fullName: m.user.fullName,
                     email: m.user.email || '',
-                    avatarUrl: m.user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+                    avatarUrl: m.user.avatarUrl,
                     role: (m.role as any) || 'Developer',
                     status: 'joined',
                     isYou: false,

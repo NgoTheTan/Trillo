@@ -98,8 +98,8 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
           }`}
       >
         {/* Card Header: Checkbox, Title & Trash Icon */}
-        <div className="flex items-start justify-between gap-2 relative">
-          {/* Completion Check Circle */}
+        <div className="relative pr-6">
+          {/* Completion Check Circle — absolute, left-0 */}
           {!isOverlay && (
             <button
               type="button"
@@ -107,9 +107,9 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
                 e.stopPropagation()
                 handleToggleComplete()
               }}
-              className={`mt-0.5 w-4 h-4 rounded-full positive border flex items-center justify-center shrink-0 transition-all cursor-pointer ${card.completed
-                  ? 'bg-emerald-500 border-emerald-500 text-white  block'
-                  : 'border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 text-emerald-600 hidden group-hover/card:block'
+              className={`mt-0.5 w-4 h-4 rounded-full absolute left-0 top-0.5 border flex items-center justify-center shrink-0 transition-all cursor-pointer ${card.completed
+                ? 'bg-emerald-500 border-emerald-500 text-white'
+                : 'border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 text-emerald-600 opacity-0 group-hover/card:opacity-100'
                 }`}
               title={card.completed ? 'Mark as incomplete' : 'Mark as completed'}
             >
@@ -117,17 +117,17 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
             </button>
           )}
 
-          {/* Card Title */}
+          {/* Card Title — in normal flow, pl slides right on hover to reveal checkbox */}
           <h3
-            className={`font-semibold text leading-snug transition-colors flex-1 ${card.completed
-                ? 'line-through text-slate-400'
-                : 'text-slate-800 group-hover/card:text-blue-600'
+            className={`font-semibold text leading-snug transition-all ${card.completed
+              ? 'line-through text-slate-400 pl-5'
+              : 'text-slate-800 group-hover/card:text-blue-600 pl-0 group-hover/card:pl-7'
               }`}
           >
             {card.title}
           </h3>
 
-          {/* Delete Trash Icon */}
+          {/* Delete Trash Icon — absolute top-right */}
           {!isOverlay && (
             <button
               type="button"
@@ -135,13 +135,14 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
                 e.stopPropagation()
                 setOpenDeleteModal(true)
               }}
-              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md opacity-0 group-hover/card:opacity-100 transition-all cursor-pointer shrink-0"
+              className="p-1 absolute right-0 top-0 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md opacity-0 group-hover/card:opacity-100 transition-all cursor-pointer shrink-0"
               title="Delete card"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
+
 
         {/* Priority Tag */}
         <div>{renderPriorityTag(card.priority)}</div>
@@ -162,29 +163,43 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
           </div>
 
           {card.assignedMembers && card.assignedMembers.length > 0 && (
-            card.assignedMembers[0].avatarUrl ? (
-              <img
-                src={card.assignedMembers[0].avatarUrl}
-                alt={card.assignedMembers[0].fullName}
-                title={card.assignedMembers[0].fullName}
-                className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200"
-              />
-            ) : (
-              <div
-                title={card.assignedMembers[0].fullName}
-                className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0 tracking-wider uppercase ring-1 ring-slate-200"
-              >
-                {card.assignedMembers[0].fullName
-                  ? card.assignedMembers[0].fullName.trim().split(/\s+/).length === 1
-                    ? card.assignedMembers[0].fullName.substring(0, 2).toUpperCase()
-                    : (
-                      card.assignedMembers[0].fullName.trim().split(/\s+/)[0][0] +
-                      card.assignedMembers[0].fullName.trim().split(/\s+/).slice(-1)[0][0]
-                    ).toUpperCase()
-                  : 'U'}
-              </div>
-            )
+            <div className="flex items-center">
+              {card.assignedMembers.slice(0, 3).map((member, idx) => (
+                member.avatarUrl ? (
+                  <img
+                    key={member.id}
+                    src={member.avatarUrl}
+                    alt={member.fullName}
+                    title={member.fullName}
+                    className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200"
+                    style={{ marginLeft: idx > 0 ? '-6px' : '0' }}
+                  />
+                ) : (
+                  <div
+                    key={member.id}
+                    title={member.fullName}
+                    className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0 tracking-wider uppercase ring-1 ring-slate-200"
+                    style={{ marginLeft: idx > 0 ? '-6px' : '0' }}
+                  >
+                    {member.fullName
+                      ? member.fullName.trim().split(/\s+/).length === 1
+                        ? member.fullName.substring(0, 2).toUpperCase()
+                        : (member.fullName.trim().split(/\s+/)[0][0] + member.fullName.trim().split(/\s+/).slice(-1)[0][0]).toUpperCase()
+                      : 'U'}
+                  </div>
+                )
+              ))}
+              {card.assignedMembers.length > 3 && (
+                <div
+                  className="w-6 h-6 rounded-full bg-slate-500 text-white font-bold text-[9px] flex items-center justify-center shrink-0 tracking-wider ring-1 ring-slate-200"
+                  style={{ marginLeft: '-6px' }}
+                >
+                  +{card.assignedMembers.length - 3}
+                </div>
+              )}
+            </div>
           )}
+
         </div>
       </div>
 

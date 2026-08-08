@@ -196,6 +196,15 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     }
   }, [card, open])
 
+  // Close all popups when modal closes
+  useEffect(() => {
+    if (!open) {
+      setIsMemberPopupOpen(false)
+      setIsLabelMenuOpen(false)
+      setIsPriorityOpen(false)
+    }
+  }, [open])
+
   useEffect(() => {
     if (!open || !card?.id || !isInitializedRef.current) return
 

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGrid, Rocket, Users2, ChevronDown } from 'lucide-react'
+import { useQueries } from '@tanstack/react-query'
 import { useBoardDetailQuery, useBoardsQuery, type BoardList, type BoardMember } from '../services/boardServices'
-import { useListCardsQuery } from '../services/cardService.ts'
+import { getAllListCards, useListCardsQuery, type ListCardResponse } from '../services/cardService.ts'
 import { getInitials } from '../auth/authStorage'
 
 type DashboardPageProps = Readonly<{
@@ -16,6 +17,238 @@ type DashboardListBreakdownRowProps = Readonly<{
   selectedStatus: StatusFilter
   selectedMemberIds: string[]
 }>
+
+type DashboardAnalyticsPanelProps = Readonly<{
+  boardTitle: string
+  boardMembers: BoardMember[]
+  lists: BoardList[]
+  selectedStatus: StatusFilter
+  selectedMemberIds: string[]
+}>
+
+type ChartCard = ListCardResponse & { sourceListId?: string }
+
+function matchesDashboardFilters(card: ChartCard, selectedStatus: StatusFilter, selectedMemberIds: string[]) {
+  let statusMatch = true
+  if (selectedStatus === 'done') {
+    statusMatch = card.completed
+  } else if (selectedStatus === 'pending') {
+    statusMatch = !card.completed
+  }
+
+  let memberMatch = true
+  if (selectedMemberIds.length > 0) {
+    memberMatch = (card.assignedMembers || []).some(member => selectedMemberIds.includes(member.id))
+  }
+
+  return statusMatch && memberMatch
+}
+
+function formatDashboardDate(date: Date) {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)
+}
+
+function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
+  const { boardTitle, boardMembers, lists, selectedStatus, selectedMemberIds } = props
+
+  const listCardsQueries = useQueries({
+    queries: lists.map(list => ({
+      queryKey: ['list-cards', list.id],
+      queryFn: () => getAllListCards(list.id),
+      enabled: !!list.id,
+    })),
+  })
+
+  const allCards = useMemo(() => {
+    return listCardsQueries.flatMap((query, index) => {
+      const sourceListId = lists[index]?.id
+      return (query.data ?? []).map(card => ({ ...card, sourceListId }))
+    })
+  }, [listCardsQueries, lists])
+
+  const filteredCards = useMemo(() => {
+    return allCards.filter(card => matchesDashboardFilters(card, selectedStatus, selectedMemberIds))
+  }, [allCards, selectedMemberIds, selectedStatus])
+
+  const loading = listCardsQueries.some(query => query.isLoading || query.isFetching)
+  const totalCards = filteredCards.length
+  const doneCards = filteredCards.filter(card => card.completed).length
+  const pendingCards = totalCards - doneCards
+  const donePercent = totalCards > 0 ? Math.round((doneCards / totalCards) * 100) : 0
+
+  const memberWorkload = useMemo(() => {
+    return boardMembers
+      .map(member => ({
+        member,
+        count: filteredCards.filter(card => (card.assignedMembers || []).some(assigned => assigned.id === member.user.id)).length,
+      }))
+      .sort((left, right) => right.count - left.count)
+  }, [boardMembers, filteredCards])
+
+  const maxMemberWorkload = Math.max(1, ...memberWorkload.map(item => item.count))
+  const displayedMembers = memberWorkload.slice(0, 6)
+
+  const burndownSeries = useMemo(() => {
+    const values = filteredCards
+      .map(card => card.createdAt ? new Date(card.createdAt) : null)
+      .filter((value): value is Date => value instanceof Date && !Number.isNaN(value.getTime()))
+
+    const now = new Date()
+    const pointCount = 7
+    const firstPoint = values.length > 0
+      ? new Date(Math.min(...values.map(value => value.getTime())))
+      : new Date(now.getTime() - (pointCount - 1) * 24 * 60 * 60 * 1000)
+    const dayMs = 24 * 60 * 60 * 1000
+    const currentRemaining = pendingCards
+
+    return Array.from({ length: pointCount }, (_, index) => {
+      const progress = index / Math.max(1, pointCount - 1)
+      const day = new Date(firstPoint.getTime() + index * dayMs)
+      const estimatedRemaining = Math.max(
+        currentRemaining,
+        Math.round(totalCards - ((totalCards - currentRemaining) * progress))
+      )
+
+      return {
+        label: formatDashboardDate(day),
+        value: estimatedRemaining,
+      }
+    })
+  }, [filteredCards, pendingCards, totalCards])
+
+  const burndownMax = Math.max(1, ...burndownSeries.map(point => point.value))
+  const chartWidth = 320
+  const chartHeight = 140
+  const chartPadding = 16
+  const chartPoints = burndownSeries.map((point, index) => {
+    const x = chartPadding + ((chartWidth - chartPadding * 2) * (burndownSeries.length <= 1 ? 0 : index / (burndownSeries.length - 1)))
+    const y = chartPadding + ((chartHeight - chartPadding * 2) * (1 - (point.value / burndownMax)))
+    return { ...point, x, y }
+  })
+  const burndownPath = chartPoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+  const burndownAreaPath = [
+    `M ${chartPoints[0]?.x ?? chartPadding} ${chartHeight - chartPadding}`,
+    ...chartPoints.map(point => `L ${point.x} ${point.y}`),
+    `L ${chartPoints.at(-1)?.x ?? chartWidth - chartPadding} ${chartHeight - chartPadding}`,
+    'Z',
+  ].join(' ')
+
+  if (loading && totalCards === 0) {
+    return <div className="dashboard-breakdown-loading">Loading analytics...</div>
+  }
+
+  return (
+    <section className="dashboard-analytics">
+      <div className="dashboard-analytics__header">
+        <div>
+          <p className="panel__title">Charts</p>
+          <p className="panel__subtitle">
+            Burndown is estimated from card creation dates and current completion state for {boardTitle}.
+          </p>
+        </div>
+        <span className="dashboard-analytics__hint">Filtered cards: {totalCards}</span>
+      </div>
+
+      <div className="dashboard-analytics-grid">
+        <article className="dashboard-chart-card dashboard-chart-card--wide">
+          <div className="dashboard-chart-card__header">
+            <div>
+              <p className="dashboard-chart-card__eyebrow">Burndown</p>
+              <h3 className="dashboard-chart-card__title">Remaining work estimate</h3>
+            </div>
+            <span className="dashboard-chart-card__badge">{pendingCards} open</span>
+          </div>
+
+          <div className="dashboard-burndown-chart">
+            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="Estimated burndown chart">
+              <defs>
+                <linearGradient id="burndownFill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#0b5bd3" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#0b5bd3" stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+              <path d={burndownAreaPath} fill="url(#burndownFill)" />
+              <path d={burndownPath} fill="none" stroke="#0b5bd3" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              {chartPoints.map(point => (
+                <circle key={point.label} cx={point.x} cy={point.y} r="4" fill="#0b5bd3" />
+              ))}
+            </svg>
+            <div className="dashboard-burndown-chart__axis">
+              {burndownSeries.map(point => (
+                <span key={point.label}>{point.label}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="dashboard-chart-card__footnote">
+            Starts at total cards and trends toward the currently pending cards.
+          </div>
+        </article>
+
+        <article className="dashboard-chart-card">
+          <div className="dashboard-chart-card__header">
+            <div>
+              <p className="dashboard-chart-card__eyebrow">Workload</p>
+              <h3 className="dashboard-chart-card__title">Cards per member</h3>
+            </div>
+            <span className="dashboard-chart-card__badge">Top {displayedMembers.length}</span>
+          </div>
+
+          <div className="dashboard-bar-chart">
+            {displayedMembers.length === 0 && <div className="dashboard-breakdown-row__empty">No member workload data.</div>}
+            {displayedMembers.map(item => {
+              const width = Math.round((item.count / maxMemberWorkload) * 100)
+              return (
+                <div key={item.member.id} className="dashboard-bar-chart__row">
+                  <div className="dashboard-bar-chart__label">
+                    {item.member.user.avatarUrl ? (
+                      <img src={item.member.user.avatarUrl} alt={item.member.user.fullName} />
+                    ) : (
+                      <span>{getInitials(item.member.user.fullName)}</span>
+                    )}
+                    <div>
+                      <p>{item.member.user.fullName}</p>
+                      <span>{item.count} cards</span>
+                    </div>
+                  </div>
+                  <div className="dashboard-bar-chart__track">
+                    <span className="dashboard-bar-chart__fill" style={{ width: `${width}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </article>
+
+        <article className="dashboard-chart-card">
+          <div className="dashboard-chart-card__header">
+            <div>
+              <p className="dashboard-chart-card__eyebrow">Status</p>
+              <h3 className="dashboard-chart-card__title">Card distribution</h3>
+            </div>
+            <span className="dashboard-chart-card__badge">{donePercent}% done</span>
+          </div>
+
+          <div className="dashboard-donut-chart">
+            <div
+              className="dashboard-donut-chart__ring"
+              style={{ background: `conic-gradient(#0b5bd3 0 ${donePercent}%, #f59e0b ${donePercent}% 100%)` }}
+            >
+              <div className="dashboard-donut-chart__center">
+                <span>{totalCards}</span>
+                <small>cards</small>
+              </div>
+            </div>
+            <div className="dashboard-donut-chart__legend">
+              <span><i className="is-done" /> Done {doneCards}</span>
+              <span><i className="is-pending" /> Pending {pendingCards}</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  )
+}
 
 function DashboardListBreakdownRow(props: DashboardListBreakdownRowProps) {
   const { list, selectedStatus, selectedMemberIds } = props
@@ -484,6 +717,14 @@ export function DashboardPage({
                 </div>
               </div>
             </div>
+
+            <DashboardAnalyticsPanel
+              boardTitle={boardDetail.title}
+              boardMembers={boardDetail.members}
+              lists={boardDetail.lists}
+              selectedStatus={selectedStatus}
+              selectedMemberIds={selectedMemberIds}
+            />
 
             <div className="dashboard-breakdown-summary">
               <div>

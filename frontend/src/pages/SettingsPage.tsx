@@ -1,15 +1,151 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+
+// Cấu hình Axios dùng chung
+const api = axios.create({
+  baseURL: 'http://localhost:8080/api',
+});
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('account');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // States
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Profile Data
+  const [originalProfile, setOriginalProfile] = useState<any>(null);
+  const [profile, setProfile] = useState({ displayName: '', username: '', email: '', phone: '', avatarUrl: '' });
+  
+  // Password Data
+  const [security, setSecurity] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+  // 1. FETCH DATA KHỞI TẠO
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      setIsLoading(true);
+      const res = await api.get('/users/me');
+      setProfile(res.data);
+      setOriginalProfile(res.data); // Lưu bản gốc để Cancel
+    } catch (err) {
+      setError("Không thể tải thông tin người dùng.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 2. LƯU PROFILE (TÊN, USERNAME, PHONE)
+  const handleSaveProfile = async () => {
+    if (!profile.displayName.trim() || !profile.username.trim()) {
+      setError("Tên hiển thị và Username không được để trống!");
+      return;
+    }
+    try {
+      setIsSaving(true);
+      setError(null);
+      const res = await api.put('/users/me', {
+        displayName: profile.displayName,
+        username: profile.username,
+        phone: profile.phone
+      });
+      setOriginalProfile(res.data);
+      setSuccessMsg("Cập nhật thông tin thành công!");
+      
+      // Trigger event để Header (AppShell) cập nhật Avatar/Tên ngay lập tức
+      window.dispatchEvent(new CustomEvent('profileUpdated', { detail: res.data }));
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Lỗi khi lưu thông tin.");
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSuccessMsg(null), 3000);
+    }
+  };
+
+  // 3. CANCEL PROFILE
+  const handleCancelProfile = () => {
+    if (originalProfile) setProfile(originalProfile);
+    setError(null);
+  };
+
+  // 4. ĐỔI AVATAR (UPLOAD FILE THẬT)
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) { // Limit 5MB
+      setError("Kích thước ảnh tối đa là 5MB.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setIsSaving(true);
+      const res = await api.post('/users/me/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setProfile(res.data);
+      setOriginalProfile(res.data);
+      setSuccessMsg("Cập nhật ảnh đại diện thành công!");
+      window.dispatchEvent(new CustomEvent('profileUpdated', { detail: res.data }));
+    } catch (err) {
+      setError("Lỗi khi upload ảnh.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 5. ĐỔI MẬT KHẨU
+  const handleChangePassword = async () => {
+    setError(null);
+    if (!security.currentPassword || !security.newPassword) {
+      setError("Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới.");
+      return;
+    }
+    if (security.newPassword !== security.confirmPassword) {
+      setError("Xác nhận mật khẩu mới không khớp!");
+      return;
+    }
+    if (security.newPassword.length < 6) {
+      setError("Mật khẩu mới phải có ít nhất 6 ký tự.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await api.put('/users/me/password', {
+        currentPassword: security.currentPassword,
+        newPassword: security.newPassword
+      });
+      setSuccessMsg("Đổi mật khẩu thành công!");
+      setSecurity({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Đổi mật khẩu thất bại. Kiểm tra lại mật khẩu hiện tại.");
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSuccessMsg(null), 3000);
+    }
+  };
 
   const tabs = [
     { id: 'account', label: 'Account / Profile' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'security', label: 'Security' },
-    { id: 'preferences', label: 'Preferences' },
+    { id: 'security', label: 'Security' }
   ];
+
+  if (isLoading) return <div className="p-8 text-center">⏳ Đang tải dữ liệu...</div>;
 
   return (
     <div className="flex bg-white rounded-2xl shadow-sm border border-slate-200 min-h-[75vh]">
@@ -20,11 +156,9 @@ export default function SettingsPage() {
           {tabs.map((tab) => (
             <li key={tab.id}>
               <button
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); setError(null); setSuccessMsg(null); }}
                 className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-slate-600 hover:bg-slate-50'
+                  activeTab === tab.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {tab.label}
@@ -35,140 +169,75 @@ export default function SettingsPage() {
       </div>
 
       {/* Content Area */}
-      <div className="w-3/4 p-8 overflow-y-auto">
+      <div className="w-3/4 p-8 overflow-y-auto relative">
         
+        {/* Thông báo Toasts */}
+        {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg border border-red-200">{error}</div>}
+        {successMsg && <div className="mb-4 p-3 bg-green-50 text-green-600 rounded-lg border border-green-200">{successMsg}</div>}
+
         {/* 1. Account / Profile */}
         {activeTab === 'account' && (
           <div className="space-y-4 max-w-lg">
             <h3 className="text-xl font-bold mb-4 text-slate-800">Thông tin cá nhân</h3>
+            
             <div className="flex items-center space-x-4 mb-4">
-              <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 font-bold">M</div>
-              <button className="text-sm text-blue-600 font-medium border border-blue-600 px-3 py-1 rounded-lg hover:bg-blue-50">Đổi Avatar</button>
+              {profile.avatarUrl ? (
+                <img src={`http://localhost:8080${profile.avatarUrl}`} alt="Avatar" className="w-16 h-16 rounded-full object-cover border border-slate-200" />
+              ) : (
+                <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 font-bold text-xl">
+                  {profile.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+              )}
+              
+              <input type="file" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" accept="image/png, image/jpeg, image/jpg" />
+              <button onClick={() => fileInputRef.current?.click()} disabled={isSaving} className="text-sm text-blue-600 font-medium border border-blue-600 px-3 py-1 rounded-lg hover:bg-blue-50 disabled:opacity-50">
+                {isSaving ? 'Đang tải lên...' : 'Đổi Avatar'}
+              </button>
             </div>
-            <div><label className="block text-sm font-medium mb-1">Tên hiển thị</label><input type="text" className="w-full border rounded-lg p-2 outline-blue-500" placeholder="Nguyễn Văn A" /></div>
-            <div><label className="block text-sm font-medium mb-1">Username</label><input type="text" className="w-full border rounded-lg p-2 outline-blue-500" placeholder="nguyenvana" /></div>
-            <div><label className="block text-sm font-medium mb-1">Email</label><input type="email" className="w-full border rounded-lg p-2 bg-slate-50" disabled value="email@example.com" /></div>
-            <div><label className="block text-sm font-medium mb-1">Số điện thoại</label><input type="text" className="w-full border rounded-lg p-2 outline-blue-500" placeholder="0123456789" /></div>
-            <div className="pt-4"><button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">Save changes</button></div>
+
+            <div><label className="block text-sm font-medium mb-1 text-slate-700">Tên hiển thị *</label>
+              <input type="text" value={profile.displayName} onChange={(e) => setProfile({...profile, displayName: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+            
+            <div><label className="block text-sm font-medium mb-1 text-slate-700">Username *</label>
+              <input type="text" value={profile.username} onChange={(e) => setProfile({...profile, username: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+            
+            <div><label className="block text-sm font-medium mb-1 text-slate-700">Email (Không thể đổi)</label>
+              <input type="email" value={profile.email} disabled className="w-full border rounded-lg p-2 bg-slate-100 text-slate-500 cursor-not-allowed" /></div>
+            
+            <div><label className="block text-sm font-medium mb-1 text-slate-700">Số điện thoại</label>
+              <input type="text" value={profile.phone} onChange={(e) => setProfile({...profile, phone: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+
+            <div className="pt-4 flex space-x-3">
+              <button onClick={handleSaveProfile} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[120px]">
+                {isSaving ? 'Đang lưu...' : 'Save changes'}
+              </button>
+              <button onClick={handleCancelProfile} disabled={isSaving} className="bg-white text-slate-600 border border-slate-300 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 disabled:opacity-50">
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
-        {/* 2. Notifications */}
-        {activeTab === 'notifications' && (
-          <div className="space-y-6 max-w-lg">
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Cài đặt thông báo</h3>
-            
-            <div className="space-y-3">
-              <h4 className="font-semibold text-slate-700">Thông báo trong ứng dụng</h4>
-              {['Task được giao cho mình', 'Task sắp đến hạn', 'Task quá hạn', 'Có người comment vào task', 'Có người mention mình', 'Board có thay đổi'].map((item, i) => (
-                <label key={i} className="flex items-center space-x-3 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-                  <span className="text-slate-700">{item}</span>
-                </label>
-              ))}
-            </div>
-
-            <hr className="border-slate-200" />
-            
-            <div className="space-y-3">
-              <h4 className="font-semibold text-slate-700">Kênh thông báo</h4>
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-slate-700">Email notifications</span>
-                <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-              </label>
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-slate-700">Push notifications</span>
-                <input type="checkbox" className="w-4 h-4 text-blue-600 rounded" />
-              </label>
-            </div>
-            <div className="pt-2"><button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">Save changes</button></div>
-          </div>
-        )}
-
-        {/* 3. Appearance */}
-        {activeTab === 'appearance' && (
-          <div className="space-y-6 max-w-lg">
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Giao diện</h3>
-            
-            <div>
-              <label className="block text-sm font-medium mb-2">Giao diện (Theme)</label>
-              <select className="w-full border rounded-lg p-2 outline-blue-500">
-                <option>System default</option>
-                <option>Light mode</option>
-                <option>Dark mode</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Ngôn ngữ hiển thị (App Language)</label>
-              <select className="w-full border rounded-lg p-2 outline-blue-500">
-                <option>Tiếng Việt</option>
-                <option>English</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Accent Color (Màu chủ đạo)</label>
-              <div className="flex space-x-3">
-                {['bg-blue-600', 'bg-red-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500'].map((color, i) => (
-                  <button key={i} className={`w-8 h-8 rounded-full ${color} border-2 border-white ring-2 ${i === 0 ? 'ring-blue-600' : 'ring-transparent'}`}></button>
-                ))}
-              </div>
-            </div>
-            <div className="pt-4"><button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">Save changes</button></div>
-          </div>
-        )}
-
-        {/* 4. Security */}
+        {/* 2. Security / Password */}
         {activeTab === 'security' && (
           <div className="space-y-4 max-w-lg">
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Bảo mật</h3>
-            <div><label className="block text-sm font-medium mb-1">Mật khẩu hiện tại</label><input type="password" className="w-full border rounded-lg p-2 outline-blue-500" /></div>
-            <div><label className="block text-sm font-medium mb-1">Mật khẩu mới</label><input type="password" className="w-full border rounded-lg p-2 outline-blue-500" /></div>
-            <div><label className="block text-sm font-medium mb-1">Xác nhận mật khẩu mới</label><input type="password" className="w-full border rounded-lg p-2 outline-blue-500" /></div>
-            <div className="pt-4"><button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">Change password</button></div>
+            <h3 className="text-xl font-bold mb-4 text-slate-800">Đổi mật khẩu</h3>
+            <div><label className="block text-sm font-medium mb-1">Mật khẩu hiện tại *</label>
+              <input type="password" value={security.currentPassword} onChange={(e) => setSecurity({...security, currentPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+            
+            <div><label className="block text-sm font-medium mb-1">Mật khẩu mới * (Tối thiểu 6 ký tự)</label>
+              <input type="password" value={security.newPassword} onChange={(e) => setSecurity({...security, newPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+            
+            <div><label className="block text-sm font-medium mb-1">Xác nhận mật khẩu mới *</label>
+              <input type="password" value={security.confirmPassword} onChange={(e) => setSecurity({...security, confirmPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+            
+            <div className="pt-4 flex space-x-3">
+              <button onClick={handleChangePassword} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[150px]">
+                {isSaving ? 'Đang xử lý...' : 'Change password'}
+              </button>
+            </div>
           </div>
         )}
-
-        {/* 5. Preferences */}
-        {activeTab === 'preferences' && (
-          <div className="space-y-4 max-w-lg">
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Tùy chỉnh Task Manager</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Ngôn ngữ Data</label>
-                <select className="w-full border rounded-lg p-2 outline-blue-500"><option>Tiếng Việt</option><option>English</option></select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Múi giờ</label>
-                <select className="w-full border rounded-lg p-2 outline-blue-500"><option>(UTC+07:00) Bangkok, Hanoi, Jakarta</option></select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Định dạng ngày</label>
-                <select className="w-full border rounded-lg p-2 outline-blue-500"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option></select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Ngày bắt đầu tuần</label>
-                <select className="w-full border rounded-lg p-2 outline-blue-500"><option>Thứ Hai (Monday)</option><option>Chủ Nhật (Sunday)</option></select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Default View</label>
-                <select className="w-full border rounded-lg p-2 outline-blue-500"><option>Board</option><option>List</option><option>Calendar</option></select>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input type="checkbox" defaultChecked className="w-4 h-4 text-blue-600 rounded" />
-                <span className="text-slate-700 font-medium">Hiển thị task đã hoàn thành (Show completed tasks)</span>
-              </label>
-            </div>
-            
-            <div className="pt-4"><button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">Save changes</button></div>
-          </div>
-        )}
-
       </div>
     </div>
   );

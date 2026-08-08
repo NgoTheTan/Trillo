@@ -1,17 +1,110 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGrid, Rocket, Users2 } from 'lucide-react'
-import { useBoardsQuery } from '../services/boardServices'
+import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGrid, Rocket, Users2, ChevronDown } from 'lucide-react'
+import { useBoardDetailQuery, useBoardsQuery, type BoardList, type BoardMember } from '../services/boardServices'
+import { useListCardsQuery } from '../services/cardService.ts'
+import { getInitials } from '../auth/authStorage'
 
 type DashboardPageProps = Readonly<{
   variant?: 'overview' | 'pm' | 'team'
 }>
+
+type StatusFilter = 'all' | 'done' | 'pending'
+
+type DashboardListBreakdownRowProps = Readonly<{
+  list: BoardList
+  selectedStatus: StatusFilter
+  selectedMemberIds: string[]
+}>
+
+function DashboardListBreakdownRow(props: DashboardListBreakdownRowProps) {
+  const { list, selectedStatus, selectedMemberIds } = props
+  const { data: cards = [], isLoading } = useListCardsQuery(list.id)
+
+  const filteredCards = useMemo(() => {
+    return cards.filter(card => {
+      let statusMatch = true
+      if (selectedStatus === 'done') {
+        statusMatch = card.completed
+      } else if (selectedStatus === 'pending') {
+        statusMatch = !card.completed
+      }
+
+      let memberMatch = true
+      if (selectedMemberIds.length > 0) {
+        memberMatch = (card.assignedMembers || []).some(member => selectedMemberIds.includes(member.id))
+      }
+
+      return statusMatch && memberMatch
+    })
+  }, [cards, selectedMemberIds, selectedStatus])
+
+  const doneCount = cards.filter(card => card.completed).length
+  const pendingCount = cards.length - doneCount
+
+  return (
+    <article className="dashboard-breakdown-row">
+      <div className="dashboard-breakdown-row__header">
+        <div>
+          <p className="dashboard-breakdown-row__title">{list.title}</p>
+          <p className="dashboard-breakdown-row__subtitle">
+            {cards.length} cards total · {doneCount} done · {pendingCount} pending
+          </p>
+        </div>
+        <span className="dashboard-breakdown-row__badge">{filteredCards.length} matches</span>
+      </div>
+
+      <div className="dashboard-breakdown-row__metrics">
+        <span>All cards: {cards.length}</span>
+        <span>Done: {doneCount}</span>
+        <span>Pending: {pendingCount}</span>
+      </div>
+
+      <div className="dashboard-breakdown-row__cards">
+        {isLoading && <span className="dashboard-breakdown-row__loading">Loading cards...</span>}
+        {!isLoading && filteredCards.length === 0 && (
+          <div className="dashboard-breakdown-row__empty">No cards match the selected filters.</div>
+        )}
+        {!isLoading && filteredCards.slice(0, 4).map(card => (
+          <div key={card.id} className="dashboard-card-mini">
+            <div className="dashboard-card-mini__top">
+              <span className={`dashboard-card-mini__status ${card.completed ? 'is-done' : 'is-pending'}`}>
+                {card.completed ? 'Done' : 'Pending'}
+              </span>
+              <span className="dashboard-card-mini__deadline">
+                {card.deadline ? new Date(card.deadline).toLocaleDateString() : 'No deadline'}
+              </span>
+            </div>
+            <p className="dashboard-card-mini__title">{card.title}</p>
+            <div className="dashboard-card-mini__members">
+              {(card.assignedMembers || []).slice(0, 3).map(member => (
+                <span key={member.id} className="dashboard-card-mini__member" title={member.fullName}>
+                  {member.avatarUrl ? (
+                    <img src={member.avatarUrl} alt={member.fullName} />
+                  ) : (
+                    <span>{getInitials(member.fullName)}</span>
+                  )}
+                </span>
+              ))}
+              {(card.assignedMembers || []).length > 3 && (
+                <span className="dashboard-card-mini__more">+{(card.assignedMembers || []).length - 3}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </article>
+  )
+}
 
 export function DashboardPage({
   variant = 'overview',
 }: DashboardPageProps) {
   const navigate = useNavigate()
   const boardsQuery = useBoardsQuery()
+  const [selectedBoardId, setSelectedBoardId] = useState<string>('')
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all')
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([])
 
   const boards = useMemo(
     () => [...(boardsQuery.data ?? [])].sort((left, right) => {
@@ -32,6 +125,31 @@ export function DashboardPage({
   const averageCardsPerBoard = totalBoards > 0 ? totalCards / totalBoards : 0
   const busiestBoard = boards[0]
   const maxCards = Math.max(1, ...boards.map(board => board.cardCount ?? 0))
+  const selectedBoard = selectedBoardId || boards[0]?.id || ''
+  let selectedStatusLabel = 'All'
+  if (selectedStatus === 'done') {
+    selectedStatusLabel = 'Done'
+  } else if (selectedStatus === 'pending') {
+    selectedStatusLabel = 'Pending'
+  }
+  const boardDetailQuery = useBoardDetailQuery(selectedBoard || undefined)
+  const boardDetail = boardDetailQuery.data
+
+  useEffect(() => {
+    if (boards.length === 0) {
+      if (selectedBoardId) setSelectedBoardId('')
+      return
+    }
+
+    if (!selectedBoardId || !boards.some(board => board.id === selectedBoardId)) {
+      setSelectedBoardId(boards[0].id)
+    }
+  }, [boards, selectedBoardId])
+
+  useEffect(() => {
+    setSelectedMemberIds([])
+    setSelectedStatus('all')
+  }, [selectedBoardId])
 
   const variantCopy = {
     overview: {
@@ -280,6 +398,124 @@ export function DashboardPage({
             </button>
           )
         })}
+      </div>
+
+      <div className="dashboard-explorer" style={{ marginTop: '24px' }}>
+        <div className="dashboard-section-head dashboard-section-head--compact">
+          <div>
+            <p className="panel__title">Statistics explorer</p>
+            <p className="panel__subtitle">Filter a board by status and member, then inspect the matching cards list.</p>
+          </div>
+
+          <label className="dashboard-board-picker">
+            <span>Board</span>
+            <div className="dashboard-board-picker__select-wrap">
+              <select
+                value={selectedBoard}
+                onChange={e => setSelectedBoardId(e.target.value)}
+                className="dashboard-board-picker__select"
+              >
+                {boards.map(board => (
+                  <option key={board.id} value={board.id}>{board.title}</option>
+                ))}
+              </select>
+              <ChevronDown size={16} />
+            </div>
+          </label>
+        </div>
+
+        {boardDetailQuery.isLoading && (
+          <div className="dashboard-breakdown-loading">Loading board statistics...</div>
+        )}
+
+        {boardDetail && !boardDetailQuery.isLoading && (
+          <div className="dashboard-explorer__panel">
+            <div className="dashboard-filter-bar">
+              <div className="dashboard-filter-group">
+                <span className="dashboard-filter-group__label">Status</span>
+                {([
+                  { id: 'all', label: 'All' },
+                  { id: 'done', label: 'Done' },
+                  { id: 'pending', label: 'Pending' },
+                ] as const).map(filter => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => setSelectedStatus(filter.id)}
+                    className={`dashboard-filter-pill ${selectedStatus === filter.id ? 'is-active' : ''}`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="dashboard-filter-group dashboard-filter-group--members">
+                <span className="dashboard-filter-group__label">Members</span>
+                <div className="dashboard-member-filter-row">
+                  {boardDetail.members.map((member: BoardMember) => {
+                    const isSelected = selectedMemberIds.includes(member.user.id)
+                    return (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMemberIds(prev => (
+                            prev.includes(member.user.id)
+                              ? prev.filter(id => id !== member.user.id)
+                              : [...prev, member.user.id]
+                          ))
+                        }}
+                        className={`dashboard-member-pill ${isSelected ? 'is-active' : ''}`}
+                      >
+                        {member.user.avatarUrl ? (
+                          <img src={member.user.avatarUrl} alt={member.user.fullName} />
+                        ) : (
+                          <span>{getInitials(member.user.fullName)}</span>
+                        )}
+                        {member.user.fullName}
+                      </button>
+                    )
+                  })}
+                  {selectedMemberIds.length > 0 && (
+                    <button type="button" className="dashboard-clear-pill" onClick={() => setSelectedMemberIds([])}>
+                      Clear members
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-breakdown-summary">
+              <div>
+                <span className="dashboard-breakdown-summary__value">{boardDetail.lists.length}</span>
+                <span className="dashboard-breakdown-summary__label">Lists</span>
+              </div>
+              <div>
+                <span className="dashboard-breakdown-summary__value">{boardDetail.members.length}</span>
+                <span className="dashboard-breakdown-summary__label">Members</span>
+              </div>
+              <div>
+                <span className="dashboard-breakdown-summary__value">{selectedStatusLabel}</span>
+                <span className="dashboard-breakdown-summary__label">Status filter</span>
+              </div>
+            </div>
+
+            <div className="dashboard-breakdown-list">
+              {boardDetail.lists.map(list => (
+                <DashboardListBreakdownRow
+                  key={list.id}
+                  list={list}
+                  selectedStatus={selectedStatus}
+                  selectedMemberIds={selectedMemberIds}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!boardDetailQuery.isLoading && !boardDetail && (
+          <div className="dashboard-breakdown-loading">Select a board to inspect its list statistics.</div>
+        )}
       </div>
 
       <div className="task-list dashboard-note-list" style={{ marginTop: '24px' }}>

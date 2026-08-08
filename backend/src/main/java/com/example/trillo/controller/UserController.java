@@ -7,6 +7,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.example.trillo.dto.request.ChangePasswordRequest;
+import com.example.trillo.dto.request.UpdateProfileRequest;
+import com.example.trillo.dto.response.UserProfileResponse;
+import com.example.trillo.entity.User;
+import com.example.trillo.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -16,6 +26,33 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileResponse> getCurrentUser(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(userService.getUserProfile(user));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UserProfileResponse> updateProfile(
+            @RequestBody UpdateProfileRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(userService.updateProfile(user, request));
+    }
+
+    @PostMapping("/me/avatar")
+    public ResponseEntity<UserProfileResponse> uploadAvatar(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(userService.uploadAvatar(user, file));
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal User user) {
+        userService.changePassword(user, request);
+        return ResponseEntity.ok().build();
+    }
 
     @GetMapping("/search")
     public ResponseEntity<List<UserResponse>> searchUsers(

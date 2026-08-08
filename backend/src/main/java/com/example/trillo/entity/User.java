@@ -19,7 +19,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class User implements UserDetails {
-
+    
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
@@ -73,4 +73,5 @@ public class User implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+    private String phone;
 }

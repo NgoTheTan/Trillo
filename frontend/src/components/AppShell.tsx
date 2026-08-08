@@ -2,10 +2,28 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Calendar, LogOut, ShieldCheck, Users } from 'lucide-react'
 import { useAuth } from '../auth/authContext'
 import { getInitials } from '../auth/authStorage'
+import { useState, useEffect } from 'react';
 
 export function AppShell() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+
+  const [headerUser, setHeaderUser] = useState({
+    displayName: user?.fullName || 'User',
+    avatarUrl: null
+  });
+
+  useEffect(() => {
+    const handleProfileUpdate = (event: any) => {
+      const updatedData = event.detail;
+      setHeaderUser({
+        displayName: updatedData.displayName,
+        avatarUrl: updatedData.avatarUrl
+      });
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
+  }, []);
 
   const handleLogout = () => {
     logout()
@@ -24,10 +42,20 @@ export function AppShell() {
             <ShieldCheck size={16} />
             {user?.role === 'PM' ? 'PM workspace' : 'User workspace'}
           </span>
-          <span className="status-pill">
-            <Users size={16} />
-            {user?.fullName}
+          
+          <span className="status-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {headerUser.avatarUrl ? (
+              <img 
+                src={`http://localhost:8080${headerUser.avatarUrl}`} 
+                style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} 
+                alt="Avatar" 
+              />
+            ) : (
+              <Users size={16} />
+            )}
+            {headerUser.displayName}
           </span>
+
           <button type="button" className="ghost-button" onClick={handleLogout}>
             <LogOut size={16} />
             Logout
@@ -119,17 +147,20 @@ export function AppShell() {
             </div>
           </div>
         </div>
+        
         <NavLink to="/app/schedule">
-        <div>
-          <Calendar />
-        <span>Schedule</span>
-        </div>
+          <div>
+            <Calendar />
+            <span>Schedule</span>
+          </div>
         </NavLink>
+        
         <NavLink to="/app/settings">
           <div>
             <span>Settings</span>
           </div>
         </NavLink>
+        
         <Outlet />
       </main>
     </div>

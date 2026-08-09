@@ -350,7 +350,7 @@ export const BoardDetailPage: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                <p className="text-sm font-medium">Loading Kanban Board...</p>
+                <p className="text-sm font-medium">Đang tải bảng Kanban...</p>
             </div>
         )
     }
@@ -394,7 +394,7 @@ export const BoardDetailPage: React.FC = () => {
                     </div>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full shrink-0">
                         <Globe className="w-3 h-3 text-emerald-600" />
-                        {board?.visibility === 'PUBLIC' ? 'Public' : 'Private'}
+                        {board?.visibility === 'PUBLIC' ? 'Công khai' : 'Riêng tư'}
                     </span>
                 </div>
 
@@ -421,7 +421,7 @@ export const BoardDetailPage: React.FC = () => {
                         onClick={() => setIsInviteOpen(true)}
                         className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
                     >
-                        <span>Invite</span>
+                        <span>Mời</span>
                     </button>
                     <CardFilterPopover boardId={boardId || ''} cardfillterFeatures={cardFilterFeatures} setCardFillterFeatures={setCardFilterFeatures} />
                 </div>

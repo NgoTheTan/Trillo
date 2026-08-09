@@ -68,16 +68,18 @@ export const BoardsPage = () => {
         }
     }
 
+    const tabLabels = { All: 'Tất cả', Public: 'Công khai' }
+
     return (
         <div className="max-w-7xl mx-auto space-y-6 text-slate-800">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Boards</h1>
+                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Bảng công việc</h1>
                 <button
                     onClick={() => setIsCreateOpen(true)}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg shadow-sm transition-all cursor-pointer"
                 >
                     <Plus className="w-4 h-4" />
-                    <span>Add board</span>
+                    <span>Thêm bảng</span>
                 </button>
             </div>
 
@@ -92,7 +94,7 @@ export const BoardsPage = () => {
                                 : 'text-slate-500 hover:text-slate-800'
                                 }`}
                         >
-                            {tab}
+                            {tabLabels[tab]}
                             {activeTab === tab && (
                                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
                             )}
@@ -105,7 +107,7 @@ export const BoardsPage = () => {
                         <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
                         <input
                             type="text"
-                            placeholder="Search boards..."
+                            placeholder="Tìm kiếm bảng..."
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                             className="pl-9 pr-4 py-1.5 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-48 sm:w-64 transition-all shadow-2xs"
@@ -113,14 +115,14 @@ export const BoardsPage = () => {
                     </div>
 
                     <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer">
-                        <span>Filter</span>
+                        <span>Lọc</span>
                         <Filter className="w-3.5 h-3.5 text-slate-500" />
                     </button>
 
                     <div className="flex items-center bg-white border border-slate-200 p-1 rounded-lg shadow-2xs gap-1">
                         <button
                             onClick={() => setViewMode('grid')}
-                            title="Card View"
+                            title="Xem dạng lưới"
                             className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'grid'
                                 ? 'bg-blue-50 text-blue-600 font-semibold'
                                 : 'text-slate-400 hover:text-slate-700'
@@ -131,7 +133,7 @@ export const BoardsPage = () => {
 
                         <button
                             onClick={() => setViewMode('list')}
-                            title="List View"
+                            title="Xem dạng danh sách"
                             className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === 'list'
                                 ? 'bg-blue-50 text-blue-600 font-semibold'
                                 : 'text-slate-400 hover:text-slate-700'

@@ -7,22 +7,22 @@ export function AccessDeniedPage() {
       <div className="access-denied__card">
         <div className="role-pill" style={{ justifyContent: 'center', marginBottom: '18px' }}>
           <AlertTriangle size={16} />
-          Access restricted
+          Truy cập bị hạn chế
         </div>
         <h1 className="auth-card__title" style={{ marginBottom: '12px' }}>
-          You do not have permission for this route.
+          Bạn không có quyền truy cập trang này.
         </h1>
         <p className="auth-card__subtitle">
-          The current account is signed in, but the selected role cannot open this workspace.
+          Tài khoản hiện tại đã đăng nhập, nhưng vai trò được chọn không thể mở không gian làm việc này.
         </p>
 
         <div className="form-actions" style={{ marginTop: '24px' }}>
           <Link to="/app" className="secondary-button">
             <ArrowLeft size={16} />
-            Back to dashboard
+            Về trang chủ
           </Link>
           <Link to="/login" className="secondary-button">
-            Switch account
+            Chuyển tài khoản
           </Link>
         </div>
       </div>

@@ -22,21 +22,21 @@ const renderPriorityTag = (priority?: string) => {
   if (p === 'HIGH') {
     return (
       <span className="px-2 py-0.5 rounded-md bg-red-100/80 text-red-600 font-semibold text-[10px] inline-block">
-        High
+        Cao
       </span>
     )
   }
   if (p === 'MEDIUM') {
     return (
       <span className="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-700 font-semibold text-[10px] inline-block">
-        Medium
+        Trung bình
       </span>
     )
   }
   // LOW (default)
   return (
     <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold text-[10px] inline-block">
-      Low
+      Thấp
     </span>
   )
 }
@@ -106,7 +106,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
                 ? 'bg-emerald-500 border-emerald-500 text-white'
                 : 'border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 text-emerald-600 opacity-0 group-hover/card:opacity-100'
                 }`}
-              title={card.completed ? 'Mark as incomplete' : 'Mark as completed'}
+              title={card.completed ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
             >
               {card.completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
             </button>
@@ -131,7 +131,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
                 setOpenDeleteModal(true)
               }}
               className="p-1 absolute right-0 top-0 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md opacity-0 group-hover/card:opacity-100 transition-all cursor-pointer shrink-0"
-              title="Delete card"
+              title="Xóa thẻ"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

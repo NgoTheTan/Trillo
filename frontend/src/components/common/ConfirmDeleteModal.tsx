@@ -17,7 +17,7 @@ export interface ConfirmDeleteModalProps {
 export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   open,
   onOpenChange,
-  title = 'Delete Item',
+  title = 'Xóa mục',
   description,
   itemName,
   boardTitle,
@@ -39,7 +39,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
           <DialogDescription className="text-sm text-slate-500 max-w-xs">
             {description || (
               <>
-                Are you sure you want to delete {targetName ? <span className="font-semibold text-slate-800">"{targetName}"</span> : 'this item'}? This action cannot be undone.
+                Bạn có chắc chắn muốn xóa {targetName ? <span className="font-semibold text-slate-800">"{targetName}"</span> : 'mục này'}? Hành động này không thể hoàn tác.
               </>
             )}
           </DialogDescription>
@@ -53,7 +53,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
             onClick={() => onOpenChange(false)}
             className="flex-1 border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold py-2.5 rounded-xl cursor-pointer"
           >
-            Cancel
+            Hủy
           </Button>
 
           <Button
@@ -65,10 +65,10 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
             {isDeleting ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
-                Deleting...
+                Đang xóa...
               </span>
             ) : (
-              'Delete'
+              'Xóa'
             )}
           </Button>
         </DialogFooter>

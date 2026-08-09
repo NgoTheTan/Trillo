@@ -53,7 +53,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
             <PopoverTrigger>
                 <Button className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer">
                     <Filter className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Filter</span>
+                    <span>Lọc</span>
                     {((cardfillterFeatures?.listIds?.length || 0) +
                         (cardfillterFeatures?.memberIds?.length || 0) +
                         (cardfillterFeatures?.labelIds?.length || 0) +
@@ -79,7 +79,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                                     onClick={handleClearFilters}
                                     className="text-xs text-blue-600 hover:underline cursor-pointer font-medium"
                                 >
-                                    Clear filters
+                                    Xóa bộ lọc
                                 </button>
                             </>
                         )}
@@ -88,22 +88,22 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
             </PopoverTrigger>
             <PopoverContent className={"w-100 max-h-[70vh] overflow-y-auto p-3"} align='end' >
                 <PopoverHeader className="flex items-center justify-between">
-                    <PopoverTitle className={"text-center font-medium"}>Filter</PopoverTitle>
+                    <PopoverTitle className={"text-center font-medium"}>Bộ lọc</PopoverTitle>
                 </PopoverHeader>
                 <div className='w-full space-y-4 mt-2'>
                     <div className='flex flex-col gap-2'>
-                        <p className='text-sm font-medium'>Key word</p>
+                        <p className='text-sm font-medium'>Từ khóa</p>
                         <input
                             type="text"
-                            placeholder="Enter key word"
+                            placeholder="Nhập từ khóa..."
                             value={cardfillterFeatures?.search || ''}
                             onChange={(e) => setCardFillterFeatures(prev => ({ ...prev, search: e.target.value }))}
                             className="w-full p-2 outline-none border border-slate-200 rounded"
                         />
-                        <small className='text-xs text-slate-500'>Filter cards by priority, deadline, or assignee.</small>
+                        <small className='text-xs text-slate-500'>Lọc thẻ theo độ ưu tiên, hạn chót hoặc người thực hiện.</small>
                     </div>
                     <div>
-                        <p className='text-sm font-medium'>Columns</p>
+                        <p className='text-sm font-medium'>Cột</p>
                         <div className='flex flex-col gap-2 mt-2'>
                             {columns?.map((c) => (
                                 <div key={c.id} className='flex items-center gap-5'>
@@ -133,7 +133,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                         </div>
                     </div>
                     <div>
-                        <p className='text-sm font-medium'>Card status</p>
+                        <p className='text-sm font-medium'>Trạng thái thẻ</p>
                         <div className='grid grid-cols-2 gap-4 mt-2'>
                             <div className='flex items-center gap-5'>
                                 <input
@@ -148,7 +148,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                                     }}
                                     className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 accent-blue-600 cursor-pointer shrink-0 transition-all"
                                 />
-                                <label htmlFor="status-done" className='flex items-center gap-2 cursor-pointer select-none font-medium'>Done</label>
+                                <label htmlFor="status-done" className='flex items-center gap-2 cursor-pointer select-none font-medium'>Hoàn thành</label>
                             </div>
                             <div className='flex items-center gap-5'>
                                 <input
@@ -163,12 +163,12 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                                     }}
                                     className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 accent-blue-600 cursor-pointer shrink-0 transition-all"
                                 />
-                                <label htmlFor="status-pending" className='flex items-center gap-2 cursor-pointer select-none font-medium'>Pending</label>
+                                <label htmlFor="status-pending" className='flex items-center gap-2 cursor-pointer select-none font-medium'>Đang chờ</label>
                             </div>
                         </div>
                     </div>
                     <div>
-                        <p className='text-sm font-medium'>Members</p>
+                        <p className='text-sm font-medium'>Thành viên</p>
                         <div className='grid grid-cols-2 gap-2 mt-2'>
                             {availableMembers?.map((member) => (
                                 <div key={member.id} className='flex items-center gap-5'>
@@ -206,7 +206,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                         </div>
                     </div>
                     <div>
-                        <p className='text-sm font-medium'>Labels</p>
+                        <p className='text-sm font-medium'>Nhãn</p>
                         <div className='flex flex-col gap-2 mt-2'>
                             {labels?.map((label) => (
                                 <div key={label.id} className='flex items-center gap-5'>
@@ -237,7 +237,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                         </div>
                     </div>
                     <div>
-                        <p className='text-sm font-medium'>Time range</p>
+                        <p className='text-sm font-medium'>Khoảng thời gian</p>
                         <div className='flex items-center gap-2 mt-2 mb-1'>
                             <input
                                 type="checkbox"
@@ -254,12 +254,12 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                                 className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 accent-blue-600 cursor-pointer shrink-0 transition-all"
                             />
                             <label htmlFor="filter-no-deadline" className='text-xs font-medium text-slate-700 cursor-pointer select-none'>
-                                No deadline
+                                Không có hạn chót
                             </label>
                         </div>
                         <div className={`grid grid-cols-2 gap-2 mt-2 transition-opacity ${cardfillterFeatures?.noDeadline ? 'opacity-40 pointer-events-none' : ''}`}>
                             <div>
-                                <p className='text-xs font-medium mb-1 text-slate-600'>Start date</p>
+                                <p className='text-xs font-medium mb-1 text-slate-600'>Ngày bắt đầu</p>
                                 <DateTimeInput
                                     className='w-full'
                                     value={cardfillterFeatures?.deadlineFrom}
@@ -267,7 +267,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                                 />
                             </div>
                             <div>
-                                <p className='text-xs font-medium mb-1 text-slate-600'>End date</p>
+                                <p className='text-xs font-medium mb-1 text-slate-600'>Ngày kết thúc</p>
                                 <DateTimeInput
                                     className='w-full'
                                     value={cardfillterFeatures?.deadlineTo}

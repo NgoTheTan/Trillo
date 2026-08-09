@@ -17,16 +17,15 @@ export function AuthLayout({
             <span className="auth-brand__icon">T</span>
             <span>Trillo</span>
           </div>
-          <h1 className="auth-hero-title">Orchestrate work with calm precision.</h1>
+          <h1 className="auth-hero-title">Điều hành công việc một cách chính xác và hiệu quả.</h1>
           <p className="auth-hero-copy">
-            A focused workspace for PMs and contributors to plan, track, and ship with clear
-            role boundaries and protected routes.
+            Không gian làm việc tập trung dành cho Quản lý dự án và các thành viên để lập kế hoạch, theo dõi và triển khai công việc với phân quyền rõ ràng.
           </p>
 
           <div className="auth-highlight-row" aria-hidden="true">
-            <span className="auth-highlight">Authentication</span>
-            <span className="auth-highlight">Roles</span>
-            <span className="auth-highlight">Protected routes</span>
+            <span className="auth-highlight">Xác thực</span>
+            <span className="auth-highlight">Phân quyền</span>
+            <span className="auth-highlight">Bảo mật tuyến đường</span>
           </div>
         </div>
       </aside>

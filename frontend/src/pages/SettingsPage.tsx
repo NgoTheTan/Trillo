@@ -141,8 +141,8 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'account', label: 'Account / Profile' },
-    { id: 'security', label: 'Security' }
+    { id: 'account', label: 'Tài khoản / Hồ sơ' },
+    { id: 'security', label: 'Bảo mật' }
   ];
 
   if (isLoading) return <div className="p-8 text-center">⏳ Đang tải dữ liệu...</div>;
@@ -151,7 +151,7 @@ export default function SettingsPage() {
     <div className="flex bg-white rounded-2xl shadow-sm border border-slate-200 min-h-[75vh]">
       {/* Sidebar Menu */}
       <div className="w-1/4 border-r border-slate-200 p-4">
-        <h2 className="text-xl font-bold text-slate-800 mb-6 px-2">Settings</h2>
+        <h2 className="text-xl font-bold text-slate-800 mb-6 px-2">Cài đặt</h2>
         <ul className="space-y-1">
           {tabs.map((tab) => (
             <li key={tab.id}>
@@ -209,10 +209,10 @@ export default function SettingsPage() {
 
             <div className="pt-4 flex space-x-3">
               <button onClick={handleSaveProfile} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[120px]">
-                {isSaving ? 'Đang lưu...' : 'Save changes'}
+                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
               <button onClick={handleCancelProfile} disabled={isSaving} className="bg-white text-slate-600 border border-slate-300 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 disabled:opacity-50">
-                Cancel
+                Hủy
               </button>
             </div>
           </div>
@@ -233,7 +233,7 @@ export default function SettingsPage() {
             
             <div className="pt-4 flex space-x-3">
               <button onClick={handleChangePassword} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[150px]">
-                {isSaving ? 'Đang xử lý...' : 'Change password'}
+                {isSaving ? 'Đang xử lý...' : 'Đổi mật khẩu'}
               </button>
             </div>
           </div>

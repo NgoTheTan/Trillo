@@ -37,9 +37,9 @@ export const ConfirmDeleteCardModal: React.FC<ConfirmDeleteCardModalProps> = ({
 
         {/* Text Content */}
         <div className="mt-4 space-y-1.5">
-          <h3 className="text-lg font-bold text-slate-900 tracking-tight">Delete Card</h3>
+          <h3 className="text-lg font-bold text-slate-900 tracking-tight">Xóa thẻ</h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Are you sure you want to delete <span className="font-semibold text-slate-800">"{cardTitle}"</span>? This action cannot be undone and will permanently remove the card and its contents.
+            Bạn có chắc chắn muốn xóa <span className="font-semibold text-slate-800">"{cardTitle}"</span>? Hành động này không thể hoàn tác và sẽ xóa vĩnh viễn thẻ và toàn bộ nội dung của nó.
           </p>
         </div>
 
@@ -51,7 +51,7 @@ export const ConfirmDeleteCardModal: React.FC<ConfirmDeleteCardModalProps> = ({
             disabled={isLoading}
             className="px-5 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
           >
-            Cancel
+            Hủy
           </button>
           <button
             type="button"
@@ -62,10 +62,10 @@ export const ConfirmDeleteCardModal: React.FC<ConfirmDeleteCardModalProps> = ({
             {isLoading ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Deleting...</span>
+                <span>Đang xóa...</span>
               </>
             ) : (
-              <span>Delete Card</span>
+              <span>Xóa thẻ</span>
             )}
           </button>
         </div>

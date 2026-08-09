@@ -82,7 +82,7 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
       <DialogContent className="sm:max-w-[460px] p-6 rounded-2xl bg-white border border-slate-100 shadow-xl">
         <DialogHeader className="pb-2 border-b border-slate-100">
           <DialogTitle className="text-lg font-bold text-slate-900 uppercase tracking-wide">
-            {isEdit ? 'EDIT BOARD' : 'CREATE NEW BOARD'}
+            {isEdit ? 'CHỈNH SỬA BẢNG' : 'TẠO BẢNG MỚI'}
           </DialogTitle>
         </DialogHeader>
 
@@ -91,14 +91,14 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
           <div className="space-y-1.5">
             <label className="text-sm font-bold text-slate-800 flex items-center justify-between">
               <span>
-                Board title <span className="text-rose-500 font-bold ml-0.5">*</span>
+                Tên bảng <span className="text-rose-500 font-bold ml-0.5">*</span>
               </span>
-              <span className="text-xs text-rose-500 font-medium">Required</span>
+              <span className="text-xs text-rose-500 font-medium">Bắt buộc</span>
             </label>
             <input
               type="text"
               required
-              placeholder="e.g. Project Alpha"
+              placeholder="Ví dụ: Dự án Alpha"
               value={title}
               onBlur={() => setTouched(true)}
               onChange={e => setTitle(e.target.value)}
@@ -109,19 +109,19 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
               }`}
             />
             {isTitleInvalid && (
-              <p className="text-xs text-rose-500 font-medium">Board title cannot be empty</p>
+              <p className="text-xs text-rose-500 font-medium">Tên bảng không được để trống</p>
             )}
           </div>
 
           {/* Description Field (Optional) */}
           <div className="space-y-1.5">
             <label className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-              <span>Description</span>
-              <span className="text-xs font-normal text-slate-400">(optional)</span>
+              <span>Mô tả</span>
+              <span className="text-xs font-normal text-slate-400">(tùy chọn)</span>
             </label>
             <textarea
               rows={3}
-              placeholder="Enter board description..."
+              placeholder="Nhập mô tả bảng..."
               value={description}
               onChange={e => setDescription(e.target.value)}
               className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all placeholder:text-slate-400 resize-none"
@@ -132,8 +132,8 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                <span>Cover color</span>
-                <span className="text-xs font-normal text-slate-400">(optional)</span>
+                <span>Màu ảnh bìa</span>
+                <span className="text-xs font-normal text-slate-400">(tùy chọn)</span>
               </label>
               <span className="text-xs font-mono font-medium text-slate-500 uppercase">{coverColor}</span>
             </div>
@@ -157,7 +157,7 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
 
               <div className="relative flex items-center">
                 <label
-                  title="Custom color picker"
+                  title="Chọn màu tùy chỉnh"
                   className={`w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden ${
                     !isPresetColor
                       ? 'ring-2 ring-offset-2 ring-blue-600 scale-110'
@@ -185,7 +185,7 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
 
           {/* Visibility Field */}
           <div className="space-y-3">
-            <div className="text-sm font-bold text-slate-800">Visibility</div>
+            <div className="text-sm font-bold text-slate-800">Quyền riêng tư</div>
 
             <div className="space-y-3">
               <div
@@ -203,9 +203,9 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
                   className="mt-0.5 w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
                 />
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Public</div>
+                  <div className="text-sm font-semibold text-slate-900">Công khai</div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    Anyone with the link can view
+                    Bất kỳ ai có liên kết đều có thể xem
                   </div>
                 </div>
               </div>
@@ -225,9 +225,9 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
                   className="mt-0.5 w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
                 />
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Private</div>
+                  <div className="text-sm font-semibold text-slate-900">Riêng tư</div>
                   <div className="text-xs text-slate-500 mt-0.5">
-                    Only members can view
+                    Chỉ thành viên mới có thể xem
                   </div>
                 </div>
               </div>
@@ -239,7 +239,7 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
               type="submit"
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl shadow-sm cursor-pointer"
             >
-              {isEdit ? 'Save changes' : 'Create board'}
+              {isEdit ? 'Lưu thay đổi' : 'Tạo bảng'}
             </Button>
             <Button
               type="button"
@@ -247,7 +247,7 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
               onClick={handleClose}
               className="flex-1 border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold py-2.5 rounded-xl cursor-pointer"
             >
-              Cancel
+              Hủy
             </Button>
           </div>
         </form>

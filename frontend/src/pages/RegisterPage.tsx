@@ -7,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../auth/authContext'
 import { AuthLayout } from './AuthLayout'
+import { PasswordChecklist } from '../components/common/PasswordChecklist'
 import type { Role } from '../auth/authStorage'
 
 const registerSchema = z
@@ -42,10 +43,13 @@ export function RegisterPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
   })
+
+  const passwordValue = watch('password')
 
   const onSubmit = handleSubmit(async (values) => {
     try {
@@ -144,6 +148,8 @@ export function RegisterPage() {
             ) : null}
           </label>
         </div>
+
+        <PasswordChecklist password={passwordValue} />
 
         <div className="stack">
           <span>Loại tài khoản</span>

@@ -4,6 +4,7 @@ import { useAuth } from '../auth/authContext'
 import { getInitials } from '../auth/authStorage'
 import { useState, useEffect } from 'react';
 import NotificationBell from './NotificationBell'; // <-- Thêm dòng Import này
+import { TrilloLogo } from './common/TrilloLogo'
 
 export function AppShell() {
   const { user, logout } = useAuth()
@@ -35,7 +36,7 @@ export function AppShell() {
     <div className="app-shell">
       <header className="app-topbar">
         <Link className="brand-mark" to="/app">
-          <span className="brand-mark__icon">T</span>
+          <TrilloLogo className="w-8 h-8 rounded-lg shadow-xs" />
           <span>Trillo</span>
         </Link>
         <div className="app-topbar__actions">

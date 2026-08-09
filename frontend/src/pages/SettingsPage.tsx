@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useAppearance } from '../context/AppearanceContext';
 import { Monitor, Moon, Sun, Eye, EyeOff, LogOut, MonitorSmartphone, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { PasswordChecklist, defaultPasswordRules } from '../components/common/PasswordChecklist';
 
 // Axios instance
 const api = axios.create({
@@ -172,8 +173,9 @@ export default function SettingsPage() {
       setError("Vui lòng nhập mật khẩu hiện tại.");
       return;
     }
-    if (security.newPassword.length < 6) {
-      setError("Mật khẩu mới phải có ít nhất 6 ký tự.");
+    const isAllRulesMet = defaultPasswordRules.every(rule => rule.test(security.newPassword));
+    if (!isAllRulesMet) {
+      setError("Mật khẩu mới chưa đáp ứng đầy đủ các yêu cầu bảo mật.");
       return;
     }
     if (security.newPassword === security.currentPassword) {

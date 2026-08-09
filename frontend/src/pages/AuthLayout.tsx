@@ -1,3 +1,5 @@
+import { TrilloLogo } from '../components/common/TrilloLogo'
+
 export function AuthLayout({
   title,
   subtitle,
@@ -14,7 +16,7 @@ export function AuthLayout({
       <aside className="auth-visual">
         <div className="auth-visual__inner">
           <div className="auth-brand">
-            <span className="auth-brand__icon">T</span>
+            <TrilloLogo className="w-8 h-8 rounded-lg shadow-xs" />
             <span>Trillo</span>
           </div>
           <h1 className="auth-hero-title">Điều hành công việc một cách chính xác và hiệu quả.</h1>

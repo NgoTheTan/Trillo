@@ -5,8 +5,6 @@ import {
     Settings,
     ChevronDown,
     Menu,
-    User,
-    KeyRound,
     HelpCircle,
     LogOut,
     CheckCheck,
@@ -25,6 +23,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '../ui/popover'
+import { TrilloLogo } from '../common/TrilloLogo'
 import { useAuth } from '../../auth/authContext'
 import {
     useNotificationsQuery,
@@ -38,14 +37,16 @@ import type {
 } from '../../services/notificationService'
 
 interface HeaderProps {
-    onToggleMobileSidebar?: () => void
+    isSidebarCollapsed?: boolean
+    onToggleSidebar?: () => void
     userName?: string
     userRole?: string
     avatarUrl?: string
 }
 
 export const Header: React.FC<HeaderProps> = ({
-    onToggleMobileSidebar,
+    isSidebarCollapsed,
+    onToggleSidebar,
     userName,
     userRole,
     avatarUrl
@@ -128,26 +129,32 @@ export const Header: React.FC<HeaderProps> = ({
     }
 
     return (
-        <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
-            {/* Left side: Menu Toggle for mobile */}
-            <div className="flex items-center gap-3">
-                {onToggleMobileSidebar && (
+        <header className="h-16 bg-white border-b border-slate-200 px-3 sm:px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+            {/* Left side: 3-bar toggle button & Logo */}
+            <div className="flex items-center gap-2 sm:gap-3">
+                {onToggleSidebar && (
                     <button
-                        onClick={onToggleMobileSidebar}
-                        className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg lg:hidden transition-colors cursor-pointer"
-                        title="Mở/đóng menu"
+                        type="button"
+                        onClick={onToggleSidebar}
+                        className="p-1.5 sm:p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                        title={isSidebarCollapsed ? "Mở rộng thanh bên" : "Thu nhỏ thanh bên"}
                     >
                         <Menu className="w-5 h-5" />
                     </button>
                 )}
+
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                    <TrilloLogo className="w-7 h-7 sm:w-8 sm:h-8 shadow-xs" />
+                    <span className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">Trillo</span>
+                </div>
             </div>
 
             {/* Right side: Notifications, Settings, Profile */}
-            <div className="flex items-center gap-3 sm:gap-4 ml-auto">
+            <div className="flex items-center gap-2 sm:gap-4 ml-auto">
                 {/* Notification Popover */}
                 <Popover>
                     <PopoverTrigger
-                        className="relative p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer outline-none"
+                        className="relative p-2 sm:p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer outline-none"
                         title="Thông báo"
                     >
                         <Bell className="w-5 h-5" />
@@ -239,17 +246,6 @@ export const Header: React.FC<HeaderProps> = ({
                     </PopoverContent>
                 </Popover>
 
-                {/* Quick Settings Icon */}
-                <button
-                    className="p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                    title="Cài đặt"
-                >
-                    <Settings className="w-5 h-5" />
-                </button>
-
-                {/* Vertical Divider */}
-                <div className="h-6 w-px bg-slate-200 my-auto" />
-
                 {/* Profile Popover */}
                 <Popover>
                     <PopoverTrigger className="flex items-center gap-3 p-1.5 pl-2 pr-3 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl transition-all cursor-pointer outline-none">
@@ -285,19 +281,12 @@ export const Header: React.FC<HeaderProps> = ({
                             <p className="text-xs text-slate-500">{displayRole}</p>
                         </div>
 
-                        <button className="w-full px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer">
-                            <User className="w-4 h-4 text-slate-400" />
-                            <span>Hồ sơ của tôi</span>
-                        </button>
-
-                        <button className="w-full px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer">
+                        <button 
+                            onClick={() => navigate('/app/settings')}
+                            className="w-full px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer"
+                        >
                             <Settings className="w-4 h-4 text-slate-400" />
                             <span>Cài đặt</span>
-                        </button>
-
-                        <button className="w-full px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer">
-                            <KeyRound className="w-4 h-4 text-slate-400" />
-                            <span>Đổi mật khẩu</span>
                         </button>
 
                         <button className="w-full px-3 py-2 text-xs sm:text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-3 transition-colors cursor-pointer">

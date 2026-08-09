@@ -1790,3 +1790,21 @@
     width: 100%;
   }
 }
+
+@media (max-width: 480px) {
+  .nav-link,
+  .ghost-button,
+  .secondary-button {
+    padding: 8px 12px;
+    font-size: 13px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+
+  .primary-button {
+    padding: 10px 14px;
+    font-size: 14px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+}

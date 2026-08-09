@@ -45,7 +45,7 @@ function matchesDashboardFilters(card: ChartCard, selectedStatus: StatusFilter, 
 }
 
 function formatDashboardDate(date: Date) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date)
+  return new Intl.DateTimeFormat('vi-VN', { month: 'short', day: 'numeric' }).format(date)
 }
 
 function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
@@ -134,19 +134,19 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
   ].join(' ')
 
   if (loading && totalCards === 0) {
-    return <div className="dashboard-breakdown-loading">Loading analytics...</div>
+    return <div className="dashboard-breakdown-loading">Đang tải biểu đồ...</div>
   }
 
   return (
     <section className="dashboard-analytics">
       <div className="dashboard-analytics__header">
         <div>
-          <p className="panel__title">Charts</p>
+          <p className="panel__title">Biểu đồ</p>
           <p className="panel__subtitle">
-            Burndown is estimated from card creation dates and current completion state for {boardTitle}.
+            Burndown được ước tính từ ngày tạo thẻ và trạng thái hoàn thành hiện tại cho {boardTitle}.
           </p>
         </div>
-        <span className="dashboard-analytics__hint">Filtered cards: {totalCards}</span>
+        <span className="dashboard-analytics__hint">Thẻ đã lọc: {totalCards}</span>
       </div>
 
       <div className="dashboard-analytics-grid">
@@ -154,9 +154,9 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
           <div className="dashboard-chart-card__header">
             <div>
               <p className="dashboard-chart-card__eyebrow">Burndown</p>
-              <h3 className="dashboard-chart-card__title">Remaining work estimate</h3>
+              <h3 className="dashboard-chart-card__title">Ước tính công việc còn lại</h3>
             </div>
-            <span className="dashboard-chart-card__badge">{pendingCards} open</span>
+            <span className="dashboard-chart-card__badge">{pendingCards} đang mở</span>
           </div>
 
           <div className="dashboard-burndown-chart">
@@ -181,21 +181,21 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
           </div>
 
           <div className="dashboard-chart-card__footnote">
-            Starts at total cards and trends toward the currently pending cards.
+            Bắt đầu từ tổng số thẻ và giảm dần theo số thẻ đang chờ.
           </div>
         </article>
 
         <article className="dashboard-chart-card">
           <div className="dashboard-chart-card__header">
             <div>
-              <p className="dashboard-chart-card__eyebrow">Workload</p>
-              <h3 className="dashboard-chart-card__title">Cards per member</h3>
+              <p className="dashboard-chart-card__eyebrow">Khối lượng công việc</p>
+              <h3 className="dashboard-chart-card__title">Thẻ theo thành viên</h3>
             </div>
             <span className="dashboard-chart-card__badge">Top {displayedMembers.length}</span>
           </div>
 
           <div className="dashboard-bar-chart">
-            {displayedMembers.length === 0 && <div className="dashboard-breakdown-row__empty">No member workload data.</div>}
+            {displayedMembers.length === 0 && <div className="dashboard-breakdown-row__empty">Không có dữ liệu khối lượng công việc.</div>}
             {displayedMembers.map(item => {
               const width = Math.round((item.count / maxMemberWorkload) * 100)
               return (
@@ -208,7 +208,7 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
                     )}
                     <div>
                       <p>{item.member.user.fullName}</p>
-                      <span>{item.count} cards</span>
+                      <span>{item.count} thẻ</span>
                     </div>
                   </div>
                   <div className="dashboard-bar-chart__track">
@@ -223,10 +223,10 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
         <article className="dashboard-chart-card">
           <div className="dashboard-chart-card__header">
             <div>
-              <p className="dashboard-chart-card__eyebrow">Status</p>
-              <h3 className="dashboard-chart-card__title">Card distribution</h3>
+              <p className="dashboard-chart-card__eyebrow">Trạng thái</p>
+              <h3 className="dashboard-chart-card__title">Phân bố thẻ</h3>
             </div>
-            <span className="dashboard-chart-card__badge">{donePercent}% done</span>
+            <span className="dashboard-chart-card__badge">{donePercent}% hoàn thành</span>
           </div>
 
           <div className="dashboard-donut-chart">
@@ -236,12 +236,12 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
             >
               <div className="dashboard-donut-chart__center">
                 <span>{totalCards}</span>
-                <small>cards</small>
+                <small>thẻ</small>
               </div>
             </div>
             <div className="dashboard-donut-chart__legend">
-              <span><i className="is-done" /> Done {doneCards}</span>
-              <span><i className="is-pending" /> Pending {pendingCards}</span>
+              <span><i className="is-done" /> Hoàn thành {doneCards}</span>
+              <span><i className="is-pending" /> Đang chờ {pendingCards}</span>
             </div>
           </div>
         </article>
@@ -281,31 +281,31 @@ function DashboardListBreakdownRow(props: DashboardListBreakdownRowProps) {
         <div>
           <p className="dashboard-breakdown-row__title">{list.title}</p>
           <p className="dashboard-breakdown-row__subtitle">
-            {cards.length} cards total · {doneCount} done · {pendingCount} pending
+            {cards.length} thẻ • {doneCount} hoàn thành • {pendingCount} đang chờ
           </p>
         </div>
-        <span className="dashboard-breakdown-row__badge">{filteredCards.length} matches</span>
+        <span className="dashboard-breakdown-row__badge">{filteredCards.length} kết quả</span>
       </div>
 
       <div className="dashboard-breakdown-row__metrics">
-        <span>All cards: {cards.length}</span>
-        <span>Done: {doneCount}</span>
-        <span>Pending: {pendingCount}</span>
+        <span>Tất cả: {cards.length}</span>
+        <span>Hoàn thành: {doneCount}</span>
+        <span>Đang chờ: {pendingCount}</span>
       </div>
 
       <div className="dashboard-breakdown-row__cards">
-        {isLoading && <span className="dashboard-breakdown-row__loading">Loading cards...</span>}
+        {isLoading && <span className="dashboard-breakdown-row__loading">Đang tải thẻ...</span>}
         {!isLoading && filteredCards.length === 0 && (
-          <div className="dashboard-breakdown-row__empty">No cards match the selected filters.</div>
+          <div className="dashboard-breakdown-row__empty">Không có thẻ nào khớp với bộ lọc đã chọn.</div>
         )}
         {!isLoading && filteredCards.slice(0, 4).map(card => (
           <div key={card.id} className="dashboard-card-mini">
             <div className="dashboard-card-mini__top">
               <span className={`dashboard-card-mini__status ${card.completed ? 'is-done' : 'is-pending'}`}>
-                {card.completed ? 'Done' : 'Pending'}
+                {card.completed ? 'Hoàn thành' : 'Đang chờ'}
               </span>
               <span className="dashboard-card-mini__deadline">
-                {card.deadline ? new Date(card.deadline).toLocaleDateString() : 'No deadline'}
+                {card.deadline ? new Date(card.deadline).toLocaleDateString('vi-VN') : 'Không có hạn'}
               </span>
             </div>
             <p className="dashboard-card-mini__title">{card.title}</p>
@@ -359,11 +359,11 @@ export function DashboardPage({
   const busiestBoard = boards[0]
   const maxCards = Math.max(1, ...boards.map(board => board.cardCount ?? 0))
   const selectedBoard = selectedBoardId || boards[0]?.id || ''
-  let selectedStatusLabel = 'All'
+  let selectedStatusLabel = 'Tất cả'
   if (selectedStatus === 'done') {
-    selectedStatusLabel = 'Done'
+    selectedStatusLabel = 'Hoàn thành'
   } else if (selectedStatus === 'pending') {
-    selectedStatusLabel = 'Pending'
+    selectedStatusLabel = 'Đang chờ'
   }
   const boardDetailQuery = useBoardDetailQuery(selectedBoard || undefined)
   const boardDetail = boardDetailQuery.data
@@ -386,22 +386,22 @@ export function DashboardPage({
 
   const variantCopy = {
     overview: {
-      eyebrow: 'Workspace overview',
-      title: 'Your boards at a glance',
-      subtitle: 'Track board load, members, and cards in one Trello-style control room.',
-      action: 'Open boards',
+      eyebrow: 'Tổng quan không gian làm việc',
+      title: 'Bảng công việc của bạn',
+      subtitle: 'Theo dõi tải lượng bảng, thành viên và các thẻ trong một trang.',
+      action: 'Xem bảng công việc',
     },
     pm: {
-      eyebrow: 'PM control center',
-      title: 'Ownership and workload overview',
-      subtitle: 'See which boards need attention, where members are spread, and how cards are distributed.',
-      action: 'Review boards',
+      eyebrow: 'Trung tâm PM',
+      title: 'Tổng quan quyền sở hữu và khối lượng',
+      subtitle: 'Xem bảng nào cần chú ý, thành viên phân bố ở đâu và cách các thẻ được phân phối.',
+      action: 'Xem xét bảng',
     },
     team: {
-      eyebrow: 'Team workspace',
-      title: 'Team capacity snapshot',
-      subtitle: 'Understand board size, collaboration density, and where work is concentrated.',
-      action: 'Jump to boards',
+      eyebrow: 'Không gian làm việc nhóm',
+      title: 'Snapshot năng lực nhóm',
+      subtitle: 'Hiểu kích thước bảng, mật độ cộng tác và nơi công việc tập trung.',
+      action: 'Chuyển đến bảng',
     },
   }[variant]
 
@@ -415,7 +415,7 @@ export function DashboardPage({
     return (
       <section className="panel dashboard-page" style={{ marginTop: '24px' }}>
         <div className="dashboard-hero dashboard-hero--loading">
-          <p className="dashboard-eyebrow">Loading boards</p>
+          <p className="dashboard-eyebrow">Đang tải bảng...</p>
           <div className="dashboard-loading-line dashboard-loading-line--title" />
           <div className="dashboard-loading-line dashboard-loading-line--copy" />
         </div>
@@ -428,18 +428,18 @@ export function DashboardPage({
       <section className="panel dashboard-page" style={{ marginTop: '24px' }}>
         <div className="dashboard-empty-state">
           <div>
-            <p className="dashboard-eyebrow">Dashboard unavailable</p>
-            <h2 className="dashboard-empty-state__title">We could not load your boards.</h2>
+            <p className="dashboard-eyebrow">Không thể tải bảng điều khiển</p>
+            <h2 className="dashboard-empty-state__title">Không thể tải bảng công việc.</h2>
             <p className="dashboard-empty-state__copy">
-              Refresh the page or try again from the boards screen.
+              Hãy làm mới trang hoặc thử lại từ màn hình bảng.
             </p>
           </div>
           <div className="dashboard-hero__actions">
             <button type="button" className="secondary-button" onClick={() => boardsQuery.refetch()}>
-              Retry <ArrowRight size={16} />
+              Thử lại <ArrowRight size={16} />
             </button>
             <button type="button" className="secondary-button" onClick={handleNavigateToBoards}>
-              Open boards <ChevronRight size={16} />
+              Xem bảng <ChevronRight size={16} />
             </button>
           </div>
         </div>
@@ -452,14 +452,14 @@ export function DashboardPage({
       <section className="panel dashboard-page" style={{ marginTop: '24px' }}>
         <div className="dashboard-empty-state">
           <div>
-            <p className="dashboard-eyebrow">No boards yet</p>
-            <h2 className="dashboard-empty-state__title">Create your first board to unlock the dashboard.</h2>
+            <p className="dashboard-eyebrow">Chưa có bảng nào</p>
+            <h2 className="dashboard-empty-state__title">Tạo bảng đầu tiên để mở khoá bảng điều khiển.</h2>
             <p className="dashboard-empty-state__copy">
-              Once boards exist, this page will show total boards, member counts, card counts, and board load.
+              Khi có bảng, trang này sẽ hiển thị tổng số bảng, thành viên, thẻ và tải lượng bảng.
             </p>
           </div>
           <button type="button" className="secondary-button" onClick={handleNavigateToBoards}>
-            Go to boards <ArrowRight size={16} />
+            Đi đến bảng công việc <ArrowRight size={16} />
           </button>
         </div>
       </section>
@@ -476,7 +476,7 @@ export function DashboardPage({
               <h1 className="dashboard-title">{variantCopy.title}</h1>
               <p className="dashboard-subtitle">
                 {variant === 'overview'
-                  ? 'Signed-in users land here first, so this screen should answer the two fastest questions: how many boards exist, and where is the workload concentrated?'
+                  ? 'Người dùng đăng nhập lần đầu sẽ thấy trang này, giúp trả lời nhanh: có bao nhiêu bảng và khối lượng công việc ở đâu?'
                   : variantCopy.subtitle}
               </p>
             </div>
@@ -488,38 +488,38 @@ export function DashboardPage({
           <div className="dashboard-hero__meta">
             <span className="dashboard-chip">
               <LayoutGrid size={14} />
-              {formatCount(totalBoards)} boards
+              {formatCount(totalBoards)} bảng
             </span>
             <span className="dashboard-chip dashboard-chip--soft">
               <Users2 size={14} />
-              {formatCount(totalMembers)} members
+              {formatCount(totalMembers)} thành viên
             </span>
             <span className="dashboard-chip dashboard-chip--soft">
               <CheckSquare2 size={14} />
-              {formatCount(totalCards)} cards
+              {formatCount(totalCards)} thẻ
             </span>
           </div>
         </div>
 
         <div className="dashboard-hero__insight">
-          <p className="dashboard-insight__label">Most active board</p>
+          <p className="dashboard-insight__label">Bảng hoạt động nhất</p>
           <h2 className="dashboard-insight__title">
-            {busiestBoard?.title ?? 'No board yet'}
+            {busiestBoard?.title ?? 'Chưa có bảng'}
           </h2>
           <p className="dashboard-insight__copy">
             {busiestBoard
-              ? `${formatCount(busiestBoard.cardCount ?? 0)} cards, ${formatCount(busiestBoard.memberCount ?? 0)} members`
-              : 'Create boards to see your busiest one here.'}
+              ? `${formatCount(busiestBoard.cardCount ?? 0)} thẻ, ${formatCount(busiestBoard.memberCount ?? 0)} thành viên`
+              : 'Tạo bảng để xem bảng bận rộn nhất tại đây.'}
           </p>
 
           <div className="dashboard-insight__stats">
             <div>
               <span className="dashboard-insight__value">{formatCount(totalBoards)}</span>
-              <span className="dashboard-insight__text">Boards tracked</span>
+              <span className="dashboard-insight__text">Bảng đang theo dõi</span>
             </div>
             <div>
               <span className="dashboard-insight__value">{averageCardsPerBoard.toFixed(1)}</span>
-              <span className="dashboard-insight__text">Cards / board</span>
+              <span className="dashboard-insight__text">Thẻ / bảng</span>
             </div>
           </div>
         </div>
@@ -531,38 +531,38 @@ export function DashboardPage({
             <LayoutGrid size={18} />
           </div>
           <p className="stat-card__value">{formatCount(totalBoards)}</p>
-          <p className="stat-card__label">Total boards</p>
+          <p className="stat-card__label">Tổng số bảng</p>
         </article>
         <article className="stat-card dashboard-stat-card">
           <div className="dashboard-stat-card__icon dashboard-stat-card__icon--cyan">
             <Users2 size={18} />
           </div>
           <p className="stat-card__value">{formatCount(totalMembers)}</p>
-          <p className="stat-card__label">Total members across boards</p>
+          <p className="stat-card__label">Tổng số thành viên</p>
         </article>
         <article className="stat-card dashboard-stat-card">
           <div className="dashboard-stat-card__icon dashboard-stat-card__icon--emerald">
             <CheckSquare2 size={18} />
           </div>
           <p className="stat-card__value">{formatCount(totalCards)}</p>
-          <p className="stat-card__label">Total cards</p>
+          <p className="stat-card__label">Tổng số thẻ</p>
         </article>
         <article className="stat-card dashboard-stat-card">
           <div className="dashboard-stat-card__icon dashboard-stat-card__icon--amber">
             <BarChart3 size={18} />
           </div>
           <p className="stat-card__value">{averageCardsPerBoard.toFixed(1)}</p>
-          <p className="stat-card__label">Average cards per board</p>
+          <p className="stat-card__label">Trung bình thẻ mỗi bảng</p>
         </article>
       </div>
 
       <div className="dashboard-section-head">
         <div>
-          <p className="panel__title">Boards at a glance</p>
-          <p className="panel__subtitle">Each card below shows the board size, member count, and relative workload.</p>
+          <p className="panel__title">Các bảng công việc</p>
+          <p className="panel__subtitle">Mỗi thẻ bên dưới hiển thị kích thước bảng, số thành viên và tải lượng tương đối.</p>
         </div>
         <button type="button" className="secondary-button" onClick={handleNavigateToBoards}>
-          Manage boards <ArrowRight size={16} />
+          Quản lý bảng <ArrowRight size={16} />
         </button>
       </div>
 
@@ -592,7 +592,7 @@ export function DashboardPage({
                   <div>
                     <h3 className="dashboard-board-card__title">{board.title}</h3>
                     <p className="dashboard-board-card__subtitle">
-                      {board.description || 'No description yet. Add a short purpose statement for this board.'}
+                      {board.description || 'Chưa có mô tả. Hãy thêm mô tả ngắn gọn cho bảng này.'}
                     </p>
                   </div>
                   <span className="dashboard-board-card__badge">{board.visibility || 'PUBLIC'}</span>
@@ -601,21 +601,21 @@ export function DashboardPage({
                 <div className="dashboard-board-card__stats">
                   <div>
                     <span className="dashboard-board-card__value">{formatCount(boardMembers)}</span>
-                    <span className="dashboard-board-card__label">Members</span>
+                    <span className="dashboard-board-card__label">Thành viên</span>
                   </div>
                   <div>
                     <span className="dashboard-board-card__value">{formatCount(boardCards)}</span>
-                    <span className="dashboard-board-card__label">Cards</span>
+                    <span className="dashboard-board-card__label">Thẻ</span>
                   </div>
                   <div>
                     <span className="dashboard-board-card__value">{membersPerCard}</span>
-                    <span className="dashboard-board-card__label">Members / card</span>
+                    <span className="dashboard-board-card__label">TV / thẻ</span>
                   </div>
                 </div>
 
                 <div className="dashboard-board-card__progress">
                   <div className="dashboard-board-card__progress-head">
-                    <span>Board load</span>
+                    <span>Tải lượng</span>
                     <span>{boardLoad}%</span>
                   </div>
                   <div className="dashboard-board-card__bar">
@@ -636,12 +636,12 @@ export function DashboardPage({
       <div className="dashboard-explorer" style={{ marginTop: '24px' }}>
         <div className="dashboard-section-head dashboard-section-head--compact">
           <div>
-            <p className="panel__title">Statistics explorer</p>
-            <p className="panel__subtitle">Filter a board by status and member, then inspect the matching cards list.</p>
+            <p className="panel__title">Khám phá thống kê</p>
+            <p className="panel__subtitle">Lọc bảng theo trạng thái và thành viên, sau đó xem danh sách thẻ phù hợp.</p>
           </div>
 
           <label className="dashboard-board-picker">
-            <span>Board</span>
+            <span>Bảng</span>
             <div className="dashboard-board-picker__select-wrap">
               <select
                 value={selectedBoard}
@@ -658,18 +658,18 @@ export function DashboardPage({
         </div>
 
         {boardDetailQuery.isLoading && (
-          <div className="dashboard-breakdown-loading">Loading board statistics...</div>
+          <div className="dashboard-breakdown-loading">Đang tải thống kê bảng...</div>
         )}
 
         {boardDetail && !boardDetailQuery.isLoading && (
           <div className="dashboard-explorer__panel">
             <div className="dashboard-filter-bar">
               <div className="dashboard-filter-group">
-                <span className="dashboard-filter-group__label">Status</span>
+                <span className="dashboard-filter-group__label">Trạng thái</span>
                 {([
-                  { id: 'all', label: 'All' },
-                  { id: 'done', label: 'Done' },
-                  { id: 'pending', label: 'Pending' },
+                  { id: 'all', label: 'Tất cả' },
+                  { id: 'done', label: 'Hoàn thành' },
+                  { id: 'pending', label: 'Đang chờ' },
                 ] as const).map(filter => (
                   <button
                     key={filter.id}
@@ -683,7 +683,7 @@ export function DashboardPage({
               </div>
 
               <div className="dashboard-filter-group dashboard-filter-group--members">
-                <span className="dashboard-filter-group__label">Members</span>
+                <span className="dashboard-filter-group__label">Thành viên</span>
                 <div className="dashboard-member-filter-row">
                   {boardDetail.members.map((member: BoardMember) => {
                     const isSelected = selectedMemberIds.includes(member.user.id)
@@ -711,7 +711,7 @@ export function DashboardPage({
                   })}
                   {selectedMemberIds.length > 0 && (
                     <button type="button" className="dashboard-clear-pill" onClick={() => setSelectedMemberIds([])}>
-                      Clear members
+                      Xóa thành viên
                     </button>
                   )}
                 </div>
@@ -729,15 +729,15 @@ export function DashboardPage({
             <div className="dashboard-breakdown-summary">
               <div>
                 <span className="dashboard-breakdown-summary__value">{boardDetail.lists.length}</span>
-                <span className="dashboard-breakdown-summary__label">Lists</span>
+                <span className="dashboard-breakdown-summary__label">Danh sách</span>
               </div>
               <div>
                 <span className="dashboard-breakdown-summary__value">{boardDetail.members.length}</span>
-                <span className="dashboard-breakdown-summary__label">Members</span>
+                <span className="dashboard-breakdown-summary__label">Thành viên</span>
               </div>
               <div>
                 <span className="dashboard-breakdown-summary__value">{selectedStatusLabel}</span>
-                <span className="dashboard-breakdown-summary__label">Status filter</span>
+                <span className="dashboard-breakdown-summary__label">Bộ lọc</span>
               </div>
             </div>
 
@@ -755,22 +755,22 @@ export function DashboardPage({
         )}
 
         {!boardDetailQuery.isLoading && !boardDetail && (
-          <div className="dashboard-breakdown-loading">Select a board to inspect its list statistics.</div>
+          <div className="dashboard-breakdown-loading">Chọn một bảng để xem thống kê danh sách.</div>
         )}
       </div>
 
       <div className="task-list dashboard-note-list" style={{ marginTop: '24px' }}>
         <div className="task-item">
           <div>
-            <p className="task-item__title">Counts are pulled from board summary data</p>
-            <p className="task-item__meta">The dashboard reuses existing member and card counts from the boards API.</p>
+            <p className="task-item__title">Số liệu lấy từ dữ liệu tổng quan bảng</p>
+            <p className="task-item__meta">Trang tổng quan sử dụng lại số lượng thành viên và thẻ từ API bảng.</p>
           </div>
           <CircleDot size={18} />
         </div>
         <div className="task-item">
           <div>
-            <p className="task-item__title">Workload sorted by card volume</p>
-            <p className="task-item__meta">The busiest board appears first so the heaviest board is visible immediately.</p>
+            <p className="task-item__title">Khối lượng sắp xếp theo số lượng thẻ</p>
+            <p className="task-item__meta">Bảng bận rộn nhất xuất hiện đầu tiên để dễ dàng nhìn thấy ngay.</p>
           </div>
           <Rocket size={18} />
         </div>

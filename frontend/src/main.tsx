@@ -10,6 +10,11 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 30_000,      // Data stays fresh for 30 seconds
+      gcTime: 5 * 60_000,     // Keep unused data in cache for 5 minutes
+    },
+    mutations: {
+      retry: false,
     },
   },
 })

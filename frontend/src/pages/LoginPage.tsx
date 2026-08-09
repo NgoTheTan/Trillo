@@ -9,8 +9,8 @@ import { useAuth } from '../auth/authContext'
 import { AuthLayout } from './AuthLayout'
 
 const loginSchema = z.object({
-  email: z.string().trim().min(1, 'Email is required').email('Email is invalid'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().trim().min(1, 'Email là bắt buộc').email('Email không hợp lệ'),
+  password: z.string().min(1, 'Mật khẩu là bắt buộc'),
 })
 
 type LoginFormValues = z.infer<typeof loginSchema>
@@ -43,12 +43,12 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Welcome back"
-      subtitle="Sign in to continue managing your projects inside Trillo."
+      title="Chào mừng trở lại"
+      subtitle="Đăng nhập để tiếp tục quản lý dự án của bạn trong Trillo."
     >
       <form className="auth-form" onSubmit={onSubmit} noValidate>
         <label className="field">
-          <span>Email Address</span>
+          <span>Email</span>
           <div className="input-wrap">
             <Mail className="input-icon" size={18} />
             <input
@@ -63,22 +63,22 @@ export function LoginPage() {
 
         <div className="stack">
           <div className="field-row">
-            <label>Password</label>
-            <Link to="/register">Create an account</Link>
+            <label>Mật khẩu</label>
+            <Link to="/register">Tạo tài khoản</Link>
           </div>
           <div className="input-wrap">
             <Lock className="input-icon" size={18} />
             <input
               className={`input${errors.password ? ' input--error' : ''}`}
               type={showPassword ? 'text' : 'password'}
-              placeholder="Enter your password"
+              placeholder="Nhập mật khẩu"
               {...register('password')}
             />
             <button
               type="button"
               className="input-action"
               onClick={() => setShowPassword((currentValue) => !currentValue)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -87,7 +87,7 @@ export function LoginPage() {
         </div>
 
         <button type="submit" className="primary-button" disabled={isSubmitting}>
-          {isSubmitting ? 'Signing in...' : 'Sign In'}
+          {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
       </form>
     </AuthLayout>

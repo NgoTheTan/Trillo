@@ -43,9 +43,9 @@ export interface MemberItem {
 }
 
 const PRIORITY_OPTIONS: PriorityOption[] = [
-  { label: 'High', value: 'HIGH', colorClass: 'bg-red-500' },
-  { label: 'Medium', value: 'MEDIUM', colorClass: 'bg-amber-500' },
-  { label: 'Low', value: 'LOW', colorClass: 'bg-emerald-500' },
+  { label: 'Cao', value: 'HIGH', colorClass: 'bg-red-500' },
+  { label: 'Trung bình', value: 'MEDIUM', colorClass: 'bg-amber-500' },
+  { label: 'Thấp', value: 'LOW', colorClass: 'bg-emerald-500' },
 ]
 
 const COLOR_SCHEMES = [
@@ -209,7 +209,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     if (!open || !card?.id || !isInitializedRef.current) return
 
     if (!title.trim()) {
-      setTitleError('Title cannot be empty. Will revert to original title on blur.')
+      setTitleError('Tên thẻ không được để trống.')
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
       return
     } else {
@@ -420,7 +420,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
           <DialogTitle className="text-left font-normal">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-slate-800 tracking-tight">Add / Edit Task</h2>
+                <h2 className="text-xl font-bold text-slate-800 tracking-tight">Chi tiết thẻ</h2>
                 <button
                   type="button"
                   onClick={handleToggleComplete}
@@ -435,7 +435,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                   >
                     {completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                   </div>
-                  <span>{completed ? 'Completed' : 'Mark Completed'}</span>
+                  <span>{completed ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}</span>
                 </button>
               </div>
 
@@ -452,7 +452,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
         <div className="py-4 space-y-5">
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-700">
-              Title <span className="text-red-500">*</span>
+              Tên thẻ <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -467,7 +467,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                   setTitleError('')
                 }
               }}
-              placeholder="Enter task title..."
+              placeholder="Nhập tên thẻ..."
               className={`w-full px-4 py-2.5 text-sm font-medium text-slate-800 bg-slate-50/50 border rounded-lg outline-none focus:bg-white transition-all ${titleError
                 ? 'border-red-500 ring-2 ring-red-500/10'
                 : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10'
@@ -479,12 +479,12 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">Description</label>
+            <label className="block text-xs font-semibold text-slate-700">Mô tả</label>
             <textarea
               rows={3}
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Enter detailed description..."
+              placeholder="Nhập mô tả chi tiết..."
               className="w-full px-4 py-3 text-sm text-slate-800 bg-slate-50/50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none"
             />
           </div>
@@ -492,7 +492,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-slate-700">
-                Deadline & Time
+                Hạn chót &amp; Thời gian
               </label>
               <DateTimeInput
               className='w-full h-[37.8px]'
@@ -513,14 +513,14 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
               )}
               {deadline && !completed && new Date(deadline).getTime() < Date.now() && (
                 <p className="text-xs text-red-500 font-semibold mt-1 flex items-center gap-1">
-                  Overdue
+                  Quá hạn
                 </p>
               )}
             </div>
 
             <div className="space-y-1.5 relative">
               <label className="block text-xs font-semibold text-slate-700">
-                Priority
+                Độ ưu tiên
               </label>
               <button
                 type="button"
@@ -557,7 +557,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5 relative">
-              <label className="block text-xs font-semibold text-slate-700">Labels</label>
+              <label className="block text-xs font-semibold text-slate-700">Nhãn</label>
               <div className="flex items-center gap-1.5">
                 <div
                   onClick={toggleLabelMenuOpen}
@@ -585,7 +585,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                       </span>
                     ))}
                     {selectedLabels.length === 0 && (
-                      <span className="text-xs text-slate-400">Select or create labels...</span>
+                      <span className="text-xs text-slate-400">Chọn hoặc tạo nhãn...</span>
                     )}
                   </div>
 
@@ -597,7 +597,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                 <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-30 p-3 space-y-3">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                     <span className="text-xs font-bold text-slate-700">
-                      {editingLabelId ? 'Edit Label' : 'Add / Select Labels'}
+                      {editingLabelId ? 'Chỉnh sửa nhãn' : 'Thêm / Chọn nhãn'}
                     </span>
                     <button
                       type="button"
@@ -614,7 +614,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                         type="text"
                         value={newLabelText}
                         onChange={e => setNewLabelText(e.target.value)}
-                        placeholder="Enter label name..."
+                        placeholder="Nhập tên nhãn..."
                         className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500"
                       />
                       <button
@@ -622,12 +622,12 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                         onClick={handleCreateOrUpdateLabel}
                         className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 cursor-pointer"
                       >
-                        {editingLabelId ? 'Save' : 'Create'}
+                        {editingLabelId ? 'Lưu' : 'Tạo'}
                       </button>
                     </div>
 
                     <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                      <span className="text-[11px] text-slate-400 font-medium">Color:</span>
+                      <span className="text-[11px] text-slate-400 font-medium">Màu sắc:</span>
                       {COLOR_SCHEMES.map(scheme => (
                         <button
                           key={scheme}
@@ -644,7 +644,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                       {(() => {
                         const isPreset = COLOR_SCHEMES.includes(selectedColor)
                         return (
-                          <div className="relative flex items-center" title="Custom color picker">
+                          <div className="relative flex items-center" title="Chọn màu tùy chỉnh">
                             <label
                               className={`w-5 h-5 rounded-full border border-slate-200 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden ${!isPreset
                                 ? 'ring-2 ring-offset-1 ring-blue-600 scale-110'
@@ -672,7 +672,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                   </div>
 
                   <div className="space-y-1 max-h-36 overflow-y-auto pt-1 border-t border-slate-100">
-                    <span className="text-[11px] font-semibold text-slate-400">Available Labels:</span>
+                    <span className="text-[11px] font-semibold text-slate-400">Nhãn hiện có:</span>
                     {boardLabelsData?.map(lbl => {
                       const isSelected = selectedLabels.some(l => l.id === lbl.id)
                       return (
@@ -694,7 +694,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                               type="button"
                               onClick={(e) => handleStartEditLabel(lbl, e)}
                               className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors cursor-pointer"
-                              title="Edit label name"
+                              title="Sửa tên nhãn"
                             >
                               <Edit2 className="w-3 h-3" />
                             </button>
@@ -702,7 +702,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                               type="button"
                               onClick={(e) => onRequestDeleteLabel(lbl, e)}
                               className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors cursor-pointer"
-                              title="Delete label"
+                              title="Xóa nhãn"
                             >
                               <Trash className="w-3 h-3" />
                             </button>
@@ -717,7 +717,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
             <div className="space-y-1.5 relative">
               <label className="block text-xs font-semibold text-slate-700">
-                Assignees
+                Người thực hiện
               </label>
               <div
                 onClick={toggleMemberPopupOpen}
@@ -750,7 +750,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                     </span>
                   ))}
                   {selectedMembers.length === 0 && (
-                    <span className="text-xs text-slate-400">Select members...</span>
+                    <span className="text-xs text-slate-400">Chọn thành viên...</span>
                   )}
                 </div>
 
@@ -760,7 +760,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
               {isMemberPopupOpen && (
                 <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-30 p-3 space-y-3">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="text-xs font-bold text-slate-700">Select Assignees</span>
+                    <span className="text-xs font-bold text-slate-700">Chọn người thực hiện</span>
                     <button
                       type="button"
                       onClick={() => setIsMemberPopupOpen(false)}
@@ -776,7 +776,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                       type="text"
                       value={memberSearchQuery}
                       onChange={e => setMemberSearchQuery(e.target.value)}
-                      placeholder="Search by name or email..."
+                      placeholder="Tìm theo tên hoặc email..."
                       className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>
@@ -818,7 +818,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                       )
                     })}
                     {filteredMembers.length === 0 && (
-                      <p className="text-xs text-slate-400 text-center py-2">No members found</p>
+                      <p className="text-xs text-slate-400 text-center py-2">Không tìm thấy thành viên</p>
                     )}
                   </div>
                 </div>
@@ -832,22 +832,22 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
               {autoSaveStatus === 'saving' && (
                 <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full text-xs font-semibold">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Auto-saving</span>
+                  <span>Đang tự động lưu</span>
                 </div>
               )}
               {autoSaveStatus === 'saved' && (
                 <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full text-xs font-semibold">
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>Saved</span>
+                  <span>Đã lưu</span>
                 </div>
               )}
               {autoSaveStatus === 'error' && (
                 <div className="text-red-500 bg-red-50 px-3 py-1.5 rounded-full text-xs font-semibold">
-                  Failed to auto-save
+                  Tự động lưu thất bại
                 </div>
               )}
               {autoSaveStatus === 'idle' && (
-                <span className="text-xs text-slate-400 font-medium px-1">Auto-saves on change</span>
+                <span className="text-xs text-slate-400 font-medium px-1">Tự động lưu khi thay đổi</span>
               )}
             </div>
           </div>
@@ -861,8 +861,8 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
           open={!!labelToDelete}
           onOpenChange={() => setLabelToDelete(null)}
           onConfirm={handleConfirmDeleteLabel}
-          title="Delete Label"
-          description={`Are you sure you want to delete label \`${labelToDelete.name}\`?`}
+          title="Xóa nhãn"
+          description={`Bạn có chắc chắn muốn xóa nhãn \`${labelToDelete.name}\`?`}
         />
       }
     </Dialog>

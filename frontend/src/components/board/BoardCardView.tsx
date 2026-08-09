@@ -58,8 +58,8 @@ export const BoardCardView: React.FC<BoardCardViewProps> = ({
             </div>
 
             <div className="flex items-center justify-between text-xs font-medium text-white/90">
-              <span>{board.memberCount ?? 1} Members</span>
-              <span>{board.cardCount ?? 0} Cards</span>
+              <span>{board.memberCount ?? 1} Thành viên</span>
+              <span>{board.cardCount ?? 0} Thẻ</span>
             </div>
           </div>
         )
@@ -71,7 +71,7 @@ export const BoardCardView: React.FC<BoardCardViewProps> = ({
       >
         <div className="flex items-center gap-2">
           <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span>Create new board</span>
+          <span>Tạo bảng mới</span>
         </div>
       </button>
     </div>

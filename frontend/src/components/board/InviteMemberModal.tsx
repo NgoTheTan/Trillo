@@ -122,9 +122,9 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
         <DialogHeader>
           <div className="flex items-start justify-between pb-4 border-b border-slate-100 sticky top-0 bg-white z-20">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Invite Members to Project</h2>
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Mời thành viên vào dự án</h2>
               <p className="text-xs text-slate-500 mt-1">
-                Invite members to join project <span className="font-semibold text-slate-700">{projectName}</span>
+                Mời thành viên tham gia dự án <span className="font-semibold text-slate-700">{projectName}</span>
               </p>
             </div>
             <button
@@ -139,7 +139,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
         {/* Invite Input Section */}
         <form onSubmit={handleInvite} className="py-5 space-y-2 border-b border-slate-100">
           <label className="block text-xs font-semibold text-slate-700">
-            Email or username
+            Email hoặc tên người dùng
           </label>
           <div className="flex items-center gap-2.5">
             {/* Input Email / Username */}
@@ -147,7 +147,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               type="text"
               value={emailOrUser}
               onChange={e => setEmailOrUser(e.target.value)}
-              placeholder="Enter email or username..."
+              placeholder="Nhập email hoặc tên người dùng..."
               disabled={isSubmitting}
               className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-800 bg-slate-50/50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all disabled:opacity-50"
             />
@@ -161,10 +161,10 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Inviting...</span>
+                  <span>Đang mời...</span>
                 </>
               ) : (
-                <span>Invite</span>
+                <span>Mời</span>
               )}
             </button>
           </div>
@@ -173,12 +173,12 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
         {/* Invited Members Section */}
         <div className="py-5 space-y-3">
           <h3 className="text-xs font-bold text-slate-800 tracking-wide uppercase">
-            Invited Members ({members.length})
+            Thành viên đã mời ({members.length})
           </h3>
 
           {members.length === 0 ? (
             <div className="p-8 text-center border border-dashed border-slate-200 rounded-2xl text-xs text-slate-400 font-medium">
-              No members invited yet. Enter an email above to send an invitation.
+              Chưa có thành viên nào được mời. Nhập email ở trên để gửi lời mời.
             </div>
           ) : (
             <div className="border border-slate-200/80 rounded-2xl divide-y divide-slate-100 bg-white">
@@ -201,7 +201,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                           </span>
                           {member.isYou && (
                             <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold">
-                              You
+                              Bạn
                             </span>
                           )}
                         </div>
@@ -216,11 +216,11 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                         {isOwner ? (
                           <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200/80 rounded-full text-xs font-bold uppercase tracking-wider">
                             <Shield className="w-3 h-3 text-purple-600" />
-                            Owner
+                            Chủ sở hữu
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold uppercase tracking-wider">
-                            Member
+                            Thành viên
                           </span>
                         )}
                       </div>
@@ -228,13 +228,13 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                       {/* Status Badge */}
                       <div className="w-20 text-right">
                         {member.status === 'joined' && (
-                          <span className="text-xs font-semibold text-emerald-600">Joined</span>
+                          <span className="text-xs font-semibold text-emerald-600">Đã tham gia</span>
                         )}
                         {member.status === 'pending' && (
-                          <span className="text-xs font-semibold text-amber-600">Pending</span>
+                          <span className="text-xs font-semibold text-amber-600">Đang chờ</span>
                         )}
                         {member.status === 'unsent' && (
-                          <span className="text-xs font-semibold text-slate-400">Unsent</span>
+                          <span className="text-xs font-semibold text-slate-400">Chưa gửi</span>
                         )}
                       </div>
 
@@ -249,7 +249,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                                 onClick={() => setConfirmRemoveId(null)}
                                 className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
                               >
-                                Cancel
+                                Hủy
                               </button>
                               <button
                                 type="button"
@@ -257,7 +257,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                                 disabled={removeMemberMutation.isPending}
                                 className="px-2.5 py-1 text-[11px] font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                               >
-                                {removeMemberMutation.isPending ? 'Removing…' : 'Remove'}
+                                {removeMemberMutation.isPending ? 'Đang xóa…' : 'Xóa'}
                               </button>
                             </div>
                           ) : (
@@ -265,7 +265,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                               type="button"
                               onClick={() => setConfirmRemoveId(member.id)}
                               className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-                              title="Remove member"
+                              title="Xóa thành viên"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -283,9 +283,9 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
         {/* Share Link Footer Section */}
         <div className="flex items-center justify-between pt-4 border-t border-slate-100">
           <div>
-            <h4 className="text-xs font-bold text-slate-800">Share with link</h4>
+            <h4 className="text-xs font-bold text-slate-800">Chia sẻ bằng liên kết</h4>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Anyone with this link can request to join the project.
+              Bất kỳ ai có liên kết này đều có thể yêu cầu tham gia dự án.
             </p>
           </div>
 
@@ -297,12 +297,12 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
             {copiedLink ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-600">Copied!</span>
+                <span className="text-emerald-600">Đã sao chép!</span>
               </>
             ) : (
               <>
                 <LinkIcon className="w-3.5 h-3.5" />
-                <span>Copy Link</span>
+                <span>Sao chép liên kết</span>
               </>
             )}
           </button>
@@ -315,7 +315,7 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
             onClick={() => onOpenChange(false)}
             className="px-6 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
           >
-            Close
+            Đóng
           </button>
         </div>
       </DialogContent>

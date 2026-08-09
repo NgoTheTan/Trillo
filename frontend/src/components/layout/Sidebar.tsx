@@ -20,12 +20,12 @@ export interface NavItem {
 }
 
 const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/app' },
-    { id: 'boards', label: 'Boards', icon: Columns3, href: '/app/boards' },
-    { id: 'members', label: 'Members', icon: Users, href: '/app/team' },
-    { id: 'schedule', label: 'Schedule', icon: Calendar, href: '/app/schedule' },
-    { id: 'reports', label: 'Reports', icon: BarChart3, href: '/app/reports' },
-    { id: 'settings', label: 'Settings', icon: Settings, href: '/app/settings' },
+    { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard, href: '/app' },
+    { id: 'boards', label: 'Bảng công việc', icon: Columns3, href: '/app/boards' },
+    { id: 'members', label: 'Thành viên', icon: Users, href: '/app/team' },
+    { id: 'schedule', label: 'Lịch biểu', icon: Calendar, href: '/app/schedule' },
+    { id: 'reports', label: 'Báo cáo', icon: BarChart3, href: '/app/reports' },
+    { id: 'settings', label: 'Cài đặt', icon: Settings, href: '/app/settings' },
 ]
 
 interface SidebarProps {
@@ -125,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="p-4 m-4 rounded-xl bg-slate-50 border border-slate-200/70">
                     <div className="flex items-center gap-3">
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-xs font-semibold text-slate-600">System Status: Online</span>
+                        <span className="text-xs font-semibold text-slate-600">Hệ thống: Hoạt động</span>
                     </div>
                 </div>
             </aside>

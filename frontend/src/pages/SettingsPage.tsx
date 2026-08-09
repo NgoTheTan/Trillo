@@ -214,10 +214,15 @@ export default function SettingsPage() {
   };
 
   const tabs = [
+<<<<<<< HEAD
     { id: 'account', label: 'Account / Profile' },
     { id: 'appearance', label: 'Appearance' },
     { id: 'notifications', label: 'Notifications' },
     { id: 'security', label: 'Security' }
+=======
+    { id: 'account', label: 'Tài khoản / Hồ sơ' },
+    { id: 'security', label: 'Bảo mật' }
+>>>>>>> 3fee7c8295d70c85828ae3c07c8267367e23c63d
   ];
 
   if (isLoading) return <div className="p-8 text-center text-slate-500">⏳ Loading data...</div>;
@@ -226,7 +231,7 @@ export default function SettingsPage() {
     <div className="flex bg-white rounded-2xl shadow-sm border border-slate-200 min-h-[75vh]">
       {/* Sidebar Menu */}
       <div className="w-1/4 border-r border-slate-200 p-4">
-        <h2 className="text-xl font-bold text-slate-800 mb-6 px-2">Settings</h2>
+        <h2 className="text-xl font-bold text-slate-800 mb-6 px-2">Cài đặt</h2>
         <ul className="space-y-1">
           {tabs.map((tab) => (
             <li key={tab.id}>
@@ -283,15 +288,20 @@ export default function SettingsPage() {
 
             <div className="pt-4 flex space-x-3">
               <button onClick={handleSaveProfile} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[120px]">
+<<<<<<< HEAD
                 {isSaving ? 'Saving...' : 'Save changes'}
+=======
+                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+>>>>>>> 3fee7c8295d70c85828ae3c07c8267367e23c63d
               </button>
               <button onClick={handleCancelProfile} disabled={isSaving} className="bg-white text-slate-600 border border-slate-300 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 disabled:opacity-50">
-                Cancel
+                Hủy
               </button>
             </div>
           </div>
         )}
 
+<<<<<<< HEAD
         {/* 2. Appearance Settings */}
         {activeTab === 'appearance' && (
           <div className="space-y-8 max-w-2xl animate-fade-in">
@@ -363,6 +373,24 @@ export default function SettingsPage() {
                 className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition shadow-sm disabled:opacity-50"
               >
                 {isAppSaving ? 'Saving...' : 'Save changes'}
+=======
+        {/* 2. Security / Password */}
+        {activeTab === 'security' && (
+          <div className="space-y-4 max-w-lg">
+            <h3 className="text-xl font-bold mb-4 text-slate-800">Đổi mật khẩu</h3>
+            <div><label className="block text-sm font-medium mb-1">Mật khẩu hiện tại *</label>
+              <input type="password" value={security.currentPassword} onChange={(e) => setSecurity({...security, currentPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+            
+            <div><label className="block text-sm font-medium mb-1">Mật khẩu mới * (Tối thiểu 6 ký tự)</label>
+              <input type="password" value={security.newPassword} onChange={(e) => setSecurity({...security, newPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+            
+            <div><label className="block text-sm font-medium mb-1">Xác nhận mật khẩu mới *</label>
+              <input type="password" value={security.confirmPassword} onChange={(e) => setSecurity({...security, confirmPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
+            
+            <div className="pt-4 flex space-x-3">
+              <button onClick={handleChangePassword} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[150px]">
+                {isSaving ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+>>>>>>> 3fee7c8295d70c85828ae3c07c8267367e23c63d
               </button>
             </div>
           </div>

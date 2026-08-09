@@ -103,9 +103,9 @@ public class BoardService {
     // ── Get All Boards for User ───────────────────────────────────────────────
     @Transactional(readOnly = true)
     public List<BoardSummaryResponse> getBoardsForUser(User currentUser) {
-        return boardMemberRepository.findByBoardId(currentUser.getId())
+        return boardRepository.findAllBoardsAccessibleByUser(currentUser.getId())
                 .stream()
-                .map(bm -> toBoardSummaryResponse(bm.getBoard(), currentUser))
+                .map(board -> toBoardSummaryResponse(board, currentUser))
                 .toList();
     }
 

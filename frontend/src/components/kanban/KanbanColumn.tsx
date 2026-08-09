@@ -126,13 +126,13 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   return (
     <div
       ref={isOverlay ? undefined : setNodeRef}
-      style={dndKitColumnStyle}
+      style={{ ...dndKitColumnStyle, scrollSnapAlign: 'start' }}
       {...(isOverlay ? {} : attributes)}
-      className="h-full"
+      className="h-full shrink-0"
     >
       <div
         {...(isOverlay ? {} : listeners)}
-        className={`flex flex-col gap-3 w-70 bg-[#f4f5f9] group/column rounded p-4 border border-slate-200/60 transition-all ${isOverlay ? 'shadow-2xl ring-2 ring-blue-500/40 rotate-1 scale-102 cursor-grabbing' : 'hover:shadow-md'
+        className={`flex flex-col gap-3 w-[280px] sm:w-72 bg-[#f4f5f9] group/column rounded-xl p-4 border border-slate-200/60 transition-all ${isOverlay ? 'shadow-2xl ring-2 ring-blue-500/40 rotate-1 scale-[1.02] cursor-grabbing' : 'hover:shadow-md'
           }`}
       >
         {/* Column Header - Drag Handle */}
@@ -154,7 +154,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             />
           ) : (
             <span
-              title="Click to rename column"
+              title="Nhấp để đổi tên cột"
               onClick={() => { setDraftName(list.title); setEditingName(true); }}
               className="text-xs font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider cursor-pointer hover:text-blue-600 transition-colors rounded-md px-1.5 py-0.5 hover:bg-slate-200/60"
             >
@@ -169,7 +169,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               <button
                 onClick={() => setOpenDelete(true)}
                 className='bg-transparent hover:bg-red-100 cursor-pointer p-1 rounded-lg text-slate-400 hover:text-red-600 transition-colors'
-                title="Delete column"
+                title="Xóa cột"
               >
                 <Trash2 className='h-4 w-4' />
               </button>
@@ -182,10 +182,10 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <div className="mb-2 px-2.5 py-1.5 bg-blue-50/80 border border-blue-200/60 rounded-xl flex items-center justify-between text-xs font-semibold text-blue-700 shadow-2xs">
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-              Filtered result
+              Kết quả đã lọc
             </span>
             <span className="text-[11px] font-bold bg-blue-100/90 text-blue-800 px-2 py-0.5 rounded-md border border-blue-200/50">
-              {cardsToRender.length} / {fetchedCards.length || (list.cards?.length || 0)} cards
+              {cardsToRender.length} / {fetchedCards.length || (list.cards?.length || 0)} thẻ
             </span>
           </div>
         )}
@@ -207,7 +207,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               ))}
               {cardsToRender.length === 0 && (
                 <div className={`h-16 rounded-xl border-2 border-dashed flex items-center justify-center text-xs text-slate-300 font-medium transition-colors duration-200 border-slate-200`}>
-                  Empty
+                  Trống
                 </div>
               )}
             </SortableContext>
@@ -216,7 +216,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <div className="mt-4 pt-3 border-t border-slate-200/50">
             <input
               type="text"
-              placeholder="New card title..."
+              placeholder="Tên thẻ mới..."
               className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-hidden focus:border-blue-500 transition-all mb-2 shadow-xs"
               value={cardTitle}
               onChange={(e) => setCardTitle(e.target.value)}
@@ -230,7 +230,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-500/30 text-slate-400 hover:text-blue-500 text-[11px] font-bold transition-all duration-200 cursor-pointer shadow-xs"
             >
               {isAddingCard ? <Loader2 className='h-4 w-4 animate-spin' /> : <Plus size={12} />}
-              Add Card
+              Thêm thẻ
             </button>
           </div>
         </div>
@@ -239,7 +239,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         <ConfirmDeleteModal
           open={openDelete}
           onOpenChange={setOpenDelete}
-          title="Delete Column"
+          title="Xóa cột"
           itemName={list.title}
           isDeleting={isDeleting}
           onConfirm={handleConfirmDelete}

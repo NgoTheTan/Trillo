@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -81,12 +80,16 @@ public class ListService {
         Board board = boardService.findBoardOrThrow(boardId);
         boardService.requireMember(board, currentUser);
 
-        AtomicInteger pos = new AtomicInteger(0);
-        request.orderedIds().forEach(listId -> {
-            BoardList list = findListOrThrow(listId);
-            list.setPosition(pos.getAndIncrement());
-            boardListRepository.save(list);
-        });
+        List<BoardList> listsToSave = new java.util.ArrayList<>();
+        int pos = 0;
+        for (String listId : request.orderedIds()) {
+            BoardList list = boardListRepository.findById(listId).orElse(null);
+            if (list != null) {
+                list.setPosition(pos++);
+                listsToSave.add(list);
+            }
+        }
+        boardListRepository.saveAll(listsToSave);
 
         messagingTemplate.convertAndSend("/topic/board/" + boardId, "LISTS_REORDERED");
     }

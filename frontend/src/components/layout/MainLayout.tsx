@@ -24,13 +24,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
             {/* Main Area */}
             <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-                {/* Header (No Search Input) */}
+                {/* Header */}
                 <Header
                     onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
                 />
 
-                {/* Page Content */}
-                <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+                {/* Page Content — responsive padding */}
+                <main className="flex-1 px-3 py-4 sm:px-5 sm:py-5 lg:px-8 lg:py-6 overflow-y-auto overflow-x-hidden">
                     {children || <Outlet />}
                 </main>
             </div>

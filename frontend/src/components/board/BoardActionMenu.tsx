@@ -66,7 +66,7 @@ export const BoardActionMenu: React.FC<BoardActionMenuProps> = ({
         <PopoverTrigger
           onClick={e => e.stopPropagation()}
           className={triggerClassName}
-          title="Board options"
+          title="Tùy chọn bảng"
         >
           <MoreHorizontal className={iconClassName} />
         </PopoverTrigger>
@@ -84,7 +84,7 @@ export const BoardActionMenu: React.FC<BoardActionMenuProps> = ({
               className="w-full px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer"
             >
               <Pencil className="w-3.5 h-3.5 text-slate-500" />
-              <span>Edit board</span>
+              <span>Chỉnh sửa bảng</span>
             </button>
           )}
 
@@ -93,7 +93,7 @@ export const BoardActionMenu: React.FC<BoardActionMenuProps> = ({
             className="w-full px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-            <span>Delete board</span>
+            <span>Xóa bảng</span>
           </button>
         </PopoverContent>
       </Popover>

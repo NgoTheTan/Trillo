@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -134,12 +133,16 @@ public class CardService {
         BoardList list = findListOrThrow(listId);
         boardService.requireMember(list.getBoard(), currentUser);
 
-        AtomicInteger pos = new AtomicInteger(0);
-        request.orderedIds().forEach(id -> {
-            Card card = findCardOrThrow(id);
-            card.setPosition(pos.getAndIncrement());
-            cardRepository.save(card);
-        });
+        List<Card> cardsToSave = new java.util.ArrayList<>();
+        int pos = 0;
+        for (String id : request.orderedIds()) {
+            Card card = cardRepository.findById(id).orElse(null);
+            if (card != null) {
+                card.setPosition(pos++);
+                cardsToSave.add(card);
+            }
+        }
+        cardRepository.saveAll(cardsToSave);
 
         broadcastBoardEvent(list.getBoard().getId(), "CARDS_REORDERED");
     }

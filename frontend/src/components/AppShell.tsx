@@ -41,7 +41,7 @@ export function AppShell() {
         <div className="app-topbar__actions">
           <span className="role-pill">
             <ShieldCheck size={16} />
-            {user?.role === 'PM' ? 'PM workspace' : 'User workspace'}
+            {user?.role === 'PM' ? 'Không gian PM' : 'Không gian thành viên'}
           </span>
           
           <NotificationBell />
@@ -61,7 +61,7 @@ export function AppShell() {
 
           <button type="button" className="ghost-button" onClick={handleLogout}>
             <LogOut size={16} />
-            Logout
+            Đăng xuất
           </button>
         </div>
       </header>
@@ -69,56 +69,55 @@ export function AppShell() {
       <main className="app-main">
         <div className="dashboard-grid">
           <div className="panel">
-            <p className="panel__title">Welcome, {user?.fullName}</p>
+            <p className="panel__title">Xin chào, {user?.fullName}</p>
             <p className="panel__subtitle">
-              You are signed in as {user?.role}. Route access is protected in the frontend and
-              the PM-only zone stays locked for other users.
+              Bạn đang đăng nhập với vai trò {user?.role}. Quyền truy cập các trang được bảo vệ theo vai trò của bạn.
             </p>
 
             <div className="stats-grid">
               <article className="stat-card">
                 <p className="stat-card__value">12</p>
-                <p className="stat-card__label">active tasks</p>
+                <p className="stat-card__label">Nhiệm vụ đang hoạt động</p>
               </article>
               <article className="stat-card">
                 <p className="stat-card__value">5</p>
-                <p className="stat-card__label">in review</p>
+                <p className="stat-card__label">Đang xem xét</p>
               </article>
               <article className="stat-card">
                 <p className="stat-card__value">2</p>
-                <p className="stat-card__label">blocked items</p>
+                <p className="stat-card__label">Mục bị chặn</p>
               </article>
             </div>
             
             <div className="task-list">
               <div className="task-item">
                 <div>
-                  <p className="task-item__title">PM board overview</p>
-                  <p className="task-item__meta">Only PM role can access planning and approvals.</p>
+                  <p className="task-item__title">Tổng quan bảng PM</p>
+                  <p className="task-item__meta">Chỉ vai trò PM mới có thể truy cập kế hoạch và phê duyệt.</p>
                 </div>
-                <span className="task-item__badge task-item__badge--pm">PM only</span>
+                <span className="task-item__badge task-item__badge--pm">Chỉ PM</span>
               </div>
               <div className="task-item">
                 <div>
-                  <p className="task-item__title">Team workspace</p>
-                  <p className="task-item__meta">User role covers Dev, Tester, Designer, and other contributors.</p>
+                  <p className="task-item__title">Không gian làm việc nhóm</p>
+                  <p className="task-item__meta">Vai trò User bao gồm Dev, Tester, Designer và các cộng tác viên khác.</p>
                 </div>
-                <span className="task-item__badge task-item__badge--user">User</span>
+                <span className="task-item__badge task-item__badge--user">Thành viên</span>
               </div>
               <div className="task-item">
                 <div>
-                  <p className="task-item__title">Secure routes</p>
-                  <p className="task-item__meta">Unauthenticated users are redirected to login.</p>
+                  <p className="task-item__title">Trang bảo mật</p>
+                  <p className="task-item__meta">Người dùng chưa đăng nhập sẽ được chuyển hướng sang trang đăng nhập.</p>
                 </div>
-                <span className="task-item__badge task-item__badge--secure">Protected</span>
+                <span className="task-item__badge task-item__badge--secure">Bảo vệ</span>
               </div>
             </div>
           </div>
 
           <div className="panel">
-            <p className="panel__title">Current profile</p>
+            <p className="panel__title">Hồ sơ hiện tại</p>
             <p className="panel__subtitle">
-              This session is authenticated by the backend and cached locally for refreshes.
+              Phiên này được xác thực bởi backend và lưu cục bộ để tải lại.
             </p>
 
             <div className="sample-accounts">
@@ -127,25 +126,25 @@ export function AppShell() {
                 <p className="sample-account__meta">{user?.email}</p>
               </div>
               <div className="sample-account">
-                <p className="sample-account__title">Role</p>
+                <p className="sample-account__title">Vai trò</p>
                 <p className="sample-account__meta">
                   {user?.role === 'PM'
-                    ? 'PM can access planning, approvals, and sensitive routes.'
-                    : 'User can access execution and collaboration routes.'}
+                    ? 'PM có thể truy cập kế hoạch, phê duyệt và các trang nhạy cảm.'
+                    : 'Thành viên có thể truy cập các trang thực thi và cộng tác.'}
                 </p>
               </div>
             </div>
 
             <div className="divider" style={{ marginTop: '24px' }}>
-              Trillo is ready
+              Trillo sẵn sàng
             </div>
 
             <div className="form-actions" style={{ marginTop: '18px' }}>
               <NavLink className="secondary-button" to="/app/team">
-                Team area
+                Khu vực nhóm
               </NavLink>
               <NavLink className="secondary-button" to="/app/pm">
-                PM area
+                Khu vực PM
               </NavLink>
             </div>
           </div>
@@ -154,13 +153,13 @@ export function AppShell() {
         <NavLink to="/app/schedule">
           <div>
             <Calendar />
-            <span>Schedule</span>
+            <span>Lịch biểu</span>
           </div>
         </NavLink>
         
         <NavLink to="/app/settings">
           <div>
-            <span>Settings</span>
+            <span>Cài đặt</span>
           </div>
         </NavLink>
         

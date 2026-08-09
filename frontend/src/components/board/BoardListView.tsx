@@ -26,11 +26,11 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400 text-xs font-semibold uppercase tracking-wider bg-slate-50/50">
-              <th className="py-3 px-6">Board Name</th>
-              <th className="py-3 px-6">Visibility</th>
-              <th className="py-3 px-6">Members</th>
-              <th className="py-3 px-6">Cards</th>
-              <th className="py-3 px-6 text-right">Actions</th>
+              <th className="py-3 px-6">Tên bảng</th>
+              <th className="py-3 px-6">Quyền riêng tư</th>
+              <th className="py-3 px-6">Thành viên</th>
+              <th className="py-3 px-6">Thẻ</th>
+              <th className="py-3 px-6 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm">
@@ -63,16 +63,16 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
                   <td className="py-4 px-6">
                     <span className="inline-flex items-center text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
                       <Dot className="w-4 h-4 text-slate-400 -ml-1" />
-                      {board.visibility || 'PUBLIC'}
+                      {board.visibility === 'PRIVATE' ? 'CÔNG KHAI' : (board.visibility || 'CÔNG KHAI')}
                     </span>
                   </td>
 
                   <td className="py-4 px-6 text-slate-600 font-medium text-xs">
-                    {board.memberCount ?? 1} members
+                    {board.memberCount ?? 1} thành viên
                   </td>
 
                   <td className="py-4 px-6 text-slate-600 font-medium text-xs">
-                    {board.cardCount ?? 0} cards
+                    {board.cardCount ?? 0} thẻ
                   </td>
 
                   <td className="py-4 px-6 text-right" onClick={e => e.stopPropagation()}>
@@ -96,7 +96,7 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
           className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-white rounded-xl border border-dashed border-slate-200 hover:border-blue-400 transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>Create new board</span>
+          <span>Tạo bảng mới</span>
         </button>
       </div>
     </div>

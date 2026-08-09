@@ -126,13 +126,13 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   return (
     <div
       ref={isOverlay ? undefined : setNodeRef}
-      style={dndKitColumnStyle}
+      style={{ ...dndKitColumnStyle, scrollSnapAlign: 'start' }}
       {...(isOverlay ? {} : attributes)}
-      className="h-full"
+      className="h-full shrink-0"
     >
       <div
         {...(isOverlay ? {} : listeners)}
-        className={`flex flex-col gap-3 w-70 bg-[#f4f5f9] group/column rounded p-4 border border-slate-200/60 transition-all ${isOverlay ? 'shadow-2xl ring-2 ring-blue-500/40 rotate-1 scale-102 cursor-grabbing' : 'hover:shadow-md'
+        className={`flex flex-col gap-3 w-[280px] sm:w-72 bg-[#f4f5f9] group/column rounded-xl p-4 border border-slate-200/60 transition-all ${isOverlay ? 'shadow-2xl ring-2 ring-blue-500/40 rotate-1 scale-[1.02] cursor-grabbing' : 'hover:shadow-md'
           }`}
       >
         {/* Column Header - Drag Handle */}

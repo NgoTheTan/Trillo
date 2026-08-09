@@ -18,30 +18,24 @@ interface KanbanCardProps {
 }
 
 const renderPriorityTag = (priority?: string) => {
-  const p = (priority || 'Low').toLowerCase()
-  if (p === 'high') {
+  const p = (priority || 'LOW').toUpperCase()
+  if (p === 'HIGH') {
     return (
-      <span className="px-2.5 py-0.5 rounded-md bg-red-100/80 text-red-500 font-semibold text-xs inline-block">
+      <span className="px-2 py-0.5 rounded-md bg-red-100/80 text-red-600 font-semibold text-[10px] inline-block">
         High
       </span>
     )
   }
-  if (p === 'medium') {
+  if (p === 'MEDIUM') {
     return (
-      <span className="px-2.5 py-0.5 rounded-md bg-amber-100/80 text-amber-700 font-semibold text-xs inline-block">
+      <span className="px-2 py-0.5 rounded-md bg-amber-100/80 text-amber-700 font-semibold text-[10px] inline-block">
         Medium
       </span>
     )
   }
-  if (p === 'done') {
-    return (
-      <span className="px-2.5 py-0.5 rounded-md bg-emerald-100/80 text-emerald-700 font-semibold text-xs inline-block">
-        Done
-      </span>
-    )
-  }
+  // LOW (default)
   return (
-    <span className="px-2.5 py-0.5 rounded-md bg-emerald-100/60 text-emerald-700 font-semibold text-xs inline-block">
+    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold text-[10px] inline-block">
       Low
     </span>
   )
@@ -63,6 +57,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
     transform: isOverlay ? undefined : CSS.Translate.toString(transform),
     transition: isOverlay ? undefined : transition,
     opacity: isDragging ? 0.7 : 1,
+    scrollSnapAlign: 'start',
   }
 
   const handleDeleteCard = async () => {
@@ -94,7 +89,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
         {...(isOverlay ? {} : attributes)}
         {...(isOverlay ? {} : listeners)}
         onClick={() => setOpenEditCardModal(true)}
-        className={`bg-white rounded-lg p-4 border border-slate-100 transition-all cursor-pointer space-y-3 group/card relative ${isOverlay ? 'shadow-xl rotate-1 scale-102 ring-2 ring-blue-500/30' : 'shadow-2xs hover:shadow-md'
+        className={`bg-white rounded-lg p-3.5 border border-slate-100 transition-all cursor-pointer space-y-2.5 group/card relative touch-none select-none ${isOverlay ? 'shadow-xl rotate-1 scale-[1.02] ring-2 ring-blue-500/30' : 'shadow-xs hover:shadow-md'
           }`}
       >
         {/* Card Header: Checkbox, Title & Trash Icon */}
@@ -117,11 +112,11 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
             </button>
           )}
 
-          {/* Card Title — in normal flow, pl slides right on hover to reveal checkbox */}
+          {/* Card Title */}
           <h3
-            className={`font-semibold text leading-snug transition-all ${card.completed
+            className={`font-semibold text-sm leading-snug transition-all ${card.completed
               ? 'line-through text-slate-400 pl-5'
-              : 'text-slate-800 group-hover/card:text-blue-600 pl-0 group-hover/card:pl-7'
+              : 'text-slate-800 group-hover/card:text-blue-600 pl-0 group-hover/card:pl-6'
               }`}
           >
             {card.title}
@@ -143,27 +138,42 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
           )}
         </div>
 
+        {/* Labels row */}
+        {card.labels && card.labels.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {card.labels.slice(0, 4).map(label => (
+              <span
+                key={label.id}
+                className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-white truncate max-w-[80px]"
+                style={{ backgroundColor: label.color || '#94a3b8' }}
+                title={label.name}
+              >
+                {label.name}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Priority Tag */}
         <div>{renderPriorityTag(card.priority)}</div>
 
         {/* Card Footer: Date & User Avatar */}
-        <div className="flex items-center justify-between pt-1 border-t border-slate-50 text-slate-400 text-xs">
+        <div className="flex items-center justify-between pt-1.5 border-t border-slate-50 text-slate-400 text-xs">
           <div
-            className={`flex items-center gap-1.5 font-medium ${card.deadline && !card.completed && new Date(card.deadline).getTime() < Date.now()
+            className={`flex items-center gap-1 font-medium ${card.deadline && !card.completed && new Date(card.deadline).getTime() < Date.now()
                 ? 'text-red-500 font-semibold'
                 : 'text-slate-400'
               }`}
           >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>
+            <Calendar className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">
               {formatDeadlineDisplay(card.deadline)}
               {card.deadline && !card.completed && new Date(card.deadline).getTime() < Date.now() && ' (Overdue)'}
             </span>
           </div>
 
           {card.assignedMembers && card.assignedMembers.length > 0 && (
-            <div className="flex items-center">
+            <div className="flex items-center shrink-0 ml-2">
               {card.assignedMembers.slice(0, 3).map((member, idx) => (
                 member.avatarUrl ? (
                   <img
@@ -171,15 +181,15 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
                     src={member.avatarUrl}
                     alt={member.fullName}
                     title={member.fullName}
-                    className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200"
-                    style={{ marginLeft: idx > 0 ? '-6px' : '0' }}
+                    className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200"
+                    style={{ marginLeft: idx > 0 ? '-5px' : '0' }}
                   />
                 ) : (
                   <div
                     key={member.id}
                     title={member.fullName}
-                    className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0 tracking-wider uppercase ring-1 ring-slate-200"
-                    style={{ marginLeft: idx > 0 ? '-6px' : '0' }}
+                    className="w-5 h-5 rounded-full bg-blue-600 text-white font-bold text-[8px] flex items-center justify-center shrink-0 tracking-wider uppercase ring-1 ring-slate-200"
+                    style={{ marginLeft: idx > 0 ? '-5px' : '0' }}
                   >
                     {member.fullName
                       ? member.fullName.trim().split(/\s+/).length === 1
@@ -191,8 +201,8 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
               ))}
               {card.assignedMembers.length > 3 && (
                 <div
-                  className="w-6 h-6 rounded-full bg-slate-500 text-white font-bold text-[9px] flex items-center justify-center shrink-0 tracking-wider ring-1 ring-slate-200"
-                  style={{ marginLeft: '-6px' }}
+                  className="w-5 h-5 rounded-full bg-slate-400 text-white font-bold text-[8px] flex items-center justify-center shrink-0 ring-1 ring-slate-200"
+                  style={{ marginLeft: '-5px' }}
                 >
                   +{card.assignedMembers.length - 3}
                 </div>

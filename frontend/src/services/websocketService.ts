@@ -190,13 +190,56 @@ export function useWebSocketBoard(boardId: string | undefined) {
     if (!boardId) return;
 
     const unsubscribe = webSocketService.subscribeBoard(boardId, (event) => {
-      console.log(`[Board WS Event] ${boardId}:`, event);
-      // Invalidate board detail, lists, and cards queries to live-update board UI
-      queryClient.invalidateQueries({ queryKey: ['boards', boardId] });
-      queryClient.invalidateQueries({ queryKey: ['lists', boardId] });
-      queryClient.invalidateQueries({ queryKey: ['filter-cards', boardId] });
-      queryClient.invalidateQueries({ queryKey: ['cards', boardId] });
-      queryClient.invalidateQueries({ queryKey: ['boards'] });
+      if (import.meta.env.DEV) {
+        console.log(`[Board WS Event] ${boardId}:`, event);
+      }
+
+      // Route events to only invalidate relevant queries
+      switch (event) {
+        case 'CARD_CREATED':
+        case 'CARD_DELETED':
+        case 'CARDS_REORDERED':
+          queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+          queryClient.invalidateQueries({ queryKey: ['filter-cards', boardId] });
+          break;
+
+        case 'CARD_MOVED':
+          queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+          queryClient.invalidateQueries({ queryKey: ['filter-cards', boardId] });
+          break;
+
+        case 'CARD_UPDATED':
+        case 'CARD_STATUS_UPDATED':
+          queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+          queryClient.invalidateQueries({ queryKey: ['filter-cards', boardId] });
+          break;
+
+        case 'LIST_CREATED':
+        case 'LIST_DELETED':
+        case 'LISTS_REORDERED':
+          queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['boards', boardId] });
+          break;
+
+        case 'LIST_UPDATED':
+          queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+          break;
+
+        case 'MEMBER_ADDED':
+        case 'MEMBER_REMOVED':
+        case 'BOARD_UPDATED':
+          queryClient.invalidateQueries({ queryKey: ['boards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['boards'] });
+          break;
+
+        default:
+          // Fallback: invalidate everything for this board
+          queryClient.invalidateQueries({ queryKey: ['boards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+          break;
+      }
     });
 
     return () => {
@@ -204,3 +247,4 @@ export function useWebSocketBoard(boardId: string | undefined) {
     };
   }, [boardId, queryClient]);
 }
+

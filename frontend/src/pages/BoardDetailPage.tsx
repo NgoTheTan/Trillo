@@ -73,7 +73,7 @@ export const BoardDetailPage: React.FC = () => {
     const [isInviteOpen, setIsInviteOpen] = useState(false)
     const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
 
-    const [cardfillterFeatures, setCardFillterFeatures] = useState<FilterCardsPayload>({
+    const [cardFilterFeatures, setCardFilterFeatures] = useState<FilterCardsPayload>({
         search: '',
         listIds: [],
         memberIds: [],
@@ -84,7 +84,15 @@ export const BoardDetailPage: React.FC = () => {
         deadlineTo: null,
     })
 
-    const filterCardsQuery = useFilterCardsQuery(boardId, cardfillterFeatures)
+    // Track pending cross-list move to execute API only on drag end
+    const pendingCrossListMove = React.useRef<{
+        cardId: string;
+        sourceListId: string;
+        destListId: string;
+        destPosition: number;
+    } | null>(null);
+
+    const filterCardsQuery = useFilterCardsQuery(boardId, cardFilterFeatures)
 
     const boardQuery = useBoardDetailQuery(boardId)
     const listsQuery = useBoardListsQuery(boardId)
@@ -148,6 +156,7 @@ export const BoardDetailPage: React.FC = () => {
         newIndex: number,
         cardId: string
     ) => {
+        // Optimistic UI update — NO API call here (API is called in handleDragEnd)
         const sourceCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', sourceListId]) || [];
         const movingCard = sourceCards.find(c => c.id === cardId);
 
@@ -171,30 +180,24 @@ export const BoardDetailPage: React.FC = () => {
                     const newReOrdered = (list.cards || []).filter((c: any) =>
                         typeof c === 'string' ? c !== cardId : c.id !== cardId
                     )
-                    return {
-                        ...list,
-                        cards: newReOrdered
-                    };
+                    return { ...list, cards: newReOrdered };
                 }
                 if (list.id === destinationListId) {
                     const currentCards = [...(list.cards || [])];
                     const existingIndex = currentCards.findIndex((c: any) =>
                         typeof c === 'string' ? c === cardId : c.id === cardId
                     );
-                    if (existingIndex !== -1) {
-                        currentCards.splice(existingIndex, 1);
-                    }
+                    if (existingIndex !== -1) currentCards.splice(existingIndex, 1);
                     const targetIndex = Math.max(0, Math.min(newIndex, currentCards.length));
                     currentCards.splice(targetIndex, 0, cardId as any);
-                    return {
-                        ...list,
-                        cards: currentCards
-                    };
+                    return { ...list, cards: currentCards };
                 }
                 return list;
             });
         });
-        moveCard(cardId, destinationListId, newIndex);
+
+        // Track latest pending move — only the final position on drop will be committed
+        pendingCrossListMove.current = { cardId, sourceListId, destListId: destinationListId, destPosition: newIndex };
     };
 
     // trigger trong quá trình kéo 1 phần tử card/list vào column khác
@@ -243,6 +246,7 @@ export const BoardDetailPage: React.FC = () => {
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over) {
+            pendingCrossListMove.current = null;
             setActiveDraggingId(null);
             setActiveDraggingItemType(null);
             setActiveDraggingData(null);
@@ -257,46 +261,55 @@ export const BoardDetailPage: React.FC = () => {
                     const newIndex = prev.findIndex(list => list.id === over.id);
                     const newList = arrayMove(prev, oldIndex, newIndex);
                     const orderedIds = newList.map(list => list.id);
-                    if (boardId) {
-                        reorderBoardLists(boardId, { orderedIds });
-                    }
+                    if (boardId) reorderBoardLists(boardId, { orderedIds });
                     return newList;
                 });
             }
         }
 
-        // Dragging Card within SAME column
+        // Dragging Card
         if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.CARD) {
             const activeCardId = active.id as string;
             const overCardId = over.id as string;
             const activeList = findListByCardId(activeCardId);
             const overList = findListByCardId(overCardId);
 
-            if (activeList && overList && activeList.id === overList.id) {
-                const listId = activeList.id;
-                const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', listId]) || [];
-                const oldIndex = cachedCards.findIndex(c => c.id === activeCardId);
-                const newIndex = cachedCards.findIndex(c => c.id === overCardId);
+            if (activeList && overList) {
+                if (activeList.id === overList.id) {
+                    // Same column reorder
+                    pendingCrossListMove.current = null;
+                    const listId = activeList.id;
+                    const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', listId]) || [];
+                    const oldIndex = cachedCards.findIndex(c => c.id === activeCardId);
+                    const newIndex = cachedCards.findIndex(c => c.id === overCardId);
 
-                if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                    const reordered = arrayMove(cachedCards, oldIndex, newIndex);
-                    queryClient.setQueryData(['list-cards', listId], reordered);
-                }
+                    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                        const reordered = arrayMove(cachedCards, oldIndex, newIndex);
+                        queryClient.setQueryData(['list-cards', listId], reordered);
+                    }
 
-                const oldStateIndex = activeList.cards?.findIndex((c: any) =>
-                    typeof c === 'string' ? c === activeCardId : c?.id === activeCardId
-                ) ?? -1;
-                const newStateIndex = overList.cards?.findIndex((c: any) =>
-                    typeof c === 'string' ? c === overCardId : c?.id === overCardId
-                ) ?? -1;
+                    const oldStateIndex = activeList.cards?.findIndex((c: any) =>
+                        typeof c === 'string' ? c === activeCardId : c?.id === activeCardId
+                    ) ?? -1;
+                    const newStateIndex = overList.cards?.findIndex((c: any) =>
+                        typeof c === 'string' ? c === overCardId : c?.id === overCardId
+                    ) ?? -1;
 
-                if (oldStateIndex !== -1 && newStateIndex !== -1 && oldStateIndex !== newStateIndex) {
-                    const newCards = arrayMove(activeList.cards || [], oldStateIndex, newStateIndex);
-                    const updateCard = newCards.map((card: any) => typeof card === 'string' ? card : card.id)
-                    setOrderedLists(prev =>
-                        prev.map(l => (l.id === activeList.id ? { ...l, cards: newCards } : l))
-                    );
-                    reorderCards(activeList.id, updateCard as string[]);
+                    if (oldStateIndex !== -1 && newStateIndex !== -1 && oldStateIndex !== newStateIndex) {
+                        const newCards = arrayMove(activeList.cards || [], oldStateIndex, newStateIndex);
+                        const updateCard = newCards.map((card: any) => typeof card === 'string' ? card : card.id);
+                        setOrderedLists(prev =>
+                            prev.map(l => (l.id === activeList.id ? { ...l, cards: newCards } : l))
+                        );
+                        reorderCards(activeList.id, updateCard as string[]);
+                    }
+                } else {
+                    // Cross-list move — fire the single pending API call now
+                    const pending = pendingCrossListMove.current;
+                    if (pending && pending.cardId === activeCardId) {
+                        moveCard(pending.cardId, pending.destListId, pending.destPosition);
+                    }
+                    pendingCrossListMove.current = null;
                 }
             }
         }
@@ -344,16 +357,16 @@ export const BoardDetailPage: React.FC = () => {
 
     const hasActiveFilter = React.useMemo(() => {
         return (
-            (cardfillterFeatures.listIds && cardfillterFeatures.listIds.length > 0) ||
-            (cardfillterFeatures.memberIds && cardfillterFeatures.memberIds.length > 0) ||
-            (cardfillterFeatures.labelIds && cardfillterFeatures.labelIds.length > 0) ||
-            (cardfillterFeatures.search && cardfillterFeatures.search.trim().length > 0) ||
-            (cardfillterFeatures.status !== null && cardfillterFeatures.status !== undefined) ||
-            !!cardfillterFeatures.noDeadline ||
-            !!cardfillterFeatures.deadlineFrom ||
-            !!cardfillterFeatures.deadlineTo
+            (cardFilterFeatures.listIds && cardFilterFeatures.listIds.length > 0) ||
+            (cardFilterFeatures.memberIds && cardFilterFeatures.memberIds.length > 0) ||
+            (cardFilterFeatures.labelIds && cardFilterFeatures.labelIds.length > 0) ||
+            (cardFilterFeatures.search && cardFilterFeatures.search.trim().length > 0) ||
+            (cardFilterFeatures.status !== null && cardFilterFeatures.status !== undefined) ||
+            !!cardFilterFeatures.noDeadline ||
+            !!cardFilterFeatures.deadlineFrom ||
+            !!cardFilterFeatures.deadlineTo
         );
-    }, [cardfillterFeatures]);
+    }, [cardFilterFeatures]);
 
     const filteredCardIds = React.useMemo(() => {
         if (!hasActiveFilter || !filterCardsQuery.data) return null;
@@ -361,61 +374,62 @@ export const BoardDetailPage: React.FC = () => {
     }, [hasActiveFilter, filterCardsQuery.data]);
 
     const orderedListsToRender = React.useMemo(() => {
-        if (cardfillterFeatures.listIds && cardfillterFeatures.listIds.length > 0) {
-            return orderedLists.filter(list => cardfillterFeatures.listIds.includes(list.id));
+        if (cardFilterFeatures.listIds && cardFilterFeatures.listIds.length > 0) {
+            return orderedLists.filter(list => cardFilterFeatures.listIds.includes(list.id));
         }
         return orderedLists;
-    }, [orderedLists, cardfillterFeatures.listIds]);
+    }, [orderedLists, cardFilterFeatures.listIds]);
 
     return (
 
-        <div className="space-y-6 max-w-[1600px] mx-auto text-slate-800">
+        <div className="space-y-4 max-w-[1600px] mx-auto text-slate-800">
             {/* ── Top Header Navigation Bar ────────────────────────────────────────── */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4  p-4 rounded-2xl">
-                {/* Left Section: Board Icon, Title, Visibility, Bookmark, Members, Invite */}
-                <div className="flex items-center gap-3 flex-wrap">
-
-                    {/* Title */}
-                    <div className="flex items-center gap-2">
-                        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+                {/* Left Section: Title & Visibility */}
+                <div className="flex items-center gap-3 flex-wrap min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">
                             {board?.title}
                         </h1>
-                        <span className="text-slate-400 font-bold cursor-pointer hover:text-slate-600">..</span>
                     </div>
-
-                    {/* Visibility Pill */}
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full">
-                        <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full shrink-0">
+                        <Globe className="w-3 h-3 text-emerald-600" />
                         {board?.visibility === 'PUBLIC' ? 'Public' : 'Private'}
                     </span>
                 </div>
 
-                {/* Right Section: Filter, Search, More Options */}
-                <div className="flex items-center gap-3 self-end md:self-auto">
+                {/* Right Section: Members, Invite, Filter */}
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                     {/* Member Avatars Stack */}
-                    <div className="flex -space-x-2.5 overflow-hidden items-center ml-1">
-                        {board?.members.map(m => (
+                    <div className="flex -space-x-2 overflow-hidden items-center">
+                        {board?.members.slice(0, 5).map(m => (
                             <img
                                 key={m.id}
                                 src={m.user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
                                 alt={m.user.fullName}
                                 title={m.user.fullName}
-                                className="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-2xs cursor-pointer hover:scale-110 transition-transform"
+                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 ring-white shadow-xs cursor-pointer hover:scale-110 transition-transform"
                             />
                         ))}
+                        {(board?.members.length ?? 0) > 5 && (
+                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
+                                +{(board?.members.length ?? 0) - 5}
+                            </div>
+                        )}
                     </div>
                     <button
                         onClick={() => setIsInviteOpen(true)}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
                     >
                         <span>Invite</span>
                     </button>
-                    <CardFilterPopover boardId={boardId || ''} cardfillterFeatures={cardfillterFeatures} setCardFillterFeatures={setCardFillterFeatures} />
+                    <CardFilterPopover boardId={boardId || ''} cardfillterFeatures={cardFilterFeatures} setCardFillterFeatures={setCardFilterFeatures} />
                 </div>
             </div>
 
             {/* ── KANBAN BOARD COLUMNS ──────────────────────────────────────────────── */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1"
+                style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
                 <DndContext
                     sensors={sensors}
                     collisionDetection={customCollisionDetection}
@@ -481,4 +495,5 @@ export const BoardDetailPage: React.FC = () => {
         </div>
     )
 }
+
 

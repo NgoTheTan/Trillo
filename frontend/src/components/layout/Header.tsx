@@ -230,7 +230,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                         <div className="p-3 border-t border-slate-100 text-center bg-slate-50/50">
                             <button
-                                onClick={() => navigate('/dashboard')}
+                                onClick={() => navigate('/app')}
                                 className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline w-full cursor-pointer"
                             >
                                 Dashboard

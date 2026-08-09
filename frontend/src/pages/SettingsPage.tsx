@@ -50,8 +50,8 @@ export default function SettingsPage() {
     fetchData();
     // Phân tích thông tin thiết bị (Browser & OS)
     const ua = navigator.userAgent;
-    let browser = "Unknown Browser";
-    let os = "Unknown OS";
+    let browser = "Trình duyệt khác";
+    let os = "Hệ điều hành khác";
     if (ua.includes("Chrome")) browser = "Chrome";
     else if (ua.includes("Firefox")) browser = "Firefox";
     else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
@@ -74,7 +74,7 @@ export default function SettingsPage() {
       setOriginalProfile(profileRes.data);
     } catch (err) {
       console.error("Profile API Error:", err);
-      setError("Failed to load user profile.");
+      setError("Không thể tải thông tin người dùng.");
     }
 
     // 2. Fetch Notification Settings
@@ -85,7 +85,7 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error("Notification Settings API Error:", err);
-      setError("Failed to load notification settings. Check Backend terminal.");
+      setError("Không thể tải cài đặt thông báo.");
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +93,7 @@ export default function SettingsPage() {
 
   const handleSaveProfile = async () => {
     if (!profile.displayName?.trim() || !profile.username?.trim()) {
-      setError("Display Name and Username are required!");
+      setError("Tên hiển thị và Tên đăng nhập không được để trống!");
       return;
     }
     try {
@@ -105,10 +105,10 @@ export default function SettingsPage() {
         phone: profile.phone
       });
       setOriginalProfile(res.data);
-      setSuccessMsg("Profile updated successfully!");
+      setSuccessMsg("Cập nhật thông tin thành công!");
       window.dispatchEvent(new CustomEvent('profileUpdated', { detail: res.data }));
     } catch (err: any) {
-      setError(err.response?.data?.message || "Error saving profile.");
+      setError(err.response?.data?.message || "Lỗi khi lưu thông tin.");
     } finally {
       setIsSaving(false);
       setTimeout(() => setSuccessMsg(null), 3000);
@@ -124,7 +124,7 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      setError("Maximum file size is 5MB.");
+      setError("Kích thước ảnh tối đa là 5MB.");
       return;
     }
 
@@ -138,10 +138,10 @@ export default function SettingsPage() {
       });
       setProfile(res.data);
       setOriginalProfile(res.data);
-      setSuccessMsg("Avatar updated successfully!");
+      setSuccessMsg("Cập nhật ảnh đại diện thành công!");
       window.dispatchEvent(new CustomEvent('profileUpdated', { detail: res.data }));
     } catch (err) {
-      setError("Error uploading avatar.");
+      setError("Lỗi khi tải lên ảnh đại diện.");
     } finally {
       setIsSaving(false);
       setTimeout(() => setSuccessMsg(null), 3000);
@@ -153,9 +153,9 @@ export default function SettingsPage() {
       setIsSaving(true);
       setError(null);
       await api.put('/notifications/settings', notiSettings);
-      setSuccessMsg("Notification settings saved!");
+      setSuccessMsg("Đã lưu cài đặt thông báo!");
     } catch (err) {
-      setError("Error saving notification settings. Please check backend logs.");
+      setError("Lỗi khi lưu cài đặt thông báo.");
       console.error(err);
     } finally {
       setIsSaving(false);
@@ -163,25 +163,25 @@ export default function SettingsPage() {
     }
   };
 
-  // IMPLEMENT ĐỔI MẬT KHẨU
+  // Đổi mật khẩu
   const handleChangePassword = async () => {
     setError(null);
     setSuccessMsg(null);
     
     if (!security.currentPassword) {
-      setError("Please enter your current password.");
+      setError("Vui lòng nhập mật khẩu hiện tại.");
       return;
     }
     if (security.newPassword.length < 6) {
-      setError("New password must be at least 6 characters long.");
+      setError("Mật khẩu mới phải có ít nhất 6 ký tự.");
       return;
     }
     if (security.newPassword === security.currentPassword) {
-      setError("New password cannot be the same as current password.");
+      setError("Mật khẩu mới không được trùng với mật khẩu hiện tại.");
       return;
     }
     if (security.newPassword !== security.confirmPassword) {
-      setError("New passwords do not match.");
+      setError("Xác nhận mật khẩu mới không khớp.");
       return;
     }
 
@@ -191,18 +191,18 @@ export default function SettingsPage() {
         currentPassword: security.currentPassword,
         newPassword: security.newPassword
       });
-      setSuccessMsg("Password changed successfully!");
+      setSuccessMsg("Đổi mật khẩu thành công!");
       setSecurity({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setShowCurrent(false); setShowNew(false); setShowConfirm(false);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to change password. Current password may be incorrect.");
+      setError(err.response?.data?.message || "Đổi mật khẩu thất bại. Mật khẩu hiện tại có thể không đúng.");
     } finally {
       setIsSaving(false);
       setTimeout(() => setSuccessMsg(null), 4000);
     }
   };
 
-  // IMPLEMENT ĐĂNG XUẤT TẤT CẢ
+  // Đăng xuất toàn bộ thiết bị
   const handleLogoutAll = async () => {
     try {
       await api.post('/users/me/logout-all').catch(() => {}); 
@@ -214,18 +214,13 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-<<<<<<< HEAD
-    { id: 'account', label: 'Account / Profile' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'security', label: 'Security' }
-=======
     { id: 'account', label: 'Tài khoản / Hồ sơ' },
+    { id: 'appearance', label: 'Giao diện' },
+    { id: 'notifications', label: 'Thông báo' },
     { id: 'security', label: 'Bảo mật' }
->>>>>>> 3fee7c8295d70c85828ae3c07c8267367e23c63d
   ];
 
-  if (isLoading) return <div className="p-8 text-center text-slate-500">⏳ Loading data...</div>;
+  if (isLoading) return <div className="p-8 text-center text-slate-500">⏳ Đang tải dữ liệu...</div>;
 
   return (
     <div className="flex bg-white rounded-2xl shadow-sm border border-slate-200 min-h-[75vh]">
@@ -257,7 +252,7 @@ export default function SettingsPage() {
         {/* 1. Account / Profile */}
         {activeTab === 'account' && (
           <div className="space-y-4 max-w-lg">
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Personal Information</h3>
+            <h3 className="text-xl font-bold mb-4 text-slate-800">Thông tin cá nhân</h3>
             
             <div className="flex items-center space-x-4 mb-4">
               {profile.avatarUrl ? (
@@ -270,29 +265,25 @@ export default function SettingsPage() {
               
               <input type="file" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" accept="image/png, image/jpeg, image/jpg" />
               <button onClick={() => fileInputRef.current?.click()} disabled={isSaving} className="text-sm text-blue-600 font-medium border border-blue-600 px-3 py-1 rounded-lg hover:bg-blue-50 disabled:opacity-50">
-                {isSaving ? 'Uploading...' : 'Change Avatar'}
+                {isSaving ? 'Đang tải lên...' : 'Đổi ảnh đại diện'}
               </button>
             </div>
 
-            <div><label className="block text-sm font-medium mb-1 text-slate-700">Display Name *</label>
+            <div><label className="block text-sm font-medium mb-1 text-slate-700">Tên hiển thị *</label>
               <input type="text" value={profile.displayName || ''} onChange={(e) => setProfile({...profile, displayName: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
             
-            <div><label className="block text-sm font-medium mb-1 text-slate-700">Username *</label>
+            <div><label className="block text-sm font-medium mb-1 text-slate-700">Tên đăng nhập *</label>
               <input type="text" value={profile.username || ''} onChange={(e) => setProfile({...profile, username: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
             
             <div><label className="block text-sm font-medium mb-1 text-slate-700">Email</label>
               <input type="email" value={profile.email || ''} disabled className="w-full border rounded-lg p-2 bg-slate-100 text-slate-500 cursor-not-allowed" /></div>
             
-            <div><label className="block text-sm font-medium mb-1 text-slate-700">Phone Number</label>
+            <div><label className="block text-sm font-medium mb-1 text-slate-700">Số điện thoại</label>
               <input type="text" value={profile.phone || ''} onChange={(e) => setProfile({...profile, phone: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
 
             <div className="pt-4 flex space-x-3">
               <button onClick={handleSaveProfile} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[120px]">
-<<<<<<< HEAD
-                {isSaving ? 'Saving...' : 'Save changes'}
-=======
                 {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
->>>>>>> 3fee7c8295d70c85828ae3c07c8267367e23c63d
               </button>
               <button onClick={handleCancelProfile} disabled={isSaving} className="bg-white text-slate-600 border border-slate-300 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 disabled:opacity-50">
                 Hủy
@@ -301,19 +292,18 @@ export default function SettingsPage() {
           </div>
         )}
 
-<<<<<<< HEAD
         {/* 2. Appearance Settings */}
         {activeTab === 'appearance' && (
           <div className="space-y-8 max-w-2xl animate-fade-in">
             <div>
-              <h3 className="text-xl font-bold mb-1 text-slate-800">Theme</h3>
-              <p className="text-sm text-slate-500 mb-4">Customize your workspace visual style.</p>
+              <h3 className="text-xl font-bold mb-1 text-slate-800">Chế độ giao diện</h3>
+              <p className="text-sm text-slate-500 mb-4">Tùy chỉnh phong cách giao diện không gian làm việc của bạn.</p>
               
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  { id: 'light', icon: Sun, label: 'Light' },
-                  { id: 'dark', icon: Moon, label: 'Dark' },
-                  { id: 'system', icon: Monitor, label: 'System' }
+                  { id: 'light', icon: Sun, label: 'Sáng' },
+                  { id: 'dark', icon: Moon, label: 'Tối' },
+                  { id: 'system', icon: Monitor, label: 'Theo hệ thống' }
                 ].map((t) => (
                   <button
                     key={t.id}
@@ -330,8 +320,8 @@ export default function SettingsPage() {
             </div>
 
             <div className="pt-6 border-t border-slate-100">
-              <h3 className="text-xl font-bold mb-1 text-slate-800">Accent Color</h3>
-              <p className="text-sm text-slate-500 mb-4">Choose the primary color for buttons and highlights.</p>
+              <h3 className="text-xl font-bold mb-1 text-slate-800">Màu chủ đạo</h3>
+              <p className="text-sm text-slate-500 mb-4">Chọn màu sắc chính cho các nút bấm và điểm nhấn.</p>
               
               <div className="flex gap-4">
                 {[
@@ -361,36 +351,18 @@ export default function SettingsPage() {
                 disabled={isAppSaving}
                 className="text-slate-500 hover:text-slate-800 font-medium underline"
               >
-                Reset to default
+                Khôi phục mặc định
               </button>
               <button 
                 onClick={async () => {
                    await saveSettings();
-                   setSuccessMsg("Appearance settings saved successfully!");
+                   setSuccessMsg("Đã lưu cài đặt giao diện!");
                    setTimeout(() => setSuccessMsg(null), 3000);
                 }} 
                 disabled={isAppSaving} 
                 className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition shadow-sm disabled:opacity-50"
               >
-                {isAppSaving ? 'Saving...' : 'Save changes'}
-=======
-        {/* 2. Security / Password */}
-        {activeTab === 'security' && (
-          <div className="space-y-4 max-w-lg">
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Đổi mật khẩu</h3>
-            <div><label className="block text-sm font-medium mb-1">Mật khẩu hiện tại *</label>
-              <input type="password" value={security.currentPassword} onChange={(e) => setSecurity({...security, currentPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
-            
-            <div><label className="block text-sm font-medium mb-1">Mật khẩu mới * (Tối thiểu 6 ký tự)</label>
-              <input type="password" value={security.newPassword} onChange={(e) => setSecurity({...security, newPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
-            
-            <div><label className="block text-sm font-medium mb-1">Xác nhận mật khẩu mới *</label>
-              <input type="password" value={security.confirmPassword} onChange={(e) => setSecurity({...security, confirmPassword: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
-            
-            <div className="pt-4 flex space-x-3">
-              <button onClick={handleChangePassword} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[150px]">
-                {isSaving ? 'Đang xử lý...' : 'Đổi mật khẩu'}
->>>>>>> 3fee7c8295d70c85828ae3c07c8267367e23c63d
+                {isAppSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>
           </div>
@@ -399,15 +371,15 @@ export default function SettingsPage() {
         {/* 3. Notifications Settings */}
         {activeTab === 'notifications' && (
           <div className="space-y-6 max-w-lg">
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Notification Settings</h3>
+            <h3 className="text-xl font-bold mb-4 text-slate-800">Cài đặt thông báo</h3>
             <div className="space-y-3">
               {[
-                { key: 'taskAssigned', label: 'Tasks assigned to me' },
-                { key: 'taskDueSoon', label: 'Tasks due soon' },
-                { key: 'taskOverdue', label: 'Overdue tasks' },
-                { key: 'comments', label: 'Comments on my tasks' },
-                { key: 'mentions', label: 'Mentions' },
-                { key: 'boardInvites', label: 'Board invitations' },
+                { key: 'taskAssigned', label: 'Công việc được giao cho tôi' },
+                { key: 'taskDueSoon', label: 'Công việc sắp đến hạn' },
+                { key: 'taskOverdue', label: 'Công việc quá hạn' },
+                { key: 'comments', label: 'Bình luận trong công việc' },
+                { key: 'mentions', label: 'Nhắc đến (Mention) tôi' },
+                { key: 'boardInvites', label: 'Lời mời tham gia bảng' },
               ].map((item) => (
                 <label key={item.key} className="flex items-center justify-between cursor-pointer p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
                   <span className="text-slate-700 font-medium">{item.label}</span>
@@ -422,7 +394,7 @@ export default function SettingsPage() {
             </div>
             <div className="pt-4 flex space-x-3">
               <button onClick={handleSaveNotifications} disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 min-w-[120px]">
-                {isSaving ? 'Saving...' : 'Save changes'}
+                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>
           </div>
@@ -433,14 +405,14 @@ export default function SettingsPage() {
           <div className="space-y-10 max-w-2xl animate-fade-in">
             {/* Section 1: Password */}
             <section>
-              <h3 className="text-xl font-bold mb-1 text-slate-800">Password</h3>
-              <p className="text-sm text-slate-500 mb-5">Change your password regularly to keep your account secure.</p>
+              <h3 className="text-xl font-bold mb-1 text-slate-800">Mật khẩu</h3>
+              <p className="text-sm text-slate-500 mb-5">Thay đổi mật khẩu thường xuyên để bảo vệ tài khoản của bạn.</p>
               
               <div className="space-y-4 max-w-md p-5 bg-slate-50 border border-slate-200 rounded-xl">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700">Current Password *</label>
+                  <label className="block text-sm font-medium mb-1 text-slate-700">Mật khẩu hiện tại *</label>
                   <div className="relative">
-                    <input type={showCurrent ? "text" : "password"} value={security.currentPassword} onChange={(e) => setSecurity({...security, currentPassword: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 pr-10 outline-blue-500 bg-white" placeholder="Enter current password" />
+                    <input type={showCurrent ? "text" : "password"} value={security.currentPassword} onChange={(e) => setSecurity({...security, currentPassword: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 pr-10 outline-blue-500 bg-white" placeholder="Nhập mật khẩu hiện tại" />
                     <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
                       {showCurrent ? <EyeOff size={18}/> : <Eye size={18}/>}
                     </button>
@@ -448,9 +420,9 @@ export default function SettingsPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700">New Password *</label>
+                  <label className="block text-sm font-medium mb-1 text-slate-700">Mật khẩu mới *</label>
                   <div className="relative">
-                    <input type={showNew ? "text" : "password"} value={security.newPassword} onChange={(e) => setSecurity({...security, newPassword: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 pr-10 outline-blue-500 bg-white" placeholder="Min 6 characters" />
+                    <input type={showNew ? "text" : "password"} value={security.newPassword} onChange={(e) => setSecurity({...security, newPassword: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 pr-10 outline-blue-500 bg-white" placeholder="Tối thiểu 6 ký tự" />
                     <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
                       {showNew ? <EyeOff size={18}/> : <Eye size={18}/>}
                     </button>
@@ -458,9 +430,9 @@ export default function SettingsPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-700">Confirm New Password *</label>
+                  <label className="block text-sm font-medium mb-1 text-slate-700">Xác nhận mật khẩu mới *</label>
                   <div className="relative">
-                    <input type={showConfirm ? "text" : "password"} value={security.confirmPassword} onChange={(e) => setSecurity({...security, confirmPassword: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 pr-10 outline-blue-500 bg-white" placeholder="Repeat new password" />
+                    <input type={showConfirm ? "text" : "password"} value={security.confirmPassword} onChange={(e) => setSecurity({...security, confirmPassword: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 pr-10 outline-blue-500 bg-white" placeholder="Nhập lại mật khẩu mới" />
                     <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
                       {showConfirm ? <EyeOff size={18}/> : <Eye size={18}/>}
                     </button>
@@ -469,7 +441,7 @@ export default function SettingsPage() {
                 
                 <div className="pt-2">
                   <button onClick={handleChangePassword} disabled={isSaving} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors w-full sm:w-auto">
-                    {isSaving ? 'Processing...' : 'Update Password'}
+                    {isSaving ? 'Đang xử lý...' : 'Cập nhật mật khẩu'}
                   </button>
                 </div>
               </div>
@@ -479,25 +451,25 @@ export default function SettingsPage() {
 
             {/* Section 2: Active Sessions */}
             <section>
-              <h3 className="text-xl font-bold mb-1 text-slate-800">Active Sessions</h3>
-              <p className="text-sm text-slate-500 mb-5">Devices currently logged into your account.</p>
+              <h3 className="text-xl font-bold mb-1 text-slate-800">Phiên đăng nhập</h3>
+              <p className="text-sm text-slate-500 mb-5">Các thiết bị hiện đang đăng nhập vào tài khoản của bạn.</p>
               
               <div className="flex items-start gap-4 p-4 border border-blue-100 bg-blue-50 rounded-xl mb-4">
                 <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
                   <MonitorSmartphone size={24} />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-slate-800">Current Device</p>
+                  <p className="font-semibold text-slate-800">Thiết bị hiện tại</p>
                   <p className="text-sm text-slate-600">{deviceInfo}</p>
-                  <p className="text-xs text-green-600 font-medium mt-1">● Active now</p>
+                  <p className="text-xs text-green-600 font-medium mt-1">● Đang hoạt động</p>
                 </div>
               </div>
 
               <div className="p-4 border border-slate-200 bg-slate-50 rounded-xl flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-slate-800">Other Devices</p>
+                  <p className="font-medium text-slate-800">Thiết bị khác</p>
                   <p className="text-sm text-slate-500 mt-1 max-w-sm">
-                    Because Trillo uses stateless JWT authentication, tracking specific historical devices is disabled. You can forcefully log out from all devices below.
+                    Trillo sử dụng xác thực JWT, bạn có thể đăng xuất khỏi tất cả các thiết bị bất cứ lúc nào bằng nút bên dưới.
                   </p>
                 </div>
               </div>
@@ -508,20 +480,20 @@ export default function SettingsPage() {
             {/* Section 3: Danger Zone */}
             <section>
               <h3 className="text-xl font-bold mb-1 text-red-600 flex items-center gap-2">
-                <AlertTriangle size={20} /> Danger Zone
+                <AlertTriangle size={20} /> Vùng nguy hiểm
               </h3>
-              <p className="text-sm text-slate-500 mb-5">Log out of your account on all devices.</p>
+              <p className="text-sm text-slate-500 mb-5">Đăng xuất tài khoản khỏi mọi thiết bị.</p>
               
               {!showLogoutConfirm ? (
                 <button onClick={() => setShowLogoutConfirm(true)} className="flex items-center gap-2 text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 px-5 py-2.5 rounded-lg font-medium transition-colors">
-                  <LogOut size={18} /> Log out all devices
+                  <LogOut size={18} /> Đăng xuất khỏi mọi thiết bị
                 </button>
               ) : (
                 <div className="p-4 border border-red-200 bg-red-50 rounded-xl animate-fade-in">
-                  <p className="font-medium text-red-800 mb-3">Are you sure you want to log out from ALL devices?</p>
+                  <p className="font-medium text-red-800 mb-3">Bạn có chắc chắn muốn đăng xuất khỏi TẤT CẢ các thiết bị không?</p>
                   <div className="flex gap-3">
-                    <button onClick={handleLogoutAll} className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700">Yes, log out everywhere</button>
-                    <button onClick={() => setShowLogoutConfirm(false)} className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-lg font-medium hover:bg-slate-50">Cancel</button>
+                    <button onClick={handleLogoutAll} className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700">Đồng ý, đăng xuất</button>
+                    <button onClick={() => setShowLogoutConfirm(false)} className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-lg font-medium hover:bg-slate-50">Hủy</button>
                   </div>
                 </div>
               )}

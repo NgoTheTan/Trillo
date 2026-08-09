@@ -6,5 +6,11 @@ public enum NotificationType {
     DEADLINE_REMINDER,
     CARD_UPDATED,
     COMMENT_ADDED,
-    MEMBER_JOINED
+    MEMBER_JOINED,
+    TASK_ASSIGNED, 
+    TASK_STATUS_CHANGED, 
+    TASK_DUE_SOON, 
+    TASK_OVERDUE, 
+    COMMENT, 
+    MENTION
 }

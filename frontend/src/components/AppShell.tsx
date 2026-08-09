@@ -3,6 +3,7 @@ import { Calendar, LogOut, ShieldCheck, Users } from 'lucide-react'
 import { useAuth } from '../auth/authContext'
 import { getInitials } from '../auth/authStorage'
 import { useState, useEffect } from 'react';
+import NotificationBell from './NotificationBell'; // <-- Thêm dòng Import này
 
 export function AppShell() {
   const { user, logout } = useAuth()
@@ -43,6 +44,8 @@ export function AppShell() {
             {user?.role === 'PM' ? 'PM workspace' : 'User workspace'}
           </span>
           
+          <NotificationBell />
+
           <span className="status-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {headerUser.avatarUrl ? (
               <img 

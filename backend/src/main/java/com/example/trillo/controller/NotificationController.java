@@ -1,6 +1,7 @@
 package com.example.trillo.controller;
 
 import com.example.trillo.dto.response.NotificationResponse;
+import com.example.trillo.entity.NotificationSetting;
 import com.example.trillo.entity.User;
 import com.example.trillo.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -51,5 +52,17 @@ public class NotificationController {
     public ResponseEntity<Void> markAllAsRead(@AuthenticationPrincipal User user) {
         notificationService.markAllAsRead(user);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/settings")
+    public ResponseEntity<NotificationSetting> getSettings(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(notificationService.getSettings(user.getId()));
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<NotificationSetting> updateSettings(
+            @RequestBody NotificationSetting settings,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(notificationService.updateSettings(user.getId(), settings));
     }
 }

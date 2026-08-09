@@ -29,11 +29,15 @@ public class Notification {
     @Column(nullable = false)
     private NotificationType type;
 
+    private String title;
+    private String relatedTaskId;
+    private String relatedBoardId;
+
     @Column(nullable = false, length = 500)
     private String message;
 
-    private String referenceId;  // boardId or cardId
-    private String referenceType; // "BOARD" or "CARD"
+    private String referenceId;
+    private String referenceType;
 
     @Builder.Default
     private boolean read = false;

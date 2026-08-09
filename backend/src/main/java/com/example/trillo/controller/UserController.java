@@ -10,12 +10,6 @@ import org.springframework.web.bind.annotation.*;
 import com.example.trillo.dto.request.ChangePasswordRequest;
 import com.example.trillo.dto.request.UpdateProfileRequest;
 import com.example.trillo.dto.response.UserProfileResponse;
-import com.example.trillo.entity.User;
-import com.example.trillo.service.UserService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -68,5 +62,9 @@ public class UserController {
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getProfile(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(userService.getUserById(user.getId()));
+    }
+    @PostMapping("/me/logout-all")
+    public ResponseEntity<Void> logoutAllDevices(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok().build();
     }
 }

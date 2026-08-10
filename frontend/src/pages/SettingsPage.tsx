@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAppearance } from '../context/AppearanceContext';
 import { Monitor, Moon, Sun, Eye, EyeOff, LogOut, MonitorSmartphone, AlertTriangle } from 'lucide-react';
-import { defaultPasswordRules } from '../components/common/PasswordChecklist';
+import { PasswordChecklist, defaultPasswordRules } from '../components/common/PasswordChecklist';
+import { getAvatarUrl, getInitials } from '../auth/authStorage';
 
 // Axios instance
 const api = axios.create({
@@ -91,8 +92,8 @@ export default function SettingsPage() {
   };
 
   const handleSaveProfile = async () => {
-    if (!profile.displayName?.trim() || !profile.username?.trim()) {
-      setError("Tên hiển thị và Tên đăng nhập không được để trống!");
+    if (!profile.displayName?.trim()) {
+      setError("Tên hiển thị không được để trống!");
       return;
     }
     try {
@@ -100,7 +101,6 @@ export default function SettingsPage() {
       setError(null);
       const res = await api.put('/users/me', {
         displayName: profile.displayName,
-        username: profile.username,
         phone: profile.phone
       });
       setOriginalProfile(res.data);
@@ -150,34 +150,28 @@ export default function SettingsPage() {
   const handleSaveNotifications = async () => {
     try {
       setIsSaving(true);
-      setError(null);
       await api.put('/notifications/settings', notiSettings);
-      setSuccessMsg("Đã lưu cài đặt thông báo!");
+      setSuccessMsg("Cập nhật cài đặt thông báo thành công!");
     } catch (err) {
       setError("Lỗi khi lưu cài đặt thông báo.");
-      console.error(err);
     } finally {
       setIsSaving(false);
       setTimeout(() => setSuccessMsg(null), 3000);
     }
   };
 
-  // Đổi mật khẩu
   const handleChangePassword = async () => {
-    setError(null);
-    setSuccessMsg(null);
-    
-    if (!security.currentPassword) {
-      setError("Vui lòng nhập mật khẩu hiện tại.");
+    if (!security.currentPassword || !security.newPassword || !security.confirmPassword) {
+      setError("Vui lòng điền đầy đủ các trường mật khẩu.");
+      return;
+    }
+    if (security.newPassword === security.currentPassword) {
+      setError("Mật khẩu mới không được trùng với mật khẩu hiện tại.");
       return;
     }
     const isAllRulesMet = defaultPasswordRules.every(rule => rule.test(security.newPassword));
     if (!isAllRulesMet) {
       setError("Mật khẩu mới chưa đáp ứng đầy đủ các yêu cầu bảo mật.");
-      return;
-    }
-    if (security.newPassword === security.currentPassword) {
-      setError("Mật khẩu mới không được trùng với mật khẩu hiện tại.");
       return;
     }
     if (security.newPassword !== security.confirmPassword) {
@@ -222,6 +216,9 @@ export default function SettingsPage() {
 
   if (isLoading) return <div className="p-8 text-center text-slate-500">⏳ Đang tải dữ liệu...</div>;
 
+  const profileAvatarSrc = getAvatarUrl(profile.avatarUrl);
+  const profileInitials = getInitials(profile.displayName || profile.email || 'User');
+
   return (
     <div className="flex bg-white rounded-2xl shadow-sm border border-slate-200 min-h-[75vh]">
       {/* Sidebar Menu */}
@@ -255,11 +252,11 @@ export default function SettingsPage() {
             <h3 className="text-xl font-bold mb-4 text-slate-800">Thông tin cá nhân</h3>
             
             <div className="flex items-center space-x-4 mb-4">
-              {profile.avatarUrl ? (
-                <img src={`http://localhost:8080${profile.avatarUrl}`} alt="Avatar" className="w-16 h-16 rounded-full object-cover border border-slate-200" />
+              {profileAvatarSrc ? (
+                <img src={profileAvatarSrc} alt="Avatar" className="w-16 h-16 rounded-full object-cover border border-slate-200 shadow-sm" />
               ) : (
-                <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 font-bold text-xl">
-                  {profile.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-sm tracking-wider">
+                  {profileInitials}
                 </div>
               )}
               
@@ -271,9 +268,6 @@ export default function SettingsPage() {
 
             <div><label className="block text-sm font-medium mb-1 text-slate-700">Tên hiển thị *</label>
               <input type="text" value={profile.displayName || ''} onChange={(e) => setProfile({...profile, displayName: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
-            
-            <div><label className="block text-sm font-medium mb-1 text-slate-700">Tên đăng nhập *</label>
-              <input type="text" value={profile.username || ''} onChange={(e) => setProfile({...profile, username: e.target.value})} className="w-full border rounded-lg p-2 outline-blue-500" /></div>
             
             <div><label className="block text-sm font-medium mb-1 text-slate-700">Email</label>
               <input type="email" value={profile.email || ''} disabled className="w-full border rounded-lg p-2 bg-slate-100 text-slate-500 cursor-not-allowed" /></div>
@@ -422,7 +416,7 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-sm font-medium mb-1 text-slate-700">Mật khẩu mới *</label>
                   <div className="relative">
-                    <input type={showNew ? "text" : "password"} value={security.newPassword} onChange={(e) => setSecurity({...security, newPassword: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 pr-10 outline-blue-500 bg-white" placeholder="Tối thiểu 6 ký tự" />
+                    <input type={showNew ? "text" : "password"} value={security.newPassword} onChange={(e) => setSecurity({...security, newPassword: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 pr-10 outline-blue-500 bg-white" placeholder="Ít nhất 8 ký tự" />
                     <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
                       {showNew ? <EyeOff size={18}/> : <Eye size={18}/>}
                     </button>
@@ -438,6 +432,8 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+
+                <PasswordChecklist password={security.newPassword} />
                 
                 <div className="pt-2">
                   <button onClick={handleChangePassword} disabled={isSaving} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors w-full sm:w-auto">

@@ -19,7 +19,7 @@ public class AppearanceController {
     @GetMapping
     public ResponseEntity<AppearanceSetting> getSettings(@AuthenticationPrincipal User user) {
         AppearanceSetting setting = appearanceRepository.findById(user.getId())
-                .orElse(new AppearanceSetting(user.getId(), "system", "blue"));
+                .orElse(new AppearanceSetting(user.getId(), "light", "blue"));
         return ResponseEntity.ok(setting);
     }
 

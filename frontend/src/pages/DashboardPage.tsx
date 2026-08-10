@@ -4,7 +4,7 @@ import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGri
 import { useQueries } from '@tanstack/react-query'
 import { useBoardDetailQuery, useBoardsQuery, type BoardList, type BoardMember } from '../services/boardServices'
 import { getAllListCards, useListCardsQuery, type ListCardResponse } from '../services/cardService.ts'
-import { getInitials } from '../auth/authStorage'
+import { getInitials, getAvatarUrl } from '../auth/authStorage'
 
 type DashboardPageProps = Readonly<{
   variant?: 'overview' | 'pm' | 'team'
@@ -202,7 +202,7 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
                 <div key={item.member.id} className="dashboard-bar-chart__row">
                   <div className="dashboard-bar-chart__label">
                     {item.member.user.avatarUrl ? (
-                      <img src={item.member.user.avatarUrl} alt={item.member.user.fullName} />
+                      <img src={getAvatarUrl(item.member.user.avatarUrl)} alt={item.member.user.fullName} />
                     ) : (
                       <span>{getInitials(item.member.user.fullName)}</span>
                     )}
@@ -313,7 +313,7 @@ function DashboardListBreakdownRow(props: DashboardListBreakdownRowProps) {
               {(card.assignedMembers || []).slice(0, 3).map(member => (
                 <span key={member.id} className="dashboard-card-mini__member" title={member.fullName}>
                   {member.avatarUrl ? (
-                    <img src={member.avatarUrl} alt={member.fullName} />
+                    <img src={getAvatarUrl(member.avatarUrl)} alt={member.fullName} />
                   ) : (
                     <span>{getInitials(member.fullName)}</span>
                   )}

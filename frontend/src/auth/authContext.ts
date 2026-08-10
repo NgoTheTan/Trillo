@@ -5,6 +5,7 @@ export type AuthContextValue = {
   user: AuthUser | null
   isReady: boolean
   login: (input: { email: string; password: string }) => Promise<AuthUser>
+  loginWithGoogle: (idToken: string) => Promise<AuthUser>
   register: (input: { fullName: string; email: string; password: string }) => Promise<AuthUser>
   logout: () => void
 }

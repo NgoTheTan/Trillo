@@ -10,6 +10,7 @@ import { ConfirmDeleteCardModal } from '../listCard/ConfirmDeleteCardModal'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { formatDeadlineDisplay } from '../../utils/dateUtils'
+import { getAvatarUrl } from '../../auth/authStorage'
 
 interface KanbanCardProps {
   isOpenEditCardRef?: React.MutableRefObject<boolean>
@@ -178,7 +179,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
                 member.avatarUrl ? (
                   <img
                     key={member.id}
-                    src={member.avatarUrl}
+                    src={getAvatarUrl(member.avatarUrl)}
                     alt={member.fullName}
                     title={member.fullName}
                     className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200"

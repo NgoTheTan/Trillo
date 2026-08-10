@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../auth/authContext'
 import { AuthLayout } from './AuthLayout'
 import { PasswordChecklist } from '../components/common/PasswordChecklist'
+import { GoogleLoginButton } from '../components/auth/GoogleLoginButton'
 
 const registerSchema = z
   .object({
@@ -33,7 +34,7 @@ const registerSchema = z
 type RegisterFormValues = z.infer<typeof registerSchema>
 
 export function RegisterPage() {
-  const { register: createAccount } = useAuth()
+  const { register: createAccount, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -63,100 +64,119 @@ export function RegisterPage() {
     }
   })
 
+  const handleGoogleSuccess = async (idToken: string) => {
+    try {
+      await loginWithGoogle(idToken)
+      toast.success('Đăng ký / Đăng nhập bằng Google thành công')
+      navigate('/app', { replace: true })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể đăng ký bằng Google')
+    }
+  }
+
   return (
     <AuthLayout
       title="Tạo tài khoản"
       subtitle="Tham gia Trillo để bắt đầu quản lý dự án."
       compact
     >
-      <form className="auth-form" onSubmit={onSubmit} noValidate>
-        <label className="field">
-          <span>Họ và tên</span>
-          <div className="input-wrap">
-            <User className="input-icon" size={18} />
-            <input
-              className={`input${errors.fullName ? ' input--error' : ''}`}
-              type="text"
-              placeholder="Nguyễn Văn A"
-              {...register('fullName')}
-            />
-          </div>
-          {errors.fullName ? <span className="field-error">{errors.fullName.message}</span> : null}
-        </label>
+      <div className="space-y-4">
+        <GoogleLoginButton onSuccess={handleGoogleSuccess} disabled={isSubmitting} buttonText="Đăng ký bằng Google" text="signup_with" />
 
-        <label className="field">
-          <span>Email</span>
-          <div className="input-wrap">
-            <Mail className="input-icon" size={18} />
-            <input
-              className={`input${errors.email ? ' input--error' : ''}`}
-              type="email"
-              placeholder="ten@congty.com"
-              {...register('email')}
-            />
-          </div>
-          {errors.email ? <span className="field-error">{errors.email.message}</span> : null}
-        </label>
-
-        <div className="field-row">
-          <label style={{ flex: 1 }}>
-            <span>Mật khẩu</span>
-            <div className="input-wrap" style={{ marginTop: '10px' }}>
-              <Lock className="input-icon" size={18} />
-              <input
-                className={`input${errors.password ? ' input--error' : ''}`}
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Ít nhất 8 ký tự"
-                {...register('password')}
-              />
-              <button
-                type="button"
-                className="input-action"
-                onClick={() => setShowPassword((currentValue) => !currentValue)}
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-            {errors.password ? <span className="field-error">{errors.password.message}</span> : null}
-          </label>
-
-          <label style={{ flex: 1 }}>
-            <span>Xác nhận mật khẩu</span>
-            <div className="input-wrap" style={{ marginTop: '10px' }}>
-              <Lock className="input-icon" size={18} />
-              <input
-                className={`input${errors.confirmPassword ? ' input--error' : ''}`}
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Nhập lại mật khẩu"
-                {...register('confirmPassword')}
-              />
-              <button
-                type="button"
-                className="input-action"
-                onClick={() => setShowConfirmPassword((currentValue) => !currentValue)}
-                aria-label={showConfirmPassword ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
-              >
-                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-            {errors.confirmPassword ? (
-              <span className="field-error">{errors.confirmPassword.message}</span>
-            ) : null}
-          </label>
+        <div className="relative flex items-center justify-center my-4">
+          <div className="border-t border-slate-200 w-full" />
+          <span className="bg-white px-3 text-xs text-slate-400 font-medium uppercase absolute">hoặc</span>
         </div>
 
-        <PasswordChecklist password={passwordValue} />
+        <form className="auth-form" onSubmit={onSubmit} noValidate>
+          <label className="field">
+            <span>Họ và tên</span>
+            <div className="input-wrap">
+              <User className="input-icon" size={18} />
+              <input
+                className={`input${errors.fullName ? ' input--error' : ''}`}
+                type="text"
+                placeholder="Nguyễn Văn A"
+                {...register('fullName')}
+              />
+            </div>
+            {errors.fullName ? <span className="field-error">{errors.fullName.message}</span> : null}
+          </label>
 
-        <button type="submit" className="primary-button" disabled={isSubmitting}>
-          {isSubmitting ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
-        </button>
+          <label className="field">
+            <span>Email</span>
+            <div className="input-wrap">
+              <Mail className="input-icon" size={18} />
+              <input
+                className={`input${errors.email ? ' input--error' : ''}`}
+                type="email"
+                placeholder="ten@congty.com"
+                {...register('email')}
+              />
+            </div>
+            {errors.email ? <span className="field-error">{errors.email.message}</span> : null}
+          </label>
 
-        <div className="account-switch">
-          <span>Đã có tài khoản?</span>
-          <Link to="/login">Đăng nhập</Link>
-        </div>
-      </form>
+          <div className="field-row">
+            <label style={{ flex: 1 }}>
+              <span>Mật khẩu</span>
+              <div className="input-wrap" style={{ marginTop: '10px' }}>
+                <Lock className="input-icon" size={18} />
+                <input
+                  className={`input${errors.password ? ' input--error' : ''}`}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Ít nhất 8 ký tự"
+                  {...register('password')}
+                />
+                <button
+                  type="button"
+                  className="input-action"
+                  onClick={() => setShowPassword((currentValue) => !currentValue)}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              {errors.password ? <span className="field-error">{errors.password.message}</span> : null}
+            </label>
+
+            <label style={{ flex: 1 }}>
+              <span>Xác nhận mật khẩu</span>
+              <div className="input-wrap" style={{ marginTop: '10px' }}>
+                <Lock className="input-icon" size={18} />
+                <input
+                  className={`input${errors.confirmPassword ? ' input--error' : ''}`}
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Nhập lại mật khẩu"
+                  {...register('confirmPassword')}
+                />
+                <button
+                  type="button"
+                  className="input-action"
+                  onClick={() => setShowConfirmPassword((currentValue) => !currentValue)}
+                  aria-label={showConfirmPassword ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              {errors.confirmPassword ? (
+                <span className="field-error">{errors.confirmPassword.message}</span>
+              ) : null}
+            </label>
+          </div>
+
+          <PasswordChecklist password={passwordValue} />
+
+          <button type="submit" className="primary-button" disabled={isSubmitting}>
+            {isSubmitting ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
+          </button>
+
+          <div className="account-switch">
+            <span>Đã có tài khoản?</span>
+            <Link to="/login">Đăng nhập</Link>
+          </div>
+        </form>
+      </div>
     </AuthLayout>
   )
 }

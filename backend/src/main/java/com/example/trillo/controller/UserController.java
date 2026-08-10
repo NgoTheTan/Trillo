@@ -12,6 +12,8 @@ import com.example.trillo.dto.request.UpdateProfileRequest;
 import com.example.trillo.dto.response.UserProfileResponse;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.validation.Valid;
+
 import java.util.List;
 
 @RestController
@@ -23,6 +25,7 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getCurrentUser(@AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         return ResponseEntity.ok(userService.getUserProfile(user));
     }
 
@@ -30,6 +33,7 @@ public class UserController {
     public ResponseEntity<UserProfileResponse> updateProfile(
             @RequestBody UpdateProfileRequest request,
             @AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         return ResponseEntity.ok(userService.updateProfile(user, request));
     }
 
@@ -37,13 +41,15 @@ public class UserController {
     public ResponseEntity<UserProfileResponse> uploadAvatar(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         return ResponseEntity.ok(userService.uploadAvatar(user, file));
     }
 
     @PutMapping("/me/password")
     public ResponseEntity<Void> changePassword(
-            @RequestBody ChangePasswordRequest request,
+            @Valid @RequestBody ChangePasswordRequest request,
             @AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         userService.changePassword(user, request);
         return ResponseEntity.ok().build();
     }
@@ -61,10 +67,13 @@ public class UserController {
 
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getProfile(@AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         return ResponseEntity.ok(userService.getUserById(user.getId()));
     }
+
     @PostMapping("/me/logout-all")
     public ResponseEntity<Void> logoutAllDevices(@AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         return ResponseEntity.ok().build();
     }
 }

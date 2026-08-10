@@ -1,5 +1,6 @@
 package com.example.trillo.controller;
 
+import com.example.trillo.dto.request.GoogleLoginRequest;
 import com.example.trillo.dto.request.LoginRequest;
 import com.example.trillo.dto.request.RegisterRequest;
 import com.example.trillo.dto.response.AuthResponse;
@@ -30,8 +31,16 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
+        return ResponseEntity.ok(authService.googleLogin(request));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser(@AuthenticationPrincipal User currentUser) {
+        if (currentUser == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
         return ResponseEntity.ok(authService.toUserResponse(currentUser));
     }
 }

@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogHeader } from '../ui/dialog'
 import { useInviteMemberMutation, useRemoveMemberMutation } from '../../services/boardServices'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { getAvatarUrl } from '../../auth/authStorage'
+
 export interface Member {
   id: string
   fullName: string
@@ -191,9 +193,17 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                   >
                     {/* Member Info */}
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs tracking-wider uppercase">
-                        {getInitials(member.fullName)}
-                      </div>
+                      {member.avatarUrl ? (
+                        <img
+                          src={getAvatarUrl(member.avatarUrl)}
+                          alt={member.fullName}
+                          className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0 shadow-xs"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs tracking-wider uppercase">
+                          {getInitials(member.fullName)}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-bold text-slate-800 truncate">

@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Calendar, LogOut, ShieldCheck, Users } from 'lucide-react'
 import { useAuth } from '../auth/authContext'
-import { getInitials } from '../auth/authStorage'
+import { getInitials, getAvatarUrl } from '../auth/authStorage'
 import { useState, useEffect } from 'react';
 import NotificationBell from './NotificationBell'; // <-- Thêm dòng Import này
 import { TrilloLogo } from './common/TrilloLogo'
@@ -12,7 +12,7 @@ export function AppShell() {
 
   const [headerUser, setHeaderUser] = useState({
     displayName: user?.fullName || 'User',
-    avatarUrl: null
+    avatarUrl: user?.avatarUrl || null
   });
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export function AppShell() {
           <span className="status-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {headerUser.avatarUrl ? (
               <img 
-                src={`http://localhost:8080${headerUser.avatarUrl}`} 
+                src={getAvatarUrl(headerUser.avatarUrl)} 
                 style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} 
                 alt="Avatar" 
               />

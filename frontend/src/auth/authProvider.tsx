@@ -6,7 +6,7 @@ import {
   type AuthUser,
 } from './authStorage'
 import { AuthContext, type AuthContextValue } from './authContext'
-import { loginRequest, meRequest, registerRequest, toAuthUser } from './authApi'
+import { loginRequest, googleLoginRequest, meRequest, registerRequest, toAuthUser } from './authApi'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => getCurrentSession()?.user ?? null)
@@ -37,11 +37,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void bootstrap()
   }, [])
 
+  useEffect(() => {
+    const handleProfileUpdated = (event: CustomEvent) => {
+      const updatedData = event.detail
+      if (updatedData) {
+        setUser((prevUser) => {
+          if (!prevUser) return null
+          const nextUser: AuthUser = {
+            ...prevUser,
+            fullName: updatedData.displayName || updatedData.fullName || prevUser.fullName,
+            avatarUrl: updatedData.avatarUrl !== undefined ? (updatedData.avatarUrl ?? undefined) : prevUser.avatarUrl,
+          }
+          const session = getCurrentSession()
+          if (session?.token) {
+            setSession({ token: session.token, user: nextUser })
+          }
+          return nextUser
+        })
+      }
+    }
+
+    window.addEventListener('profileUpdated', handleProfileUpdated as EventListener)
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdated as EventListener)
+  }, [])
+
   const value: AuthContextValue = {
     user,
     isReady,
     login: async (input) => {
       const response = await loginRequest(input)
+      const nextUser = toAuthUser(response.user)
+      setSession({ token: response.token, user: nextUser })
+      setUser(nextUser)
+      return nextUser
+    },
+    loginWithGoogle: async (idToken: string) => {
+      const response = await googleLoginRequest({ idToken })
       const nextUser = toAuthUser(response.user)
       setSession({ token: response.token, user: nextUser })
       setUser(nextUser)

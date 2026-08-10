@@ -65,3 +65,12 @@ export function getInitials(fullName: string) {
     .join('')
 }
 
+export function getAvatarUrl(url?: string | null): string | undefined {
+  if (!url) return undefined
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  return url.startsWith('/') ? `http://localhost:8080${url}` : `http://localhost:8080/${url}`
+}
+
+

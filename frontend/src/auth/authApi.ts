@@ -32,8 +32,18 @@ export type RegisterRequest = {
   avatarUrl?: string
 }
 
+export type GoogleLoginRequest = {
+  idToken: string
+}
+
 export async function loginRequest(payload: LoginRequest) {
   const response = await authFetch('/api/auth/login', payload)
+
+  return parseAuthResponse(response)
+}
+
+export async function googleLoginRequest(payload: GoogleLoginRequest) {
+  const response = await authFetch('/api/auth/google', payload)
 
   return parseAuthResponse(response)
 }
@@ -70,7 +80,7 @@ export async function meRequest(token: string) {
   return (await response.json()) as BackendUserResponse
 }
 
-async function authFetch(url: string, payload: LoginRequest | RegisterRequest) {
+async function authFetch(url: string, payload: LoginRequest | RegisterRequest | GoogleLoginRequest) {
   try {
     return await fetch(url, {
       method: 'POST',

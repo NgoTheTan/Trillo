@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     Bell,
@@ -25,6 +25,7 @@ import {
 } from '../ui/popover'
 import { TrilloLogo } from '../common/TrilloLogo'
 import { useAuth } from '../../auth/authContext'
+import { getAvatarUrl, getInitials } from '../../auth/authStorage'
 import {
     useNotificationsQuery,
     useMarkReadMutation,
@@ -54,21 +55,32 @@ export const Header: React.FC<HeaderProps> = ({
     const { user, logout } = useAuth()
     const navigate = useNavigate()
 
+    const [customAvatar, setCustomAvatar] = useState<string | undefined>(undefined)
+    const [customName, setCustomName] = useState<string | undefined>(undefined)
+
+    useEffect(() => {
+        const handleProfileUpdate = (event: any) => {
+            const updatedData = event.detail
+            if (updatedData) {
+                if (updatedData.avatarUrl !== undefined) setCustomAvatar(updatedData.avatarUrl)
+                if (updatedData.displayName !== undefined) setCustomName(updatedData.displayName)
+            }
+        }
+        window.addEventListener('profileUpdated', handleProfileUpdate)
+        return () => window.removeEventListener('profileUpdated', handleProfileUpdate)
+    }, [])
+
     const { data: notifications = [] } = useNotificationsQuery()
     const markReadMutation = useMarkReadMutation()
     const markUnreadMutation = useMarkUnreadMutation()
     const markAllReadMutation = useMarkAllReadMutation()
 
-    const displayName = user?.fullName || userName || 'User'
+    const displayName = customName || user?.fullName || userName || 'User'
     const displayRole = userRole || user?.email || 'Thành viên'
-    const userInitials = displayName
-        ? displayName
-            .split(' ')
-            .map(n => n[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase()
-        : 'US'
+    const userInitials = getInitials(displayName)
+
+    const rawAvatarUrl = customAvatar !== undefined ? customAvatar : (avatarUrl || user?.avatarUrl)
+    const effectiveAvatarUrl = getAvatarUrl(rawAvatarUrl)
 
     const unreadCount = notifications.filter(n => !n.read).length
 
@@ -249,14 +261,14 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Profile Popover */}
                 <Popover>
                     <PopoverTrigger className="flex items-center gap-3 p-1.5 pl-2 pr-3 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl transition-all cursor-pointer outline-none">
-                        {avatarUrl ? (
+                        {effectiveAvatarUrl ? (
                             <img
-                                src={avatarUrl}
+                                src={effectiveAvatarUrl}
                                 alt={displayName}
-                                className="w-9 h-9 rounded-lg object-cover border border-slate-200"
+                                className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-xs"
                             />
                         ) : (
-                            <div className="w-9 h-9 rounded-lg bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-xs">
+                            <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-xs">
                                 {userInitials}
                             </div>
                         )}

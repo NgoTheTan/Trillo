@@ -150,12 +150,14 @@ export const createNewBoard = async (payload: BoardFormPayload): Promise<BoardDe
   return await Api.post<BoardDetailResponse>("/boards", payload);
 }
 
-export const getAllBoards = async (): Promise<BoardSummaryResponse[]> => {
-  return await Api.get<BoardSummaryResponse[]>("/boards");
+export const getAllBoards = async (search?: string): Promise<BoardSummaryResponse[]> => {
+  const params = search ? `?search=${encodeURIComponent(search)}` : '';
+  return await Api.get<BoardSummaryResponse[]>(`/boards${params}`);
 }
 
-export const getPublicBoards = async (): Promise<BoardSummaryResponse[]> => {
-  return await Api.get<BoardSummaryResponse[]>("/boards/public");
+export const getPublicBoards = async (search?: string): Promise<BoardSummaryResponse[]> => {
+  const params = search ? `?search=${encodeURIComponent(search)}` : '';
+  return await Api.get<BoardSummaryResponse[]>(`/boards/public${params}`);
 }
 
 export const getBoard = async (boardId: string): Promise<BoardDetailResponse> => {
@@ -200,17 +202,17 @@ export const updateMemberPermissions = async (
 
 // ── React Query Hooks ─────────────────────────────────────────────────────────
 
-export const useBoardsQuery = () => {
+export const useBoardsQuery = (search?: string) => {
   return useQuery({
-    queryKey: ['boards'],
-    queryFn: getAllBoards,
+    queryKey: ['boards', 'my', search ?? ''],
+    queryFn: () => getAllBoards(search),
   });
 };
 
-export const usePublicBoardsQuery = () => {
+export const usePublicBoardsQuery = (search?: string) => {
   return useQuery({
-    queryKey: ['boards', 'public'],
-    queryFn: getPublicBoards,
+    queryKey: ['boards', 'public', search ?? ''],
+    queryFn: () => getPublicBoards(search),
   });
 };
 

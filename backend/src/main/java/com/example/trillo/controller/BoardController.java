@@ -26,13 +26,17 @@ public class BoardController {
     private final BoardService boardService;
 
     @GetMapping
-    public ResponseEntity<List<BoardSummaryResponse>> getMyBoards(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(boardService.getMyBoards(user));
+    public ResponseEntity<List<BoardSummaryResponse>> getMyBoards(
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(boardService.getMyBoards(user, search));
     }
 
     @GetMapping("/public")
-    public ResponseEntity<List<BoardSummaryResponse>> getPublicBoards(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(boardService.getPublicBoards(user));
+    public ResponseEntity<List<BoardSummaryResponse>> getPublicBoards(
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(boardService.getPublicBoards(user, search));
     }
 
     @PostMapping

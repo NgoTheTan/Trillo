@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Calendar1, Check, ListSortDescending, MessageSquareText, SquareCheck } from 'lucide-react'
+import { Calendar1, Check, ListSortDescending, MessageSquareText, Paperclip, SquareCheck } from 'lucide-react'
 import {
   useDeleteCardMutation,
   useToggleCardCompletedMutation,
@@ -121,21 +121,58 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
           </h3>
         </div>
 
-        {/* Labels row */}
-
-        {/* Card Footer: Date & User Avatar */}
+        {/* Card Footer: Stats */}
         <div className="flex items-center gap-3 font-medium pt-1.5 border-t border-slate-50 text-slate-400 text-xs">
-          <div
-            className={`flex items-center gap-1 font-medium ${card.deadline && !card.completed && new Date(card.deadline).getTime() < Date.now()
-              ? 'text-red-500 font-semibold'
-              : 'text-slate-400'
+          {/* Deadline — chỉ hiện khi có */}
+          {card.deadline && (
+            <div
+              className={`flex items-center gap-1 font-medium ${
+                !card.completed && new Date(card.deadline).getTime() < Date.now()
+                  ? 'text-red-500 font-semibold'
+                  : 'text-slate-400'
               }`}
-          >
-            <Calendar1 className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">
-              {formatDeadlineDisplay(card.deadline)}
+            >
+              <Calendar1 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{formatDeadlineDisplay(card.deadline)}</span>
+            </div>
+          )}
+
+          {/* Description icon */}
+          {card.description && (
+            <span className="text-slate-400">
+              <ListSortDescending className="w-3.5 h-3.5" />
             </span>
-          </div>
+          )}
+
+          {/* Comment count */}
+          {card.commentCount > 0 && (
+            <div className="flex items-center gap-1 text-slate-400">
+              <MessageSquareText className="w-3.5 h-3.5" />
+              <span>{card.commentCount}</span>
+            </div>
+          )}
+
+          {/* Attachment count */}
+          {card.attachmentCount > 0 && (
+            <div className="flex items-center gap-1 text-slate-400">
+              <Paperclip className="w-3.5 h-3.5" />
+              <span>{card.attachmentCount}</span>
+            </div>
+          )}
+
+          {/* Checklist progress — xanh nếu xong hết, đỏ nếu chưa */}
+          {card.checklistTotal > 0 && (
+            <div
+              className={`flex items-center gap-1 font-semibold ${
+                card.checklistCompleted === card.checklistTotal
+                  ? 'text-emerald-500'
+                  : 'text-red-400'
+              }`}
+            >
+              <SquareCheck className="w-3.5 h-3.5" />
+              <span>{card.checklistCompleted}/{card.checklistTotal}</span>
+            </div>
+          )}
         </div>
         <div className='w-full flex justify-end'>
           {card.assignedMembers && card.assignedMembers.length > 0 && (

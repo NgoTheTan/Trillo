@@ -88,6 +88,7 @@ export interface BoardCard {
   checklistTotal: number
   checklistCompleted: number
   commentCount: number
+  attachmentCount: number
   createdAt?: string
 }
 

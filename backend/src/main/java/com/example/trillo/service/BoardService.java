@@ -482,7 +482,7 @@ public class BoardService {
                 card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
                 card.getDeadline(), card.getPosition(),
                 card.isCompleted(), members, labels,
-                totalItems, completedItems, card.getComments().size(), card.getCreatedAt()
+                totalItems, completedItems, card.getComments().size(), card.getAttachments().size(), card.getCreatedAt()
         );
     }
 

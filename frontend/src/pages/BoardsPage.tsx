@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Search, Filter, LayoutGrid, List } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Search, LayoutGrid, List } from 'lucide-react'
 import { BoardCardView } from '../components/board/BoardCardView'
 import { BoardListView } from '../components/board/BoardListView'
 import { BoardFormModal } from '../components/board/BoardFormModal'
@@ -14,24 +14,34 @@ import {
 } from '../services/boardServices'
 
 export const BoardsPage = () => {
-    const [activeTab, setActiveTab] = useState<'All' | 'Public' | 'Mine' | 'Shared'>('All')
-    const [searchQuery, setSearchQuery] = useState('')
+    const [activeTab, setActiveTab] = useState<'All' | 'Public'>('All')
+    const [searchInput, setSearchInput] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [editingBoard, setEditingBoard] = useState<BoardSummaryResponse | null>(null)
     const [isEditOpen, setIsEditOpen] = useState(false)
 
-    const allBoardsQuery = useBoardsQuery()
-    const publicBoardsQuery = usePublicBoardsQuery()
+    // Debounce: chờ 300ms sau khi user ngừng gõ mới gọi API
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchInput.trim())
+        }, 300)
+        return () => clearTimeout(timer)
+    }, [searchInput])
+
+    const allBoardsQuery = useBoardsQuery(activeTab === 'All' ? debouncedSearch : undefined)
+    const publicBoardsQuery = usePublicBoardsQuery(activeTab === 'Public' ? debouncedSearch : undefined)
 
     const createBoardMutation = useCreateBoardMutation()
     const updateBoardMutation = useUpdateBoardMutation()
     const deleteBoardMutation = useDeleteBoardMutation()
 
-    const rawBoards = activeTab === 'Public' ? publicBoardsQuery.data : allBoardsQuery.data
-    const boards = (rawBoards || []).filter(board =>
-        board.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    const boards = activeTab === 'Public'
+        ? (publicBoardsQuery.data || [])
+        : (allBoardsQuery.data || [])
+
+    const isLoading = activeTab === 'Public' ? publicBoardsQuery.isLoading : allBoardsQuery.isLoading
 
     const toggleStar = (_id: string) => {}
 
@@ -108,16 +118,14 @@ export const BoardsPage = () => {
                         <input
                             type="text"
                             placeholder="Tìm kiếm bảng..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
+                            value={searchInput}
+                            onChange={e => setSearchInput(e.target.value)}
                             className="pl-9 pr-4 py-1.5 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-48 sm:w-64 transition-all shadow-2xs"
                         />
+                        {isLoading && debouncedSearch && (
+                            <span className="absolute right-3 w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        )}
                     </div>
-
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer">
-                        <span>Lọc</span>
-                        <Filter className="w-3.5 h-3.5 text-slate-500" />
-                    </button>
 
                     <div className="flex items-center bg-white border border-slate-200 p-1 rounded-lg shadow-2xs gap-1">
                         <button

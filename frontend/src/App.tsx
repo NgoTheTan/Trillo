@@ -13,6 +13,7 @@ import { BoardsPage } from './pages/BoardsPage'
 import { BoardDetailPage } from './pages/BoardDetailPage'
 import CalendarView from './components/CalendarView'
 import SettingsPage from './pages/SettingsPage'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 
 function App() {
   return (
@@ -57,7 +58,14 @@ function App() {
               <Route index element={<DashboardPage />} />
               <Route path="boards">
                 <Route index element={<BoardsPage />} />
-                <Route path=":boardId" element={<BoardDetailPage />} />
+                <Route
+                  path=":boardId"
+                  element={
+                    <ErrorBoundary>
+                      <BoardDetailPage />
+                    </ErrorBoundary>
+                  }
+                />
               </Route>
               <Route path="schedule" element={<CalendarView />} />
               <Route path="settings" element={<SettingsPage />} />

@@ -10,9 +10,10 @@ interface DateTimeInputProps {
     onChange?: (date: Date | null) => void;
     className?: string;
     style?: React.CSSProperties;
+    disabled?: boolean;
 }
 
-export const DateTimeInput = ({ value, onChange, className, style }: DateTimeInputProps) => {
+export const DateTimeInput = ({ value, onChange, className, style, disabled = false }: DateTimeInputProps) => {
     const [open, setOpen] = React.useState(false);
     const [date, setDate] = React.useState<Date | undefined>(undefined);
     const [hour, setHour] = React.useState<string>("00");
@@ -46,6 +47,7 @@ export const DateTimeInput = ({ value, onChange, className, style }: DateTimeInp
 
     // Emit date change helper
     const emitChange = (newDate: Date | undefined, newHour: string, newMin: string) => {
+        if (disabled) return;
         if (!newDate) {
             onChange?.(null);
             return;
@@ -150,6 +152,7 @@ export const DateTimeInput = ({ value, onChange, className, style }: DateTimeInp
     };
 
     const handleClearTime = (e?: React.MouseEvent) => {
+        if (disabled) return;
         e?.stopPropagation();
         setDate(undefined);
         setHour("00");
@@ -158,13 +161,15 @@ export const DateTimeInput = ({ value, onChange, className, style }: DateTimeInp
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger className="w-full">
+        <Popover open={disabled ? false : open} onOpenChange={disabled ? () => {} : setOpen}>
+            <PopoverTrigger className="w-full" disabled={disabled}>
                 <Button
                     type="button"
+                    disabled={disabled}
                     style={style}
                     className={cn(
-                        "cursor-pointer flex text-gray-600 items-center justify-between gap-2 border border-gray-300 text-xs",
+                        "flex text-gray-600 items-center justify-between gap-2 border border-gray-300 text-xs",
+                        disabled ? "opacity-60 cursor-not-allowed bg-slate-100/60" : "cursor-pointer",
                         className
                     )}
                 >
@@ -176,7 +181,7 @@ export const DateTimeInput = ({ value, onChange, className, style }: DateTimeInp
                                 : 'Select date & time'}
                         </span>
                     </div>
-                    {date && (
+                    {date && !disabled && (
                         <span
                             role="button"
                             tabIndex={0}

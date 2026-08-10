@@ -3,6 +3,7 @@ package com.example.trillo.controller;
 import com.example.trillo.dto.request.CreateBoardRequest;
 import com.example.trillo.dto.request.InviteMemberRequest;
 import com.example.trillo.dto.request.UpdateBoardRequest;
+import com.example.trillo.dto.request.UpdateMemberPermissionsRequest;
 import com.example.trillo.dto.response.BoardResponse;
 import com.example.trillo.dto.response.BoardSummaryResponse;
 import com.example.trillo.dto.response.InviteResponse;
@@ -86,5 +87,20 @@ public class BoardController {
             @AuthenticationPrincipal User user) {
         boardService.removeMember(boardId, userId, user);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Owner grants or revokes specific permissions for a board member.
+     * Sending an empty list makes the member view-only again.
+     */
+    @PutMapping("/{boardId}/members/{memberId}/permissions")
+    public ResponseEntity<BoardResponse.MemberResponse> updateMemberPermissions(
+            @PathVariable String boardId,
+            @PathVariable String memberId,
+            @RequestBody UpdateMemberPermissionsRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(
+                boardService.updateMemberPermissions(boardId, memberId, request, user)
+        );
     }
 }

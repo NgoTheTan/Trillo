@@ -42,7 +42,7 @@ const renderPriorityTag = (priority?: string) => {
   )
 }
 
-export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false }) => {
+export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false, canEditCard = true }) => {
   const [openEditCardModal, setOpenEditCardModal] = useState<boolean>(false)
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false)
   const deleteCardMutation = useDeleteCardMutation()
@@ -71,6 +71,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
   }
 
   const handleToggleComplete = async () => {
+    if (!canEditCard) return
     try {
       await toggleCompletedMutation.mutateAsync({
         cardId: card.id,
@@ -96,18 +97,21 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
         {/* Card Header: Checkbox, Title & Trash Icon */}
         <div className="relative pr-6">
           {/* Completion Check Circle — absolute, left-0 */}
-          {!isOverlay && (
+          {!isOverlay && (card.completed || canEditCard) && (
             <button
               type="button"
+              disabled={!canEditCard}
               onClick={(e) => {
                 e.stopPropagation()
+                if (!canEditCard) return
                 handleToggleComplete()
               }}
-              className={`mt-0.5 w-4 h-4 rounded-full absolute left-0 top-0.5 border flex items-center justify-center shrink-0 transition-all cursor-pointer ${card.completed
-                ? 'bg-emerald-500 border-emerald-500 text-white'
-                : 'border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 text-emerald-600 opacity-0 group-hover/card:opacity-100'
+              className={`mt-0.5 w-4 h-4 rounded-full absolute left-0 top-0.5 border flex items-center justify-center shrink-0 transition-all ${!canEditCard ? 'cursor-default' : 'cursor-pointer'
+                } ${card.completed
+                  ? 'bg-emerald-500 border-emerald-500 text-white opacity-100'
+                  : 'border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 text-emerald-600 opacity-0 group-hover/card:opacity-100'
                 }`}
-              title={card.completed ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}
+              title={!canEditCard ? (card.completed ? 'Đã hoàn thành' : '') : (card.completed ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành')}
             >
               {card.completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
             </button>
@@ -117,7 +121,9 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
           <h3
             className={`font-semibold text-sm leading-snug transition-all ${card.completed
               ? 'line-through text-slate-400 pl-5'
-              : 'text-slate-800 group-hover/card:text-blue-600 pl-0 group-hover/card:pl-6'
+              : canEditCard
+                ? 'text-slate-800 group-hover/card:text-blue-600 pl-0 group-hover/card:pl-6'
+                : 'text-slate-800 pl-0'
               }`}
           >
             {card.title}

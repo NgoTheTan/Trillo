@@ -48,45 +48,29 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
         })
     }
 
+    const activeFilterCount =
+        (cardfillterFeatures?.listIds?.length || 0) +
+        (cardfillterFeatures?.memberIds?.length || 0) +
+        (cardfillterFeatures?.labelIds?.length || 0) +
+        (cardfillterFeatures?.search ? 1 : 0) +
+        (cardfillterFeatures?.status !== null && cardfillterFeatures?.status !== undefined ? 1 : 0) +
+        (cardfillterFeatures?.noDeadline ? 1 : 0) +
+        (cardfillterFeatures?.deadlineFrom ? 1 : 0) +
+        (cardfillterFeatures?.deadlineTo ? 1 : 0);
+
     return (
-        <Popover>
-            <PopoverTrigger>
-                <Button className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer">
+        <div className="flex items-center gap-1.5">
+            <Popover>
+                <PopoverTrigger className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer rounded-lg outline-none">
                     <Filter className="w-3.5 h-3.5 text-slate-500" />
                     <span>Lọc</span>
-                    {((cardfillterFeatures?.listIds?.length || 0) +
-                        (cardfillterFeatures?.memberIds?.length || 0) +
-                        (cardfillterFeatures?.labelIds?.length || 0) +
-                        (cardfillterFeatures?.search ? 1 : 0) +
-                        (cardfillterFeatures?.status !== null && cardfillterFeatures?.status !== undefined ? 1 : 0) +
-                        (cardfillterFeatures?.noDeadline ? 1 : 0) +
-                        (cardfillterFeatures?.deadlineFrom ? 1 : 0) +
-                        (cardfillterFeatures?.deadlineTo ? 1 : 0)) > 0 && (
-                            <>
-                                <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold">
-                                    {(cardfillterFeatures?.listIds?.length || 0) +
-                                        (cardfillterFeatures?.memberIds?.length || 0) +
-                                        (cardfillterFeatures?.labelIds?.length || 0) +
-                                        (cardfillterFeatures?.search ? 1 : 0) +
-                                        (cardfillterFeatures?.status !== null && cardfillterFeatures?.status !== undefined ? 1 : 0) +
-                                        (cardfillterFeatures?.noDeadline ? 1 : 0) +
-                                        (cardfillterFeatures?.deadlineFrom ? 1 : 0) +
-                                        (cardfillterFeatures?.deadlineTo ? 1 : 0)}
-                                </span>
-
-                                <button
-                                    type="button"
-                                    onClick={handleClearFilters}
-                                    className="text-xs text-blue-600 hover:underline cursor-pointer font-medium"
-                                >
-                                    Xóa bộ lọc
-                                </button>
-                            </>
-                        )}
-
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className={"w-100 max-h-[70vh] overflow-y-auto p-3"} align='end' >
+                    {activeFilterCount > 0 && (
+                        <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold">
+                            {activeFilterCount}
+                        </span>
+                    )}
+                </PopoverTrigger>
+                <PopoverContent className={"w-100 max-h-[70vh] overflow-y-auto p-3"} align='end' >
                 <PopoverHeader className="flex items-center justify-between">
                     <PopoverTitle className={"text-center font-medium"}>Bộ lọc</PopoverTitle>
                 </PopoverHeader>
@@ -279,5 +263,15 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                 </div>
             </PopoverContent>
         </Popover>
-    )
+        {activeFilterCount > 0 && (
+            <button
+                type="button"
+                onClick={handleClearFilters}
+                className="text-xs text-blue-600 hover:underline cursor-pointer font-medium px-1.5 py-1"
+            >
+                Xóa bộ lọc
+            </button>
+        )}
+    </div>
+)
 }

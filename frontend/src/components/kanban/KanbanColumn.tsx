@@ -14,6 +14,10 @@ interface KanbanColumnProps {
   handleUpdateTitleColumn?: (boardId: string, listId: string, title: string) => void
   isOverlay?: boolean
   filteredCardIds?: Set<string> | null
+  canCreateCard?: boolean
+  canEditCard?: boolean
+  canDeleteCard?: boolean
+  canMoveCard?: boolean
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -22,6 +26,10 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   handleDeleteColumn,
   isOverlay = false,
   filteredCardIds = null,
+  canCreateCard = true,
+  canEditCard = true,
+  canDeleteCard = true,
+  canMoveCard = true,
 }) => {
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(list.title);
@@ -41,24 +49,19 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const cardsToRender = React.useMemo(() => {
     let baseCards = fetchedCards;
     if (list.cards && list.cards.length > 0) {
-      baseCards = list.cards.map((c: any) => {
-        if (typeof c === 'string') {
-          return cardsMap.get(c) || {
-            id: c,
-            listId: list.id,
-            title: 'Card',
-            priority: 'LOW',
-            position: 0,
-            completed: false,
-            assignedMembers: [],
-            labels: [],
-            checklistTotal: 0,
-            checklistCompleted: 0,
-            commentCount: 0
-          };
-        }
-        return c;
-      });
+      const orderedCards = list.cards
+        .map((c: any) => {
+          if (typeof c === 'string') {
+            return cardsMap.get(c);
+          }
+          return c;
+        })
+        .filter((c): c is ListCardResponse => Boolean(c) && c.listId === list.id);
+
+      const orderedIds = new Set(orderedCards.map(c => c.id));
+      const remainingCards = fetchedCards.filter(c => !orderedIds.has(c.id));
+
+      baseCards = [...orderedCards, ...remainingCards];
     }
 
     if (filteredCardIds) {
@@ -71,7 +74,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
     data: { ...list },
-    disabled: isOverlay,
+    disabled: isOverlay || !canMoveCard,
   });
 
   const dndKitColumnStyle: React.CSSProperties = {
@@ -154,9 +157,15 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             />
           ) : (
             <span
-              title="Nhấp để đổi tên cột"
-              onClick={() => { setDraftName(list.title); setEditingName(true); }}
-              className="text-xs font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider cursor-pointer hover:text-blue-600 transition-colors rounded-md px-1.5 py-0.5 hover:bg-slate-200/60"
+              title={handleUpdateTitleColumn ? "Nhấp để đổi tên cột" : undefined}
+              onClick={() => {
+                if (handleUpdateTitleColumn) { setDraftName(list.title); setEditingName(true); }
+              }}
+              className={`text-xs font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider rounded-md px-1.5 py-0.5 transition-colors ${
+                handleUpdateTitleColumn
+                  ? 'cursor-pointer hover:text-blue-600 hover:bg-slate-200/60'
+                  : 'cursor-default'
+              }`}
             >
               {list.title}
             </span>
@@ -165,15 +174,18 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             <span className="w-6 h-6 flex items-center justify-center font-bold text-xs text-slate-600 bg-white rounded-lg border border-slate-200/80 shadow-2xs">
               {cardsToRender.length}
             </span>
-            <div className='invisible group-hover/column:visible'>
-              <button
-                onClick={() => setOpenDelete(true)}
-                className='bg-transparent hover:bg-red-100 cursor-pointer p-1 rounded-lg text-slate-400 hover:text-red-600 transition-colors'
-                title="Xóa cột"
-              >
-                <Trash2 className='h-4 w-4' />
-              </button>
-            </div>
+            {/* Delete column button — only if handler is provided (i.e. user has DELETE_LIST permission) */}
+            {handleDeleteColumn && (
+              <div className='invisible group-hover/column:visible'>
+                <button
+                  onClick={() => setOpenDelete(true)}
+                  className='bg-transparent hover:bg-red-100 cursor-pointer p-1 rounded-lg text-slate-400 hover:text-red-600 transition-colors'
+                  title="Xóa cột"
+                >
+                  <Trash2 className='h-4 w-4' />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -203,6 +215,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 <KanbanCard
                   key={card.id}
                   card={card}
+                  canEditCard={canEditCard}
                 />
               ))}
               {cardsToRender.length === 0 && (
@@ -213,26 +226,29 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             </SortableContext>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-200/50">
-            <input
-              type="text"
-              placeholder="Tên thẻ mới..."
-              className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-hidden focus:border-blue-500 transition-all mb-2 shadow-xs"
-              value={cardTitle}
-              onChange={(e) => setCardTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddCardClick(list.id, cardTitle);
-                if (e.key === 'Escape') setCardTitle('');
-              }}
-            />
-            <button
-              onClick={() => handleAddCardClick(list.id, cardTitle)}
-              className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-500/30 text-slate-400 hover:text-blue-500 text-[11px] font-bold transition-all duration-200 cursor-pointer shadow-xs"
-            >
-              {isAddingCard ? <Loader2 className='h-4 w-4 animate-spin' /> : <Plus size={12} />}
-              Thêm thẻ
-            </button>
-          </div>
+          {/* Add Card Section — only if user has CREATE_CARD permission */}
+          {canCreateCard && (
+            <div className="mt-4 pt-3 border-t border-slate-200/50">
+              <input
+                type="text"
+                placeholder="Tên thẻ mới..."
+                className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-hidden focus:border-blue-500 transition-all mb-2 shadow-xs"
+                value={cardTitle}
+                onChange={(e) => setCardTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddCardClick(list.id, cardTitle);
+                  if (e.key === 'Escape') setCardTitle('');
+                }}
+              />
+              <button
+                onClick={() => handleAddCardClick(list.id, cardTitle)}
+                className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-500/30 text-slate-400 hover:text-blue-500 text-[11px] font-bold transition-all duration-200 cursor-pointer shadow-xs"
+              >
+                {isAddingCard ? <Loader2 className='h-4 w-4 animate-spin' /> : <Plus size={12} />}
+                Thêm thẻ
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Delete Confirmation Modal */}

@@ -34,6 +34,15 @@ public class BoardMember {
     @Column(nullable = false)
     private BoardRole role;
 
+    /**
+     * JSON array of granted BoardPermission values, e.g. ["CREATE_CARD","EDIT_CARD"].
+     * OWNER members ignore this field — they always have full access.
+     * For MEMBER role, empty/null means view-only.
+     */
+    @Builder.Default
+    @Column(columnDefinition = "TEXT")
+    private String permissions = "[]";
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime joinedAt;

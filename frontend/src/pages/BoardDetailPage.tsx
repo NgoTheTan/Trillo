@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
     Globe,
-    Loader2
+    Loader2,
+    UserPlus,
+    Star
 } from 'lucide-react'
 import { useBoardDetailQuery, type BoardList } from '../services/boardServices'
 import { KanbanColumn } from '../components/kanban/KanbanColumn'
@@ -33,7 +35,9 @@ import { moveCard, reorderCards, useFilterCardsQuery, type FilterCardsPayload, t
 import { KanbanCard } from '../components/kanban/KanbanCard'
 import { InviteMemberModal } from '../components/board/InviteMemberModal'
 import { CardFilterPopover } from '../components/kanban/CardFilterPopover.tsx'
-import { useWebSocketBoard } from '../services/websocketService'
+import { useWebSocketBoard, useBoardPresence } from '../services/websocketService'
+import { getAvatarUrl, getInitials } from '../auth/authStorage'
+import { useAuth } from '../auth/authContext'
 
 class SmartPointerSensor extends PointerSensor {
     static activators = [
@@ -68,7 +72,9 @@ const ACTIVE_DRAG_ITEM_TYPE = {
 
 export const BoardDetailPage: React.FC = () => {
     const { boardId } = useParams<{ boardId: string }>()
+    const { user: currentUser } = useAuth()
     useWebSocketBoard(boardId)
+    const onlineViewers = useBoardPresence(boardId)
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isInviteOpen, setIsInviteOpen] = useState(false)
     const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
@@ -102,6 +108,17 @@ export const BoardDetailPage: React.FC = () => {
     const deleteBoardListMutation = useDeleteBoardListMutation()
 
     const board = boardQuery.data
+
+    // Derived permission flags
+    const isOwner = board?.currentUserRole === 'OWNER'
+    const canCreateList = isOwner || (board?.currentUserPermissions?.includes('CREATE_LIST') ?? false)
+    const canEditList = isOwner || (board?.currentUserPermissions?.includes('EDIT_LIST') ?? false)
+    const canDeleteList = isOwner || (board?.currentUserPermissions?.includes('DELETE_LIST') ?? false)
+    const canCreateCard = isOwner || (board?.currentUserPermissions?.includes('CREATE_CARD') ?? false)
+    const canEditCard = isOwner || (board?.currentUserPermissions?.includes('EDIT_CARD') ?? false)
+    const canDeleteCard = isOwner || (board?.currentUserPermissions?.includes('DELETE_CARD') ?? false)
+    const canMoveCard = isOwner || (board?.currentUserPermissions?.includes('MOVE_CARD') ?? false)
+
     useEffect(() => {
         if (listsQuery.data) {
             setOrderedLists(listsQuery.data);
@@ -270,12 +287,27 @@ export const BoardDetailPage: React.FC = () => {
         // Dragging Card
         if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.CARD) {
             const activeCardId = active.id as string;
-            const overCardId = over.id as string;
-            const activeList = findListByCardId(activeCardId);
-            const overList = findListByCardId(overCardId);
+            const pending = pendingCrossListMove.current;
 
-            if (activeList && overList) {
-                if (activeList.id === overList.id) {
+            if (pending && pending.cardId === activeCardId) {
+                // Cross-list move — fire the single pending API call now
+                moveCard(pending.cardId, pending.destListId, pending.destPosition)
+                    .then(() => {
+                        queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+                        queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+                    })
+                    .catch(err => {
+                        console.error('Failed to move card:', err);
+                        queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+                        queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+                    });
+                pendingCrossListMove.current = null;
+            } else {
+                const overCardId = over.id as string;
+                const activeList = findListByCardId(activeCardId);
+                const overList = findListByCardId(overCardId);
+
+                if (activeList && overList && activeList.id === overList.id) {
                     // Same column reorder
                     pendingCrossListMove.current = null;
                     const listId = activeList.id;
@@ -303,13 +335,6 @@ export const BoardDetailPage: React.FC = () => {
                         );
                         reorderCards(activeList.id, updateCard as string[]);
                     }
-                } else {
-                    // Cross-list move — fire the single pending API call now
-                    const pending = pendingCrossListMove.current;
-                    if (pending && pending.cardId === activeCardId) {
-                        moveCard(pending.cardId, pending.destListId, pending.destPosition);
-                    }
-                    pendingCrossListMove.current = null;
                 }
             }
         }
@@ -398,31 +423,89 @@ export const BoardDetailPage: React.FC = () => {
                     </span>
                 </div>
 
-                {/* Right Section: Members, Invite, Filter */}
+                {/* Right Section: Members (online presence) + Invite + Filter */}
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    {/* Member Avatars Stack */}
-                    <div className="flex -space-x-2 overflow-hidden items-center">
-                        {board?.members.slice(0, 5).map(m => (
-                            <img
-                                key={m.id}
-                                src={m.user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                                alt={m.user.fullName}
-                                title={m.user.fullName}
-                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 ring-white shadow-xs cursor-pointer hover:scale-110 transition-transform"
-                            />
-                        ))}
-                        {(board?.members.length ?? 0) > 5 && (
-                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
-                                +{(board?.members.length ?? 0) - 5}
-                            </div>
+
+                    {/* ── Members List (online: normal opacity + green dot, offline: dimmed opacity) ── */}
+                    <div className="flex items-center gap-1.5 py-1">
+                        {board?.members.slice(0, 4).map(m => {
+                            const avatarSrc = getAvatarUrl(m.user.avatarUrl)
+                            const isOnline = currentUser?.id === m.user.id || onlineViewers.some(v => v.id === m.user.id)
+                            const isMe = currentUser?.id === m.user.id
+                            const isMemberOwner = m.role === 'OWNER' || m.user.id === board?.owner?.id
+
+                            return (
+                                <div
+                                    key={m.id}
+                                    className={`relative group shrink-0 transition-all ${
+                                        isOnline ? 'opacity-100' : 'opacity-40 hover:opacity-90 grayscale-[25%]'
+                                    }`}
+                                >
+                                    {avatarSrc ? (
+                                        <img
+                                            src={avatarSrc}
+                                            alt={m.user.fullName}
+                                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 shadow-xs cursor-pointer hover:scale-105 transition-transform ${
+                                                isMe ? 'ring-blue-500' : isOnline ? 'ring-emerald-400' : 'ring-slate-200'
+                                            }`}
+                                        />
+                                    ) : (
+                                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-white text-[10px] font-bold flex items-center justify-center ring-2 shadow-xs cursor-pointer hover:scale-105 transition-transform ${
+                                            isMe
+                                                ? 'bg-blue-600 ring-blue-500'
+                                                : isOnline
+                                                ? 'bg-gradient-to-br from-emerald-500 to-teal-600 ring-emerald-400'
+                                                : 'bg-gradient-to-br from-slate-400 to-slate-500 ring-slate-200'
+                                        }`}>
+                                            {getInitials(m.user.fullName)}
+                                        </div>
+                                    )}
+
+                                    {/* Green online indicator dot */}
+                                    {isOnline && (
+                                        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border border-white rounded-full z-10" title="Đang trực tuyến" />
+                                    )}
+
+                                    {/* Owner Star Badge at bottom-right */}
+                                    {isMemberOwner && (
+                                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 text-amber-950 rounded-full flex items-center justify-center ring-1 ring-white shadow-xs z-10" title="Chủ sở hữu">
+                                            <Star className="w-2 h-2 fill-amber-950 stroke-none" />
+                                        </span>
+                                    )}
+
+                                    {/* Tooltip */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-slate-900 text-white text-[10px] font-medium rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                        {m.user.fullName}{isMe ? ' (bạn)' : ''}{isMemberOwner ? ' (Chủ sở hữu)' : ''} · {isOnline ? 'Đang truy cập' : 'Ngoại tuyến'}
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                                    </div>
+                                </div>
+                            )
+                        })}
+                        {(board?.members.length ?? 0) > 4 && (
+                            <span className="text-xs sm:text-sm font-bold text-slate-600 pl-0.5">
+                                +{(board?.members.length ?? 0) - 4}
+                            </span>
                         )}
                     </div>
-                    <button
-                        onClick={() => setIsInviteOpen(true)}
-                        className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
-                    >
-                        <span>Mời</span>
-                    </button>
+                    {/* Invite button — only for Owner */}
+                    {isOwner && (
+                        <button
+                            onClick={() => setIsInviteOpen(true)}
+                            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                        >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Mời</span>
+                        </button>
+                    )}
+                    {/* Members button for non-owners to see the list */}
+                    {!isOwner && (
+                        <button
+                            onClick={() => setIsInviteOpen(true)}
+                            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                        >
+                            <span>Thành viên</span>
+                        </button>
+                    )}
                     <CardFilterPopover boardId={boardId || ''} cardfillterFeatures={cardFilterFeatures} setCardFillterFeatures={setCardFilterFeatures} />
                 </div>
             </div>
@@ -446,8 +529,12 @@ export const BoardDetailPage: React.FC = () => {
                                 key={list.id}
                                 list={list}
                                 filteredCardIds={filteredCardIds}
-                                handleDeleteColumn={handleDeleteColumn}
-                                handleUpdateTitleColumn={handleUpdateTitleColumn}
+                                handleDeleteColumn={canDeleteList ? handleDeleteColumn : undefined}
+                                handleUpdateTitleColumn={canEditList ? handleUpdateTitleColumn : undefined}
+                                canCreateCard={canCreateCard}
+                                canEditCard={canEditCard}
+                                canDeleteCard={canDeleteCard}
+                                canMoveCard={canMoveCard}
                             />
                         ))}
                     </SortableContext>
@@ -466,30 +553,32 @@ export const BoardDetailPage: React.FC = () => {
                         ) : null}
                     </DragOverlay>
                 </DndContext>
-                {
+                {canCreateList && (
                     <BoardListFormModal
                         isOpen={isCreateOpen}
                         onClose={() => setIsCreateOpen(false)}
                         onOpen={() => setIsCreateOpen(true)}
                         onSubmit={handleCreateBoardList}
                     />
-                }
+                )}
             </div>
 
-            {/* ── INVITE MEMBER MODAL ───────────────────────────────────────────────── */}
+            {/* ── INVITE / MEMBER MODAL ─────────────────────────────────────────────────── */}
             <InviteMemberModal
                 boardId={boardId}
                 open={isInviteOpen}
                 onOpenChange={setIsInviteOpen}
                 projectName={board?.title}
+                currentUserRole={board?.currentUserRole}
                 initialMembers={board?.members?.map(m => ({
-                    id: m.user.id,
+                    id: m.id,
                     fullName: m.user.fullName,
                     email: m.user.email || '',
-                    avatarUrl: m.user.avatarUrl,
-                    role: (m.role as any) || 'Developer',
-                    status: 'joined',
-                    isYou: false,
+                    avatarUrl: getAvatarUrl(m.user.avatarUrl),
+                    role: (m.role as any) || 'MEMBER',
+                    permissions: (m.permissions as any) || [],
+                    status: 'joined' as const,
+                    isYou: currentUser?.id === m.user.id,
                 }))}
             />
         </div>

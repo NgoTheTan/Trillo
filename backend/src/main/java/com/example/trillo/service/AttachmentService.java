@@ -3,6 +3,7 @@ package com.example.trillo.service;
 import com.example.trillo.dto.request.AddAttachmentRequest;
 import com.example.trillo.dto.response.AttachmentResponse;
 import com.example.trillo.entity.*;
+import com.example.trillo.enums.BoardPermission;
 import com.example.trillo.exception.AccessDeniedException;
 import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.AttachmentRepository;
@@ -24,7 +25,7 @@ public class AttachmentService {
     @Transactional
     public AttachmentResponse addAttachment(String cardId, AddAttachmentRequest request, User currentUser) {
         Card card = cardService.findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.UPLOAD_ATTACHMENT);
 
         Attachment attachment = Attachment.builder()
                 .card(card)

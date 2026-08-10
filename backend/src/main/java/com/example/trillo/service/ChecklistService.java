@@ -5,6 +5,7 @@ import com.example.trillo.dto.request.CreateChecklistRequest;
 import com.example.trillo.dto.response.ChecklistItemResponse;
 import com.example.trillo.dto.response.ChecklistResponse;
 import com.example.trillo.entity.*;
+import com.example.trillo.enums.BoardPermission;
 import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.ChecklistItemRepository;
 import com.example.trillo.repository.ChecklistRepository;
@@ -26,7 +27,7 @@ public class ChecklistService {
     @Transactional
     public ChecklistResponse createChecklist(String cardId, CreateChecklistRequest request, User currentUser) {
         Card card = cardService.findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
 
         Checklist checklist = Checklist.builder()
                 .card(card)
@@ -39,14 +40,14 @@ public class ChecklistService {
     @Transactional
     public void deleteChecklist(String checklistId, User currentUser) {
         Checklist checklist = findOrThrow(checklistId);
-        boardService.requireMember(checklist.getCard().getList().getBoard(), currentUser);
+        boardService.requirePermission(checklist.getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
         checklistRepository.delete(checklist);
     }
 
     @Transactional
     public ChecklistItemResponse addItem(String checklistId, CreateChecklistItemRequest request, User currentUser) {
         Checklist checklist = findOrThrow(checklistId);
-        boardService.requireMember(checklist.getCard().getList().getBoard(), currentUser);
+        boardService.requirePermission(checklist.getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
 
         int maxPos = checklistItemRepository.findMaxPositionByChecklistId(checklistId);
         ChecklistItem item = ChecklistItem.builder()
@@ -62,7 +63,7 @@ public class ChecklistService {
     public ChecklistItemResponse toggleItem(String itemId, User currentUser) {
         ChecklistItem item = checklistItemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("ChecklistItem", itemId));
-        boardService.requireMember(item.getChecklist().getCard().getList().getBoard(), currentUser);
+        boardService.requirePermission(item.getChecklist().getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
 
         item.setCompleted(!item.isCompleted());
         return toItemResponse(checklistItemRepository.save(item));
@@ -72,7 +73,7 @@ public class ChecklistService {
     public void deleteItem(String itemId, User currentUser) {
         ChecklistItem item = checklistItemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("ChecklistItem", itemId));
-        boardService.requireMember(item.getChecklist().getCard().getList().getBoard(), currentUser);
+        boardService.requirePermission(item.getChecklist().getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
         checklistItemRepository.delete(item);
     }
 

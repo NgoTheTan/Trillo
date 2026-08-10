@@ -22,6 +22,10 @@ public interface CardRepository extends JpaRepository<Card, String> {
     @Query("UPDATE Card c SET c.position = c.position - 1 WHERE c.list.id = :listId AND c.position > :position")
     void decrementPositionsAfter(@Param("listId") String listId, @Param("position") int position);
 
+    @Modifying
+    @Query("UPDATE Card c SET c.position = c.position + 1 WHERE c.list.id = :listId AND c.position >= :position")
+    void incrementPositionsFrom(@Param("listId") String listId, @Param("position") int position);
+
     // Cards with deadline approaching (for scheduler)
     @Query("SELECT c FROM Card c WHERE c.deadline BETWEEN :from AND :to AND c.completed = false")
     List<Card> findCardsWithDeadlineBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);

@@ -1,5 +1,6 @@
 package com.example.trillo.dto.response;
 
+import com.example.trillo.enums.BoardPermission;
 import com.example.trillo.enums.BoardRole;
 import com.example.trillo.enums.Visibility;
 
@@ -14,6 +15,7 @@ public record BoardResponse(
         String coverColor,
         UserResponse owner,
         BoardRole currentUserRole,
+        List<BoardPermission> currentUserPermissions,
         List<MemberResponse> members,
         List<ListResponse> lists,
         List<LabelResponse> labels,
@@ -24,6 +26,8 @@ public record BoardResponse(
             String id,
             UserResponse user,
             BoardRole role,
+            List<BoardPermission> permissions,
             LocalDateTime joinedAt
     ) {}
 }
+

@@ -4,6 +4,7 @@ import com.example.trillo.dto.request.CreateLabelRequest;
 import com.example.trillo.dto.request.UpdateLabelRequest;
 import com.example.trillo.dto.response.LabelResponse;
 import com.example.trillo.entity.*;
+import com.example.trillo.enums.BoardPermission;
 import com.example.trillo.exception.DuplicateResourceException;
 import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.CardLabelRepository;
@@ -26,7 +27,7 @@ public class LabelService {
     @Transactional
     public LabelResponse createLabel(String boardId, CreateLabelRequest request, User currentUser) {
         Board board = boardService.findBoardOrThrow(boardId);
-        boardService.requireMember(board, currentUser);
+        boardService.requirePermission(board, currentUser, BoardPermission.MANAGE_LABELS);
 
         Label label = Label.builder()
                 .board(board)
@@ -41,7 +42,7 @@ public class LabelService {
     public LabelResponse updateLabel(String labelId, UpdateLabelRequest request, User currentUser) {
         Label label = labelRepository.findById(labelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Label", labelId));
-        boardService.requireMember(label.getBoard(), currentUser);
+        boardService.requirePermission(label.getBoard(), currentUser, BoardPermission.MANAGE_LABELS);
 
         if (request.name() != null && !request.name().isBlank()) {
             label.setName(request.name());
@@ -57,7 +58,7 @@ public class LabelService {
     public void deleteLabel(String labelId, User currentUser) {
         Label label = labelRepository.findById(labelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Label", labelId));
-        boardService.requireMember(label.getBoard(), currentUser);
+        boardService.requirePermission(label.getBoard(), currentUser, BoardPermission.MANAGE_LABELS);
         cardLabelRepository.deleteByLabelId(labelId);
         labelRepository.delete(label);
     }
@@ -72,7 +73,7 @@ public class LabelService {
     @Transactional
     public void addLabelToCard(String cardId, String labelId, User currentUser) {
         Card card = cardService.findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.MANAGE_LABELS);
 
         if (cardLabelRepository.existsByCardIdAndLabelId(cardId, labelId)) {
             throw new DuplicateResourceException("Label already added to this card");
@@ -91,7 +92,7 @@ public class LabelService {
     @Transactional
     public void removeLabelFromCard(String cardId, String labelId, User currentUser) {
         Card card = cardService.findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.MANAGE_LABELS);
         cardLabelRepository.deleteByCardIdAndLabelId(cardId, labelId);
     }
 

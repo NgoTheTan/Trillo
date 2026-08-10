@@ -3,6 +3,7 @@ package com.example.trillo.service;
 import com.example.trillo.dto.request.CreateCommentRequest;
 import com.example.trillo.dto.response.CommentResponse;
 import com.example.trillo.entity.*;
+import com.example.trillo.enums.BoardPermission;
 import com.example.trillo.enums.NotificationType;
 import com.example.trillo.exception.AccessDeniedException;
 import com.example.trillo.exception.ResourceNotFoundException;
@@ -28,7 +29,7 @@ public class CommentService {
     @Transactional
     public CommentResponse addComment(String cardId, CreateCommentRequest request, User currentUser) {
         Card card = cardService.findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.ADD_COMMENT);
 
         Comment comment = Comment.builder()
                 .card(card)

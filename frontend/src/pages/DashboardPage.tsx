@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGrid, Rocket, Users2, ChevronDown } from 'lucide-react'
+import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGrid, Rocket, Users2, ChevronDown, Star } from 'lucide-react'
 import { useQueries } from '@tanstack/react-query'
 import { useBoardDetailQuery, useBoardsQuery, type BoardList, type BoardMember } from '../services/boardServices'
 import { getAllListCards, useListCardsQuery, type ListCardResponse } from '../services/cardService.ts'
@@ -16,11 +16,13 @@ type DashboardListBreakdownRowProps = Readonly<{
   list: BoardList
   selectedStatus: StatusFilter
   selectedMemberIds: string[]
+  boardOwnerId?: string
 }>
 
 type DashboardAnalyticsPanelProps = Readonly<{
   boardTitle: string
   boardMembers: BoardMember[]
+  boardOwnerId?: string
   lists: BoardList[]
   selectedStatus: StatusFilter
   selectedMemberIds: string[]
@@ -49,7 +51,7 @@ function formatDashboardDate(date: Date) {
 }
 
 function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
-  const { boardTitle, boardMembers, lists, selectedStatus, selectedMemberIds } = props
+  const { boardTitle, boardMembers, boardOwnerId, lists, selectedStatus, selectedMemberIds } = props
 
   const listCardsQueries = useQueries({
     queries: lists.map(list => ({
@@ -198,14 +200,26 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
             {displayedMembers.length === 0 && <div className="dashboard-breakdown-row__empty">Không có dữ liệu khối lượng công việc.</div>}
             {displayedMembers.map(item => {
               const width = Math.round((item.count / maxMemberWorkload) * 100)
+              const avatarSrc = getAvatarUrl(item.member.user.avatarUrl)
+              const isOwner = item.member.role === 'OWNER' || item.member.user.id === boardOwnerId
               return (
                 <div key={item.member.id} className="dashboard-bar-chart__row">
                   <div className="dashboard-bar-chart__label">
-                    {item.member.user.avatarUrl ? (
-                      <img src={getAvatarUrl(item.member.user.avatarUrl)} alt={item.member.user.fullName} />
-                    ) : (
-                      <span>{getInitials(item.member.user.fullName)}</span>
-                    )}
+                    <div className="relative shrink-0 flex items-center justify-center">
+                      {avatarSrc ? (
+                        <img src={avatarSrc} alt={item.member.user.fullName} />
+                      ) : (
+                        <span>{getInitials(item.member.user.fullName)}</span>
+                      )}
+                      {isOwner && (
+                        <span
+                          className="owner-star-badge absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 !bg-amber-400 !text-amber-950 rounded-full flex items-center justify-center ring-1 ring-white shadow-xs z-10"
+                          title="Chủ sở hữu"
+                        >
+                          <Star className="w-2 h-2 fill-amber-950 stroke-none" />
+                        </span>
+                      )}
+                    </div>
                     <div>
                       <p>{item.member.user.fullName}</p>
                       <span>{item.count} thẻ</span>
@@ -251,7 +265,7 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
 }
 
 function DashboardListBreakdownRow(props: DashboardListBreakdownRowProps) {
-  const { list, selectedStatus, selectedMemberIds } = props
+  const { list, selectedStatus, selectedMemberIds, boardOwnerId } = props
   const { data: cards = [], isLoading } = useListCardsQuery(list.id)
 
   const filteredCards = useMemo(() => {
@@ -294,9 +308,9 @@ function DashboardListBreakdownRow(props: DashboardListBreakdownRowProps) {
       </div>
 
       <div className="dashboard-breakdown-row__cards">
-        {isLoading && <span className="dashboard-breakdown-row__loading">Đang tải thẻ...</span>}
+        {isLoading && <div className="dashboard-breakdown-row__loading">Đang tải danh sách thẻ...</div>}
         {!isLoading && filteredCards.length === 0 && (
-          <div className="dashboard-breakdown-row__empty">Không có thẻ nào khớp với bộ lọc đã chọn.</div>
+          <div className="dashboard-breakdown-row__empty">Không có thẻ khớp bộ lọc.</div>
         )}
         {!isLoading && filteredCards.slice(0, 4).map(card => (
           <div key={card.id} className="dashboard-card-mini">
@@ -310,15 +324,27 @@ function DashboardListBreakdownRow(props: DashboardListBreakdownRowProps) {
             </div>
             <p className="dashboard-card-mini__title">{card.title}</p>
             <div className="dashboard-card-mini__members">
-              {(card.assignedMembers || []).slice(0, 3).map(member => (
-                <span key={member.id} className="dashboard-card-mini__member" title={member.fullName}>
-                  {member.avatarUrl ? (
-                    <img src={getAvatarUrl(member.avatarUrl)} alt={member.fullName} />
-                  ) : (
-                    <span>{getInitials(member.fullName)}</span>
-                  )}
-                </span>
-              ))}
+              {(card.assignedMembers || []).slice(0, 3).map(member => {
+                const avatarSrc = getAvatarUrl(member.avatarUrl)
+                const isOwner = member.id === boardOwnerId
+                return (
+                  <span key={member.id} className="dashboard-card-mini__member relative" title={`${member.fullName}${isOwner ? ' (Chủ sở hữu)' : ''}`}>
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt={member.fullName} />
+                    ) : (
+                      <span>{getInitials(member.fullName)}</span>
+                    )}
+                    {isOwner && (
+                      <span
+                        className="owner-star-badge absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 !bg-amber-400 !text-amber-950 rounded-full flex items-center justify-center ring-1 ring-white shadow-xs z-10"
+                        title="Chủ sở hữu"
+                      >
+                        <Star className="w-2 h-2 fill-amber-950 stroke-none" />
+                      </span>
+                    )}
+                  </span>
+                )
+              })}
               {(card.assignedMembers || []).length > 3 && (
                 <span className="dashboard-card-mini__more">+{(card.assignedMembers || []).length - 3}</span>
               )}
@@ -685,6 +711,8 @@ export function DashboardPage({
                 <div className="dashboard-member-filter-row">
                   {boardDetail.members.map((member: BoardMember) => {
                     const isSelected = selectedMemberIds.includes(member.user.id)
+                    const avatarSrc = getAvatarUrl(member.user.avatarUrl)
+                    const isOwner = member.role === 'OWNER' || member.user.id === boardDetail.owner?.id
                     return (
                       <button
                         key={member.id}
@@ -698,11 +726,21 @@ export function DashboardPage({
                         }}
                         className={`dashboard-member-pill ${isSelected ? 'is-active' : ''}`}
                       >
-                        {member.user.avatarUrl ? (
-                          <img src={member.user.avatarUrl} alt={member.user.fullName} />
-                        ) : (
-                          <span>{getInitials(member.user.fullName)}</span>
-                        )}
+                        <div className="relative shrink-0 flex items-center justify-center">
+                          {avatarSrc ? (
+                            <img src={avatarSrc} alt={member.user.fullName} />
+                          ) : (
+                            <span>{getInitials(member.user.fullName)}</span>
+                          )}
+                          {isOwner && (
+                            <span
+                              className="owner-star-badge absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 !bg-amber-400 !text-amber-950 rounded-full flex items-center justify-center ring-1 ring-white shadow-xs z-10"
+                              title="Chủ sở hữu"
+                            >
+                              <Star className="w-2 h-2 fill-amber-950 stroke-none" />
+                            </span>
+                          )}
+                        </div>
                         {member.user.fullName}
                       </button>
                     )
@@ -719,6 +757,7 @@ export function DashboardPage({
             <DashboardAnalyticsPanel
               boardTitle={boardDetail.title}
               boardMembers={boardDetail.members}
+              boardOwnerId={boardDetail.owner?.id}
               lists={boardDetail.lists}
               selectedStatus={selectedStatus}
               selectedMemberIds={selectedMemberIds}

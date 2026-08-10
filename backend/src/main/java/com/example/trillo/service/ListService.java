@@ -8,6 +8,7 @@ import com.example.trillo.entity.Board;
 import com.example.trillo.entity.BoardList;
 import com.example.trillo.entity.Card;
 import com.example.trillo.entity.User;
+import com.example.trillo.enums.BoardPermission;
 import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.BoardListRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,7 @@ public class ListService {
     @Transactional
     public ListResponse createList(String boardId, CreateListRequest request, User currentUser) {
         Board board = boardService.findBoardOrThrow(boardId);
-        boardService.requireMember(board, currentUser);
+        boardService.requirePermission(board, currentUser, BoardPermission.CREATE_LIST);
 
         int maxPos = boardListRepository.findMaxPositionByBoardId(boardId);
         BoardList list = BoardList.builder()
@@ -45,7 +46,7 @@ public class ListService {
     @Transactional
     public ListResponse updateList(String boardId, String listId, UpdateListRequest request, User currentUser) {
         Board board = boardService.findBoardOrThrow(boardId);
-        boardService.requireMember(board, currentUser);
+        boardService.requirePermission(board, currentUser, BoardPermission.EDIT_LIST);
 
         BoardList list = findListOrThrow(listId);
         list.setTitle(request.title());
@@ -78,7 +79,7 @@ public class ListService {
     @Transactional
     public void reorderLists(String boardId, ReorderRequest request, User currentUser) {
         Board board = boardService.findBoardOrThrow(boardId);
-        boardService.requireMember(board, currentUser);
+        boardService.requirePermission(board, currentUser, BoardPermission.MOVE_CARD);
 
         List<BoardList> listsToSave = new java.util.ArrayList<>();
         int pos = 0;

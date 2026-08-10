@@ -6,6 +6,7 @@ import com.example.trillo.dto.request.ReorderRequest;
 import com.example.trillo.dto.request.UpdateCardRequest;
 import com.example.trillo.dto.response.*;
 import com.example.trillo.entity.*;
+import com.example.trillo.enums.BoardPermission;
 import com.example.trillo.enums.NotificationType;
 import com.example.trillo.exception.AccessDeniedException;
 import com.example.trillo.exception.DuplicateResourceException;
@@ -37,7 +38,7 @@ public class CardService {
     @Transactional
     public CardSummaryResponse createCard(String listId, CreateCardRequest request, User currentUser) {
         BoardList list = findListOrThrow(listId);
-        boardService.requireMember(list.getBoard(), currentUser);
+        boardService.requirePermission(list.getBoard(), currentUser, BoardPermission.CREATE_CARD);
 
         int maxPos = cardRepository.findMaxPositionByListId(listId);
         Card card = Card.builder()
@@ -59,7 +60,7 @@ public class CardService {
     @Transactional
     public CardResponse updateCard(String cardId, UpdateCardRequest request, User currentUser) {
         Card card = findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.EDIT_CARD);
 
         StringBuilder changes = new StringBuilder("Card updated: ");
         if (request.title() != null && !request.title().isBlank()) { changes.append("title, "); card.setTitle(request.title()); }
@@ -78,7 +79,7 @@ public class CardService {
     @Transactional
     public CardSummaryResponse toggleCompleted(String cardId, Boolean completed, User currentUser) {
         Card card = findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.EDIT_CARD);
 
         boolean newStatus = (completed != null) ? completed : !card.isCompleted();
         card.setCompleted(newStatus);
@@ -93,7 +94,7 @@ public class CardService {
     @Transactional
     public void deleteCard(String cardId, User currentUser) {
         Card card = findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.DELETE_CARD);
 
         String boardId = card.getList().getBoard().getId();
         cardRepository.decrementPositionsAfter(card.getList().getId(), card.getPosition());
@@ -105,7 +106,7 @@ public class CardService {
     @Transactional
     public CardSummaryResponse moveCard(String cardId, MoveCardRequest request, User currentUser) {
         Card card = findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.MOVE_CARD);
 
         BoardList sourceList = card.getList();
         BoardList targetList = findListOrThrow(request.targetListId());
@@ -116,10 +117,19 @@ public class CardService {
         // Shift positions in source list
         cardRepository.decrementPositionsAfter(sourceList.getId(), card.getPosition());
 
-        // Set new position and list
+        // Shift positions in target list
+        cardRepository.incrementPositionsFrom(targetList.getId(), request.targetPosition());
+
+        // Update in-memory list collections and card fields
+        if (sourceList.getCards() != null) {
+            sourceList.getCards().removeIf(c -> c.getId().equals(cardId));
+        }
         card.setList(targetList);
         card.setPosition(request.targetPosition());
         Card saved = cardRepository.save(card);
+        if (targetList.getCards() != null && !targetList.getCards().contains(saved)) {
+            targetList.getCards().add(saved);
+        }
 
         logActivity(saved, currentUser, "moved",
                 "Card moved from '" + oldListTitle + "' to '" + newListTitle + "'");
@@ -131,7 +141,7 @@ public class CardService {
     @Transactional
     public void reorderCards(String listId, ReorderRequest request, User currentUser) {
         BoardList list = findListOrThrow(listId);
-        boardService.requireMember(list.getBoard(), currentUser);
+        boardService.requirePermission(list.getBoard(), currentUser, BoardPermission.MOVE_CARD);
 
         List<Card> cardsToSave = new java.util.ArrayList<>();
         int pos = 0;
@@ -150,7 +160,7 @@ public class CardService {
     @Transactional
     public CardResponse assignMember(String cardId, String userId, User currentUser) {
         Card card = findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.EDIT_CARD);
 
         if (cardMemberRepository.existsByCardIdAndUserId(cardId, userId)) {
             throw new DuplicateResourceException("User is already assigned to this card");
@@ -187,7 +197,7 @@ public class CardService {
     @Transactional
     public CardResponse unassignMember(String cardId, String userId, User currentUser) {
         Card card = findCardOrThrow(cardId);
-        boardService.requireMember(card.getList().getBoard(), currentUser);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.EDIT_CARD);
 
         card.getAssignedMembers().removeIf(cm -> cm.getUser().getId().equals(userId));
         cardMemberRepository.deleteByCardIdAndUserId(cardId, userId);

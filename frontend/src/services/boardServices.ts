@@ -1,6 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../api/api";
 
+// ── Permission Types ──────────────────────────────────────────────────────────
+
+export type BoardPermission =
+  | 'CREATE_CARD'
+  | 'EDIT_CARD'
+  | 'DELETE_CARD'
+  | 'MOVE_CARD'
+  | 'CREATE_LIST'
+  | 'EDIT_LIST'
+  | 'DELETE_LIST'
+  | 'MANAGE_LABELS'
+  | 'ADD_COMMENT'
+  | 'MANAGE_CHECKLIST'
+  | 'UPLOAD_ATTACHMENT'
+
+export const ALL_PERMISSIONS: BoardPermission[] = [
+  'CREATE_CARD', 'EDIT_CARD', 'DELETE_CARD', 'MOVE_CARD',
+  'CREATE_LIST', 'EDIT_LIST', 'DELETE_LIST',
+  'MANAGE_LABELS', 'ADD_COMMENT', 'MANAGE_CHECKLIST', 'UPLOAD_ATTACHMENT',
+]
+
+export const PERMISSION_LABELS: Record<BoardPermission, string> = {
+  CREATE_CARD: 'Tạo thẻ',
+  EDIT_CARD: 'Chỉnh sửa thẻ',
+  DELETE_CARD: 'Xóa thẻ',
+  MOVE_CARD: 'Di chuyển thẻ',
+  CREATE_LIST: 'Tạo cột',
+  EDIT_LIST: 'Đổi tên cột',
+  DELETE_LIST: 'Xóa cột',
+  MANAGE_LABELS: 'Quản lý nhãn',
+  ADD_COMMENT: 'Thêm bình luận',
+  MANAGE_CHECKLIST: 'Quản lý checklist',
+  UPLOAD_ATTACHMENT: 'Tải tệp đính kèm',
+}
+
+// ── Interfaces ────────────────────────────────────────────────────────────────
+
 export interface BoardFormPayload {
   title: string
   description?: string
@@ -27,6 +64,7 @@ export interface BoardMember {
   id: string
   user: UserResponse
   role: 'OWNER' | 'MEMBER' | string
+  permissions?: BoardPermission[]
   joinedAt?: string
 }
 
@@ -71,6 +109,7 @@ export interface BoardDetailResponse {
   coverColor?: string
   owner: UserResponse
   currentUserRole?: 'OWNER' | 'MEMBER' | string
+  currentUserPermissions?: BoardPermission[]
   members: BoardMember[]
   lists: BoardList[]
   labels: BoardLabel[]
@@ -105,7 +144,7 @@ export type List = BoardList;
 export type Label = BoardLabel;
 export type Card = BoardCard;
 
-// ── API Functions ────────────────────────────────────────────────────────────
+// ── API Functions ─────────────────────────────────────────────────────────────
 
 export const createNewBoard = async (payload: BoardFormPayload): Promise<BoardDetailResponse> => {
   return await Api.post<BoardDetailResponse>("/boards", payload);
@@ -151,7 +190,15 @@ export const acceptInvite = async (token: string): Promise<BoardSummaryResponse>
   return await Api.post<BoardSummaryResponse>(`/boards/accept-invite/${token}`);
 }
 
-// ── React Query Hooks ────────────────────────────────────────────────────────
+export const updateMemberPermissions = async (
+  boardId: string,
+  memberId: string,
+  permissions: BoardPermission[]
+): Promise<BoardMember> => {
+  return await Api.put<BoardMember>(`/boards/${boardId}/members/${memberId}/permissions`, { permissions });
+}
+
+// ── React Query Hooks ─────────────────────────────────────────────────────────
 
 export const useBoardsQuery = () => {
   return useQuery({
@@ -229,3 +276,16 @@ export const useRemoveMemberMutation = () => {
   });
 };
 
+export const useUpdateMemberPermissionsMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ boardId, memberId, permissions }: {
+      boardId: string;
+      memberId: string;
+      permissions: BoardPermission[]
+    }) => updateMemberPermissions(boardId, memberId, permissions),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['boards', variables.boardId] });
+    },
+  });
+};

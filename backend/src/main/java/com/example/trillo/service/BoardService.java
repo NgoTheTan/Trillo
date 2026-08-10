@@ -3,8 +3,10 @@ package com.example.trillo.service;
 import com.example.trillo.dto.request.CreateBoardRequest;
 import com.example.trillo.dto.request.InviteMemberRequest;
 import com.example.trillo.dto.request.UpdateBoardRequest;
+import com.example.trillo.dto.request.UpdateMemberPermissionsRequest;
 import com.example.trillo.dto.response.*;
 import com.example.trillo.entity.*;
+import com.example.trillo.enums.BoardPermission;
 import com.example.trillo.enums.BoardRole;
 import com.example.trillo.enums.NotificationType;
 import com.example.trillo.enums.Visibility;
@@ -12,6 +14,8 @@ import com.example.trillo.exception.AccessDeniedException;
 import com.example.trillo.exception.DuplicateResourceException;
 import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -19,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,6 +31,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class BoardService {
+
+    /** Shared ObjectMapper instance — not injected to avoid bean resolution issues. */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final BoardRepository boardRepository;
     private final BoardMemberRepository boardMemberRepository;
@@ -145,11 +153,12 @@ public class BoardService {
                 throw new DuplicateResourceException("User is already a member of this board");
             }
 
-            // Add directly as MEMBER
+            // Add directly as MEMBER with no permissions (view-only by default)
             BoardMember member = BoardMember.builder()
                     .board(board)
                     .user(invitee)
                     .role(BoardRole.MEMBER)
+                    .permissions("[]")
                     .build();
             boardMemberRepository.save(member);
 
@@ -230,6 +239,7 @@ public class BoardService {
                 .board(board)
                 .user(currentUser)
                 .role(BoardRole.MEMBER)
+                .permissions("[]")
                 .build();
         boardMemberRepository.save(member);
 
@@ -281,6 +291,40 @@ public class BoardService {
         messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_REMOVED");
     }
 
+    // ── Update Member Permissions ─────────────────────────────────────────────
+    @Transactional
+    public BoardResponse.MemberResponse updateMemberPermissions(
+            String boardId, String memberId,
+            UpdateMemberPermissionsRequest request, User currentUser) {
+
+        Board board = findBoardOrThrow(boardId);
+        requireOwner(board, currentUser);
+
+        BoardMember member = boardMemberRepository.findById(memberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found: " + memberId));
+
+        // Cannot change owner permissions
+        if (member.getRole() == BoardRole.OWNER) {
+            throw new AccessDeniedException("Cannot change permissions of the board owner");
+        }
+
+        String permissionsJson = serializePermissions(
+                request.permissions() != null ? request.permissions() : Collections.emptyList()
+        );
+        member.setPermissions(permissionsJson);
+        BoardMember saved = boardMemberRepository.save(member);
+
+        messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_PERMISSIONS_UPDATED");
+
+        return new BoardResponse.MemberResponse(
+                saved.getId(),
+                authService.toUserResponse(saved.getUser()),
+                saved.getRole(),
+                deserializePermissions(saved.getPermissions()),
+                saved.getJoinedAt()
+        );
+    }
+
     // ── Access Helpers ────────────────────────────────────────────────────────
     public void checkAccess(Board board, User user) {
         if (board.getVisibility() == Visibility.PUBLIC) return;
@@ -304,6 +348,27 @@ public class BoardService {
         }
     }
 
+    /**
+     * Checks that the user has the given permission on this board.
+     * OWNER bypasses all permission checks automatically.
+     * MEMBER must have the specific permission in their permissions list.
+     */
+    public void requirePermission(Board board, User user, BoardPermission permission) {
+        BoardMember membership = boardMemberRepository
+                .findByBoardIdAndUserId(board.getId(), user.getId())
+                .orElseThrow(() -> new AccessDeniedException("You are not a member of this board"));
+
+        // Owner always has all permissions
+        if (membership.getRole() == BoardRole.OWNER) return;
+
+        List<BoardPermission> granted = deserializePermissions(membership.getPermissions());
+        if (!granted.contains(permission)) {
+            throw new AccessDeniedException(
+                    "You do not have permission to perform this action: " + permission.name()
+            );
+        }
+    }
+
     public Board findBoardOrThrow(String boardId) {
         return boardRepository.findById(boardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Board", boardId));
@@ -312,10 +377,21 @@ public class BoardService {
     // ── Mapping ───────────────────────────────────────────────────────────────
     public BoardResponse toBoardResponse(Board board, User currentUser) {
         BoardRole role = null;
+        List<BoardPermission> currentUserPermissions = Collections.emptyList();
+
         if (currentUser != null) {
-            role = boardMemberRepository.findByBoardIdAndUserId(board.getId(), currentUser.getId())
-                    .map(BoardMember::getRole)
-                    .orElse(null);
+            Optional<BoardMember> membershipOpt = boardMemberRepository
+                    .findByBoardIdAndUserId(board.getId(), currentUser.getId());
+            if (membershipOpt.isPresent()) {
+                BoardMember bm = membershipOpt.get();
+                role = bm.getRole();
+                if (bm.getRole() == BoardRole.OWNER) {
+                    // Owner has all permissions implicitly
+                    currentUserPermissions = List.of(BoardPermission.values());
+                } else {
+                    currentUserPermissions = deserializePermissions(bm.getPermissions());
+                }
+            }
         }
 
         List<BoardResponse.MemberResponse> members = board.getMembers().stream()
@@ -323,6 +399,9 @@ public class BoardService {
                         bm.getId(),
                         authService.toUserResponse(bm.getUser()),
                         bm.getRole(),
+                        bm.getRole() == BoardRole.OWNER
+                                ? List.of(BoardPermission.values())
+                                : deserializePermissions(bm.getPermissions()),
                         bm.getJoinedAt()
                 )).toList();
 
@@ -338,7 +417,7 @@ public class BoardService {
                 board.getId(), board.getTitle(), board.getDescription(),
                 board.getVisibility(), board.getCoverColor(),
                 authService.toUserResponse(board.getOwner()),
-                role, members, lists, labels,
+                role, currentUserPermissions, members, lists, labels,
                 board.getCreatedAt(), board.getUpdatedAt()
         );
     }
@@ -401,5 +480,32 @@ public class BoardService {
                 card.isCompleted(), members, labels,
                 totalItems, completedItems, card.getComments().size(), card.getCreatedAt()
         );
+    }
+
+    // ── Permission JSON helpers ───────────────────────────────────────────────
+    @SuppressWarnings("unchecked")
+    public List<BoardPermission> deserializePermissions(String json) {
+        if (json == null || json.isBlank() || json.equals("[]")) return Collections.emptyList();
+        try {
+            List<String> names = OBJECT_MAPPER.readValue(json, List.class);
+            return names.stream()
+                    .map(name -> {
+                        try { return BoardPermission.valueOf(name); }
+                        catch (IllegalArgumentException e) { return null; }
+                    })
+                    .filter(p -> p != null)
+                    .toList();
+        } catch (JsonProcessingException e) {
+            return Collections.emptyList();
+        }
+    }
+
+    public String serializePermissions(List<BoardPermission> permissions) {
+        try {
+            List<String> names = permissions.stream().map(Enum::name).toList();
+            return OBJECT_MAPPER.writeValueAsString(names);
+        } catch (JsonProcessingException e) {
+            return "[]";
+        }
     }
 }

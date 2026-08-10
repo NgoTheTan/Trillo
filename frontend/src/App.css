@@ -1223,6 +1223,13 @@
   flex-shrink: 0;
 }
 
+.owner-star-badge {
+  width: 14px !important;
+  height: 14px !important;
+  background: #fbbf24 !important;
+  color: #451a03 !important;
+}
+
 .dashboard-member-pill.is-active {
   color: #0b5bd3;
   background: rgba(11, 91, 211, 0.08);

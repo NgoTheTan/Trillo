@@ -3,7 +3,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react'
 import type { BoardList } from '../../services/boardServices'
 import { KanbanCard } from './KanbanCard'
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal'
-import { useCreateCardMutation, useListCardsQuery } from '../../services/cardService.ts'
+import { useCreateCardMutation, useListCardsQuery, type ListCardResponse } from '../../services/cardService.ts'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 

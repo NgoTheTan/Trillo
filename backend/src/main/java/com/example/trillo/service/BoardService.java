@@ -119,18 +119,22 @@ public class BoardService {
 
     // ── Actually: get all boards user is member of ────────────────────────────
     @Transactional(readOnly = true)
-    public List<BoardSummaryResponse> getMyBoards(User currentUser) {
-        return boardRepository.findAllBoardsAccessibleByUser(currentUser.getId())
-                .stream()
+    public List<BoardSummaryResponse> getMyBoards(User currentUser, String search) {
+        List<Board> boards = (search != null && !search.isBlank())
+                ? boardRepository.findAllBoardsAccessibleByUserAndTitleContaining(currentUser.getId(), search.trim())
+                : boardRepository.findAllBoardsAccessibleByUser(currentUser.getId());
+        return boards.stream()
                 .map(board -> toBoardSummaryResponse(board, currentUser))
                 .toList();
     }
 
     // ── Get Public Boards ─────────────────────────────────────────────────────
     @Transactional(readOnly = true)
-    public List<BoardSummaryResponse> getPublicBoards(User currentUser) {
-        return boardRepository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC)
-                .stream()
+    public List<BoardSummaryResponse> getPublicBoards(User currentUser, String search) {
+        List<Board> boards = (search != null && !search.isBlank())
+                ? boardRepository.findByVisibilityAndTitleContaining(Visibility.PUBLIC, search.trim())
+                : boardRepository.findByVisibilityOrderByCreatedAtDesc(Visibility.PUBLIC);
+        return boards.stream()
                 .map(board -> toBoardSummaryResponse(board, currentUser))
                 .toList();
     }

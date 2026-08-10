@@ -21,6 +21,70 @@ export interface CardLabel {
     createdAt?: string;
 }
 
+export interface ChecklistItemResponse {
+    id: string;
+    content: string;
+    completed: boolean;
+    position: number;
+    createdAt?: string;
+}
+
+export interface ChecklistResponse {
+    id: string;
+    title: string;
+    items: ChecklistItemResponse[];
+    totalItems: number;
+    completedItems: number;
+    createdAt?: string;
+}
+
+export interface CommentResponse {
+    id: string;
+    author: CardMember;
+    content: string;
+    createdAt: string;
+    updatedAt?: string;
+}
+
+export interface AttachmentResponse {
+    id: string;
+    uploadedBy: CardMember;
+    fileName: string;
+    fileUrl: string;
+    fileType?: string;
+    fileSize?: number;
+    createdAt: string;
+}
+
+export interface ActivityLogResponse {
+    id: string;
+    user: CardMember;
+    action: string;
+    detail: string;
+    createdAt: string;
+}
+
+export interface CardDetailResponse {
+    id: string;
+    listId: string;
+    listTitle: string;
+    boardId: string;
+    title: string;
+    description?: string | null;
+    deadline?: string | null;
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | string;
+    position: number;
+    completed: boolean;
+    assignedMembers: CardMember[];
+    labels: CardLabel[];
+    checklists: ChecklistResponse[];
+    comments: CommentResponse[];
+    attachments: AttachmentResponse[];
+    activityLogs: ActivityLogResponse[];
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 export interface ListCardResponse {
     id: string;
     listId: string;
@@ -203,17 +267,34 @@ export const useListCardsQuery = (listId: string | undefined) => {
     });
 };
 
+export const useMoveCardMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { cardId: string; targetListId: string; targetPosition: number }) =>
+            moveCard(data.cardId, data.targetListId, data.targetPosition),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+            queryClient.invalidateQueries({ queryKey: ['card-detail'] });
+            queryClient.invalidateQueries({ queryKey: ['boards'] });
+        },
+    });
+};
+
 export const useUpdateCardMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ cardId, cardData }: { cardId: string; cardData: UpdateCardPayload }) =>
             updateCard(cardId, cardData),
-        onSuccess: (updatedCard) => {
+        onSuccess: (updatedCard, variables) => {
             if (updatedCard?.listId) {
                 queryClient.invalidateQueries({ queryKey: ['list-cards', updatedCard.listId] });
             } else {
                 queryClient.invalidateQueries({ queryKey: ['list-cards'] });
             }
+            if (variables?.cardId) {
+                queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            }
+            queryClient.invalidateQueries({ queryKey: ['card-detail'] });
             queryClient.invalidateQueries({ queryKey: ['boards'] });
         },
     });
@@ -271,6 +352,7 @@ export const useAssignMemberMutation = () => {
             assignMemberToCard(cardId, userId),
         onSuccess: (updatedCard, variables) => {
             const listId = updatedCard?.listId || variables.listId;
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
             if (listId) {
                 queryClient.invalidateQueries({ queryKey: ['list-cards', listId] });
             } else {
@@ -288,6 +370,7 @@ export const useUnassignMemberMutation = () => {
             unassignMemberFromCard(cardId, userId),
         onSuccess: (updatedCard, variables) => {
             const listId = updatedCard?.listId || variables.listId;
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
             if (listId) {
                 queryClient.invalidateQueries({ queryKey: ['list-cards', listId] });
             } else {
@@ -356,6 +439,7 @@ export const useAddLabelToCardMutation = () => {
         mutationFn: ({ cardId, labelId }: { cardId: string; labelId: string; listId?: string }) =>
             addLabelToCard(cardId, labelId),
         onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
             if (variables.listId) {
                 queryClient.invalidateQueries({ queryKey: ['list-cards', variables.listId] });
             } else {
@@ -371,6 +455,7 @@ export const useRemoveLabelFromCardMutation = () => {
         mutationFn: ({ cardId, labelId }: { cardId: string; labelId: string; listId?: string }) =>
             removeLabelFromCard(cardId, labelId),
         onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
             if (variables.listId) {
                 queryClient.invalidateQueries({ queryKey: ['list-cards', variables.listId] });
             } else {
@@ -397,3 +482,228 @@ export const useFilterCardsQuery = (boardId: string | undefined, filters: Filter
         enabled: !!boardId && hasActiveFilter,
     });
 };
+
+// ── Card Detail, Checklist, Comment, Attachment APIs ──────────────────────────
+
+export const getCardDetail = async (cardId: string) => {
+    return await Api.get<CardDetailResponse>(`/cards/${cardId}`);
+};
+
+export const createChecklist = async (cardId: string, title: string) => {
+    return await Api.post<ChecklistResponse>(`/cards/${cardId}/checklists`, { title });
+};
+
+export const updateChecklist = async (checklistId: string, title: string) => {
+    return await Api.put<ChecklistResponse>(`/checklists/${checklistId}`, { title });
+};
+
+export const deleteChecklist = async (checklistId: string) => {
+    return await Api.delete<void>(`/checklists/${checklistId}`);
+};
+
+export const addChecklistItem = async (checklistId: string, content: string) => {
+    return await Api.post<ChecklistItemResponse>(`/checklists/${checklistId}/items`, { content });
+};
+
+export const updateChecklistItem = async (itemId: string, content: string) => {
+    return await Api.put<ChecklistItemResponse>(`/checklists/items/${itemId}`, { content });
+};
+
+export const toggleChecklistItem = async (itemId: string) => {
+    return await Api.patch<ChecklistItemResponse>(`/checklists/items/${itemId}/toggle`);
+};
+
+export const deleteChecklistItem = async (itemId: string) => {
+    return await Api.delete<void>(`/checklists/items/${itemId}`);
+};
+
+export const addComment = async (cardId: string, content: string) => {
+    return await Api.post<CommentResponse>(`/cards/${cardId}/comments`, { content });
+};
+
+export const updateComment = async (commentId: string, content: string) => {
+    return await Api.put<CommentResponse>(`/comments/${commentId}`, { content });
+};
+
+export const deleteComment = async (commentId: string) => {
+    return await Api.delete<void>(`/comments/${commentId}`);
+};
+
+export const addLinkAttachment = async (cardId: string, fileUrl: string, fileName?: string) => {
+    return await Api.post<AttachmentResponse>(`/cards/${cardId}/attachments`, {
+        fileUrl,
+        fileName: fileName || fileUrl,
+        fileType: "link"
+    });
+};
+
+export const uploadFileAttachment = async (cardId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return await Api.post<AttachmentResponse>(`/cards/${cardId}/attachments/upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+    });
+};
+
+export const deleteAttachment = async (attachmentId: string) => {
+    return await Api.delete<void>(`/attachments/${attachmentId}`);
+};
+
+// Hooks
+export const useCardDetailQuery = (cardId: string | undefined) => {
+    return useQuery({
+        queryKey: ['card-detail', cardId],
+        queryFn: () => getCardDetail(cardId!),
+        enabled: !!cardId,
+    });
+};
+
+export const useCreateChecklistMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, title }: { cardId: string; title: string }) => createChecklist(cardId, title),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useUpdateChecklistMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { checklistId: string; title: string; cardId: string }) =>
+            updateChecklist(data.checklistId, data.title),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+        },
+    });
+};
+
+export const useDeleteChecklistMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { checklistId: string; cardId: string }) =>
+            deleteChecklist(data.checklistId),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useAddChecklistItemMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { checklistId: string; content: string; cardId: string }) =>
+            addChecklistItem(data.checklistId, data.content),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useUpdateChecklistItemMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { itemId: string; content: string; cardId: string }) =>
+            updateChecklistItem(data.itemId, data.content),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+        },
+    });
+};
+
+export const useToggleChecklistItemMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { itemId: string; cardId: string }) =>
+            toggleChecklistItem(data.itemId),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useDeleteChecklistItemMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { itemId: string; cardId: string }) =>
+            deleteChecklistItem(data.itemId),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useAddCommentMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { cardId: string; content: string }) =>
+            addComment(data.cardId, data.content),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useUpdateCommentMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { commentId: string; content: string; cardId: string }) =>
+            updateComment(data.commentId, data.content),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+        },
+    });
+};
+
+export const useDeleteCommentMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { commentId: string; cardId: string }) =>
+            deleteComment(data.commentId),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+        },
+    });
+};
+
+export const useAddLinkAttachmentMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { cardId: string; fileUrl: string; fileName?: string }) =>
+            addLinkAttachment(data.cardId, data.fileUrl, data.fileName),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+        },
+    });
+};
+
+export const useUploadFileAttachmentMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { cardId: string; file: File }) =>
+            uploadFileAttachment(data.cardId, data.file),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+        },
+    });
+};
+
+export const useDeleteAttachmentMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: { attachmentId: string; cardId: string }) =>
+            deleteAttachment(data.attachmentId),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+        },
+    });
+};
+

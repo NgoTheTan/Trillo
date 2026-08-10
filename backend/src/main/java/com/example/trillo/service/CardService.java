@@ -181,14 +181,16 @@ public class CardService {
 
         logActivity(card, currentUser, "assigned", currentUser.getFullName() + " assigned " + assignee.getFullName());
 
-        // Notify assignee
-        notificationService.createNotification(
-                assignee,
-                NotificationType.CARD_ASSIGNED,
-                currentUser.getFullName() + " assigned you to card: " + card.getTitle(),
-                cardId,
-                "CARD"
-        );
+        // Notify assignee (only if assigning another user)
+        if (!assignee.getId().equals(currentUser.getId())) {
+            notificationService.createNotification(
+                    assignee,
+                    NotificationType.CARD_ASSIGNED,
+                    currentUser.getFullName() + " assigned you to card: " + card.getTitle(),
+                    cardId,
+                    "CARD"
+            );
+        }
 
         broadcastBoardEvent(card.getList().getBoard().getId(), "CARD_UPDATED");
         return toCardResponse(cardRepository.save(card));

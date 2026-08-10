@@ -21,6 +21,7 @@ public class AttachmentService {
     private final CardService cardService;
     private final BoardService boardService;
     private final AuthService authService;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public AttachmentResponse addAttachment(String cardId, AddAttachmentRequest request, User currentUser) {
@@ -30,13 +31,60 @@ public class AttachmentService {
         Attachment attachment = Attachment.builder()
                 .card(card)
                 .uploadedBy(currentUser)
-                .fileName(request.fileName())
+                .fileName(request.fileName() != null && !request.fileName().isBlank() ? request.fileName() : request.fileUrl())
                 .fileUrl(request.fileUrl())
-                .fileType(request.fileType())
+                .fileType(request.fileType() != null ? request.fileType() : "link")
                 .fileSize(request.fileSize())
                 .build();
 
-        return toResponse(attachmentRepository.save(attachment));
+        Attachment saved = attachmentRepository.save(attachment);
+        activityLogService.logActivity(card, currentUser, "attached_link",
+                currentUser.getFullName() + " attached link '" + saved.getFileName() + "'");
+
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public AttachmentResponse uploadFileAttachment(String cardId, org.springframework.web.multipart.MultipartFile file, User currentUser) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File cannot be empty");
+        }
+
+        Card card = cardService.findCardOrThrow(cardId);
+        boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.UPLOAD_ATTACHMENT);
+
+        try {
+            java.nio.file.Path uploadPath = java.nio.file.Paths.get(System.getProperty("user.dir"), "uploads", "attachments");
+            if (!java.nio.file.Files.exists(uploadPath)) {
+                java.nio.file.Files.createDirectories(uploadPath);
+            }
+
+            String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "attachment.bin";
+            String cleanFilename = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
+            String fileName = java.util.UUID.randomUUID() + "-" + cleanFilename;
+
+            java.nio.file.Path filePath = uploadPath.resolve(fileName);
+            java.nio.file.Files.copy(file.getInputStream(), filePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+            String fileUrl = "/uploads/attachments/" + fileName;
+
+            Attachment attachment = Attachment.builder()
+                    .card(card)
+                    .uploadedBy(currentUser)
+                    .fileName(originalFilename)
+                    .fileUrl(fileUrl)
+                    .fileType(file.getContentType() != null ? file.getContentType() : "file")
+                    .fileSize(file.getSize())
+                    .build();
+
+            Attachment saved = attachmentRepository.save(attachment);
+            activityLogService.logActivity(card, currentUser, "attached_file",
+                    currentUser.getFullName() + " attached file '" + originalFilename + "'");
+
+            return toResponse(saved);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to upload attachment file: " + e.getMessage(), e);
+        }
     }
 
     @Transactional
@@ -50,6 +98,9 @@ public class AttachmentService {
         if (!isUploader && !isOwner) {
             throw new AccessDeniedException("Not authorized to delete this attachment");
         }
+
+        activityLogService.logActivity(attachment.getCard(), currentUser, "deleted_attachment",
+                currentUser.getFullName() + " removed attachment '" + attachment.getFileName() + "'");
 
         attachmentRepository.delete(attachment);
     }

@@ -23,6 +23,7 @@ public class ChecklistService {
     private final ChecklistItemRepository checklistItemRepository;
     private final CardService cardService;
     private final BoardService boardService;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public ChecklistResponse createChecklist(String cardId, CreateChecklistRequest request, User currentUser) {
@@ -34,6 +35,22 @@ public class ChecklistService {
                 .title(request.title())
                 .build();
 
+        Checklist saved = checklistRepository.save(checklist);
+        activityLogService.logActivity(card, currentUser, "checklist_created",
+                currentUser.getFullName() + " added checklist '" + saved.getTitle() + "' to this card");
+
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public ChecklistResponse updateChecklist(String checklistId, CreateChecklistRequest request, User currentUser) {
+        Checklist checklist = findOrThrow(checklistId);
+        boardService.requirePermission(checklist.getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
+
+        if (request.title() != null && !request.title().isBlank()) {
+            checklist.setTitle(request.title().trim());
+        }
+
         return toResponse(checklistRepository.save(checklist));
     }
 
@@ -41,6 +58,8 @@ public class ChecklistService {
     public void deleteChecklist(String checklistId, User currentUser) {
         Checklist checklist = findOrThrow(checklistId);
         boardService.requirePermission(checklist.getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
+        activityLogService.logActivity(checklist.getCard(), currentUser, "checklist_deleted",
+                currentUser.getFullName() + " removed checklist '" + checklist.getTitle() + "'");
         checklistRepository.delete(checklist);
     }
 
@@ -56,6 +75,23 @@ public class ChecklistService {
                 .position(maxPos + 1)
                 .build();
 
+        ChecklistItem saved = checklistItemRepository.save(item);
+        activityLogService.logActivity(checklist.getCard(), currentUser, "checklist_item_added",
+                currentUser.getFullName() + " added '" + saved.getContent() + "' to " + checklist.getTitle());
+
+        return toItemResponse(saved);
+    }
+
+    @Transactional
+    public ChecklistItemResponse updateItem(String itemId, CreateChecklistItemRequest request, User currentUser) {
+        ChecklistItem item = checklistItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("ChecklistItem", itemId));
+        boardService.requirePermission(item.getChecklist().getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
+
+        if (request.content() != null && !request.content().isBlank()) {
+            item.setContent(request.content().trim());
+        }
+
         return toItemResponse(checklistItemRepository.save(item));
     }
 
@@ -66,7 +102,11 @@ public class ChecklistService {
         boardService.requirePermission(item.getChecklist().getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
 
         item.setCompleted(!item.isCompleted());
-        return toItemResponse(checklistItemRepository.save(item));
+        ChecklistItem saved = checklistItemRepository.save(item);
+        activityLogService.logActivity(item.getChecklist().getCard(), currentUser, "checklist_toggled",
+                currentUser.getFullName() + (saved.isCompleted() ? " completed " : " marked incomplete ") + "'" + saved.getContent() + "' on " + item.getChecklist().getTitle());
+
+        return toItemResponse(saved);
     }
 
     @Transactional

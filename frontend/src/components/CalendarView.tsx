@@ -1,19 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import multiMonthPlugin from '@fullcalendar/multimonth';
 import interactionPlugin from '@fullcalendar/interaction';
+import viLocale from '@fullcalendar/core/locales/vi';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 
 export default function CalendarView() {
+  const navigate = useNavigate();
   const calendarRef = useRef<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [currentTitle, setCurrentTitle] = useState('');
   const [activeView, setActiveView] = useState('dayGridMonth');
+  const [isShowingToday, setIsShowingToday] = useState(true);
 
   useEffect(() => {
     const fetchCalendarData = async () => {
@@ -49,7 +53,7 @@ export default function CalendarView() {
             headers: { Authorization: `Bearer ${token}` },
             params: { from: fromDate, to: toDate }
           })
-          .then(res => res.data)
+          .then(res => (Array.isArray(res.data) ? res.data.map(card => ({ ...card, boardId: board.id })) : []))
           .catch(err => {
             console.error(`Lỗi lấy lịch của board ${board.id}:`, err);
             return []; 
@@ -67,11 +71,13 @@ export default function CalendarView() {
           else if (priority === 'LOW') eventColor = '#10b981';    
 
           return {
+            id: card.id,
             title: card.title || 'Chưa có tiêu đề',
             start: card.deadline,
             allDay: false, 
             backgroundColor: eventColor,
-            borderColor: eventColor
+            borderColor: eventColor,
+            extendedProps: { card }
           };
         });
 
@@ -92,21 +98,31 @@ export default function CalendarView() {
   const handleDateClick = (info: any) => {
     if (calendarRef.current) {
       const calendarApi = calendarRef.current.getApi();
-      calendarApi.changeView('timeGridDay', info.dateStr);
+      if (activeView === 'multiMonthYear') {
+        calendarApi.changeView('dayGridMonth', info.dateStr);
+      } else if (activeView === 'dayGridMonth' || activeView === 'timeGridWeek') {
+        calendarApi.changeView('timeGridDay', info.dateStr);
+      }
     }
   };
 
-  const handleSelect = (info: any) => {
-    const title = prompt('Nhập tên công việc/lịch trình mới:');
-    if (title) {
-      const newEvent = { title, start: info.startStr, end: info.endStr, allDay: info.allDay };
-      setEvents([...events, newEvent]);
+  const handleEventClick = (info: any) => {
+    const cardData = info.event.extendedProps?.card;
+    if (cardData?.boardId) {
+      navigate(`/app/boards/${cardData.boardId}`);
     }
   };
 
   const handleDatesSet = (arg: any) => {
     setCurrentTitle(arg.view.title);
     setActiveView(arg.view.type);
+
+    const now = new Date();
+    const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startMs = new Date(arg.view.activeStart).getTime();
+    const endMs = new Date(arg.view.activeEnd).getTime();
+    const isTodayInView = todayMs >= startMs && todayMs < endMs;
+    setIsShowingToday(isTodayInView);
   };
 
   const handlePrev = () => {
@@ -148,7 +164,7 @@ export default function CalendarView() {
       `}</style>
 
       {isLoading && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 bg-white p-4 rounded-lg shadow-lg border border-slate-200 text-sm">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 bg-white p-4 rounded-lg shadow-lg border border-slate-200 text-sm font-medium text-slate-700">
           ⏳ Đang tải dữ liệu lịch...
         </div>
       )}
@@ -156,14 +172,15 @@ export default function CalendarView() {
       {errorMsg && (
         <div className="bg-red-50 text-red-600 border border-red-200 p-3.5 rounded-xl text-sm font-medium flex justify-between items-center">
           <span>⚠️ {errorMsg}</span>
-          <button onClick={() => setErrorMsg(null)} className="text-red-400 hover:text-red-600">✕</button>
+          <button onClick={() => setErrorMsg(null)} className="text-red-400 hover:text-red-600 cursor-pointer">✕</button>
         </div>
       )}
 
       {/* Custom Responsive Toolbar */}
       <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-xs border border-slate-200 flex flex-col gap-3">
-        {/* Row 1: Navigation buttons (<, >), Today button, and Title */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 sm:pb-0 sm:border-b-0">
+        {/* Row 1: Top Navigation Controls + View Mode Switchers */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Left: Navigation (<, >) and Today button */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={handlePrev}
@@ -184,36 +201,44 @@ export default function CalendarView() {
             <button
               onClick={handleToday}
               type="button"
-              className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+              disabled={isShowingToday}
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                isShowingToday
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200/60'
+                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100 cursor-pointer shadow-2xs'
+              }`}
             >
               Hôm nay
             </button>
           </div>
 
-          <h2 className="text-base sm:text-xl font-bold text-slate-900 capitalize">
-            {currentTitle}
-          </h2>
+          {/* Right: View Mode Buttons */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            {viewButtons.map(btn => {
+              const isActive = activeView === btn.id;
+              return (
+                <button
+                  key={btn.id}
+                  onClick={() => handleChangeView(btn.id)}
+                  type="button"
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors cursor-pointer text-center ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-2xs font-semibold'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  }`}
+                >
+                  {btn.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Row 2: 4 View Mode Buttons */}
-        <div className="flex items-center justify-center sm:justify-end gap-1 sm:gap-1.5">
-          {viewButtons.map(btn => {
-            const isActive = activeView === btn.id;
-            return (
-              <button
-                key={btn.id}
-                onClick={() => handleChangeView(btn.id)}
-                type="button"
-                className={`flex-1 sm:flex-initial px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors cursor-pointer text-center ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                }`}
-              >
-                {btn.label}
-              </button>
-            );
-          })}
+        {/* Row 2: Centered Current Date Title */}
+        <div className="pt-2 border-t border-slate-100 text-center w-full">
+          <h2 className="text-base sm:text-xl font-bold text-slate-900 capitalize tracking-tight">
+            {currentTitle}
+          </h2>
         </div>
       </div>
 
@@ -223,12 +248,14 @@ export default function CalendarView() {
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, multiMonthPlugin, interactionPlugin]}
           initialView="dayGridMonth"
+          locale={viLocale}
           headerToolbar={false}
           datesSet={handleDatesSet}
           events={events}
-          selectable={true}
-          select={handleSelect}
+          editable={false}
+          selectable={false}
           dateClick={handleDateClick}
+          eventClick={handleEventClick}
           height="70vh"
           slotMinTime="06:00:00"
           slotMaxTime="23:00:00"

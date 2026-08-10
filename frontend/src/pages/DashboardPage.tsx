@@ -413,9 +413,9 @@ export function DashboardPage({
   const variantCopy = {
     overview: {
       eyebrow: 'Tổng quan không gian làm việc',
-      title: 'Bảng công việc của bạn',
+      title: 'Bảng của bạn',
       subtitle: 'Theo dõi tải lượng bảng, thành viên và các thẻ trong một trang.',
-      action: 'Xem bảng công việc',
+      action: 'Xem danh sách bảng',
     },
     pm: {
       eyebrow: 'Trung tâm PM',

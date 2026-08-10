@@ -16,7 +16,7 @@ export interface NavItem {
 
 const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard, href: '/app' },
-    { id: 'boards', label: 'Bảng công việc', icon: Columns3, href: '/app/boards' },
+    { id: 'boards', label: 'Bảng', icon: Columns3, href: '/app/boards' },
     { id: 'schedule', label: 'Lịch biểu', icon: Calendar, href: '/app/schedule' },
 ]
 
@@ -84,9 +84,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <>
                                             {/* Desktop Collapsed View (only on lg: when isCollapsed is true) */}
                                             {isCollapsed ? (
-                                                <div className="hidden lg:flex flex-col items-center justify-center py-2.5 px-1 text-center gap-1">
+                                                <div className="hidden lg:flex flex-col items-center justify-center py-2 px-1 text-center gap-1 min-w-0">
                                                     <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                                                    <span className={`text-[11px] font-medium leading-tight max-w-[68px] truncate ${isActive ? 'text-white font-semibold' : 'text-slate-600'}`}>
+                                                    <span className={`text-[11px] font-semibold leading-snug px-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[64px] ${isActive ? 'text-white' : 'text-slate-600'}`}>
                                                         {item.label}
                                                     </span>
                                                 </div>

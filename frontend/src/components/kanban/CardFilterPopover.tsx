@@ -12,7 +12,6 @@ import { getInitials } from '../../auth/authStorage'
 import type { MemberItem } from '../listCard/EditCardModel'
 import type { FilterCardsPayload } from '../../services/cardService.ts'
 import { DateTimeInput } from '../common/DateTimeInput.tsx'
-import { Button } from '../ui/button.tsx'
 
 interface CardFilterPopoverProps {
     boardId: string

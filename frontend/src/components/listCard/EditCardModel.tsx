@@ -1,10 +1,39 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { useParams } from 'react-router-dom'
-import { ChevronDown, Search, X, Check, Edit2, Loader2, Palette, Trash, Star } from 'lucide-react'
+import { useParams, useNavigate } from 'react-router-dom'
+import {
+  ChevronDown,
+  Search,
+  X,
+  Check,
+  Trash,
+  CheckSquare,
+  Paperclip,
+  MessageSquare,
+  MoreHorizontal,
+  Plus,
+  AlignLeft,
+  Calendar,
+  Tag,
+  FileText,
+  ExternalLink,
+  ArrowLeft,
+  ArrowRight,
+  Copy,
+  Archive,
+  UserPlus,
+  UserMinus,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 import {
   type ListCardResponse,
-  type CardMember,
   type CardLabel,
+  type ChecklistResponse,
+  type CommentResponse,
+  type AttachmentResponse,
+  type ActivityLogResponse,
+  useCardDetailQuery,
   useUpdateCardMutation,
   useToggleCardCompletedMutation,
   useBoardLabelsQuery,
@@ -15,12 +44,26 @@ import {
   useRemoveLabelFromCardMutation,
   useAssignMemberMutation,
   useUnassignMemberMutation,
+  useCreateChecklistMutation,
+  useUpdateChecklistMutation,
+  useDeleteChecklistMutation,
+  useAddChecklistItemMutation,
+  useUpdateChecklistItemMutation,
+  useToggleChecklistItemMutation,
+  useDeleteChecklistItemMutation,
+  useAddCommentMutation,
+  useUpdateCommentMutation,
+  useDeleteCommentMutation,
+  useAddLinkAttachmentMutation,
+  useUploadFileAttachmentMutation,
+  useDeleteAttachmentMutation,
+  useMoveCardMutation,
+  useCreateCardMutation,
 } from '../../services/cardService.ts'
-import { useBoardDetailQuery } from '../../services/boardServices'
-import { getAvatarUrl } from '../../auth/authStorage'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
+import { useBoardDetailQuery, useBoardsQuery, type BoardList } from '../../services/boardServices'
+import { getAvatarUrl, getCurrentUser } from '../../auth/authStorage'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal'
-import { DateTimeInput } from '../common/DateTimeInput'
 
 interface EditCardModelProps {
   card?: ListCardResponse
@@ -28,13 +71,6 @@ interface EditCardModelProps {
   onOpenChange: (open: boolean) => void
   onSave?: (updatedCardData: Partial<ListCardResponse>) => void
 }
-
-interface PriorityOption {
-  label: string
-  value: 'LOW' | 'MEDIUM' | 'HIGH'
-  colorClass: string
-}
-
 
 export interface MemberItem {
   id: string
@@ -44,11 +80,7 @@ export interface MemberItem {
   isOwner?: boolean
 }
 
-const PRIORITY_OPTIONS: PriorityOption[] = [
-  { label: 'Cao', value: 'HIGH', colorClass: 'bg-red-500' },
-  { label: 'Trung bình', value: 'MEDIUM', colorClass: 'bg-amber-500' },
-  { label: 'Thấp', value: 'LOW', colorClass: 'bg-emerald-500' },
-]
+type ActivePopover = 'add' | 'member' | 'label' | 'date' | 'checklist' | 'attachment' | 'move' | 'options' | null
 
 const COLOR_SCHEMES = [
   "#5E60CE",
@@ -75,8 +107,7 @@ const formatToDatetimeLocal = (rawDate?: string | null): string => {
       const tzOffset = d.getTimezoneOffset() * 60000
       return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16)
     }
-  } catch (e) {
-  }
+  } catch (e) {}
   return ''
 }
 
@@ -96,24 +127,310 @@ const getInitials = (name?: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+const formatDateDisplay = (dateStr?: string) => {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return dateStr
+    const day = d.getDate().toString().padStart(2, '0')
+    const month = (d.getMonth() + 1).toString().padStart(2, '0')
+    const year = d.getFullYear()
+    const hours = d.getHours().toString().padStart(2, '0')
+    const minutes = d.getMinutes().toString().padStart(2, '0')
+    return `${day}/${month}/${year} ${hours}:${minutes}`
+  } catch (e) {
+    return dateStr
+  }
+}
+
+const formatDateToDDMMYYYY = (d: Date) => {
+  const day = d.getDate().toString().padStart(2, '0')
+  const month = (d.getMonth() + 1).toString().padStart(2, '0')
+  const year = d.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+const formatExternalUrl = (url: string) => {
+  if (!url) return '#'
+  if (url.startsWith('/')) {
+    const backendBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '') : 'http://localhost:8080'
+    return `${backendBase}${url}`
+  }
+  if (/^https?:\/\//i.test(url)) {
+    return url
+  }
+  return `https://${url}`
+}
+
+interface DirectDatePickerPopoverProps {
+  value?: string
+  onChange: (isoString: string) => void
+  onRemove: () => void
+  onClose: () => void
+  disabled?: boolean
+}
+
+const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
+  value,
+  onChange,
+  onRemove,
+  onClose,
+  disabled,
+}) => {
+  const initialDate = React.useMemo(() => {
+    if (value) {
+      const d = new Date(value)
+      if (!isNaN(d.getTime())) return d
+    }
+    return new Date()
+  }, [value])
+
+  const [viewMonth, setViewMonth] = useState<Date>(() => new Date(initialDate.getFullYear(), initialDate.getMonth(), 1))
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate)
+  const [timeStr, setTimeStr] = useState<string>(() => {
+    const h = initialDate.getHours().toString().padStart(2, '0')
+    const m = initialDate.getMinutes().toString().padStart(2, '0')
+    return `${h}:${m}`
+  })
+
+  const [hasDueDate, setHasDueDate] = useState(true)
+  const [reminderOption, setReminderOption] = useState('1_day_before')
+
+  const year = viewMonth.getFullYear()
+  const month = viewMonth.getMonth()
+
+  const firstDayOfWeek = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const daysInPrevMonth = new Date(year, month, 0).getDate()
+
+  const prevMonthDays = Array.from({ length: firstDayOfWeek }).map((_, i) => daysInPrevMonth - firstDayOfWeek + 1 + i)
+  const currentMonthDays = Array.from({ length: daysInMonth }).map((_, i) => i + 1)
+  const totalCells = prevMonthDays.length + currentMonthDays.length
+  const nextMonthDays = Array.from({ length: (7 - (totalCells % 7)) % 7 }).map((_, i) => i + 1)
+
+  const handlePrevMonth = () => setViewMonth(new Date(year, month - 1, 1))
+  const handleNextMonth = () => setViewMonth(new Date(year, month + 1, 1))
+
+  const isSameDay = (d1: Date, d2: Date) => {
+    return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate()
+  }
+
+  const handleSelectDay = (day: number) => {
+    if (disabled) return
+    setSelectedDate(new Date(year, month, day))
+  }
+
+  const handleSave = () => {
+    if (disabled) return
+    if (!hasDueDate) {
+      onRemove()
+      onClose()
+      return
+    }
+    const [hStr, mStr] = timeStr.split(':')
+    const h = parseInt(hStr || '0', 10)
+    const m = parseInt(mStr || '0', 10)
+
+    const finalDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), h, m)
+    const tzOffset = finalDate.getTimezoneOffset() * 60000
+    const localIso = new Date(finalDate.getTime() - tzOffset).toISOString().slice(0, 16)
+    onChange(localIso)
+    onClose()
+  }
+
+  const formattedDueDate = formatDateToDDMMYYYY(selectedDate)
+
+  return (
+    <div className="absolute left-0 top-full mt-1.5 w-[calc(100vw-48px)] sm:w-80 max-w-[320px] sm:max-w-none max-h-[350px] flex flex-col bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 sm:p-3.5 space-y-3 text-slate-800">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100 shrink-0">
+        <span className="text-xs font-bold text-slate-800">Ngày hạn</span>
+        <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+        <div className="overflow-y-auto flex-1 space-y-3 pr-1">
+          <div className="flex items-center justify-between px-1">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-bold text-slate-800 capitalize">
+              {viewMonth.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}
+            </span>
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-slate-400">
+            <span>CN</span>
+            <span>T2</span>
+            <span>T3</span>
+            <span>T4</span>
+            <span>T5</span>
+            <span>T6</span>
+            <span>T7</span>
+          </div>
+
+          <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
+            {prevMonthDays.map(d => (
+              <div key={`prev-${d}`} className="py-1.5 text-slate-300 pointer-events-none">
+                {d}
+              </div>
+            ))}
+            {currentMonthDays.map(d => {
+              const thisDay = new Date(year, month, d)
+              const isToday = isSameDay(thisDay, new Date())
+              const isSelected = hasDueDate && isSameDay(thisDay, selectedDate)
+
+              const todayClass = isToday ? 'underline underline-offset-4 decoration-2 decoration-blue-600 font-bold' : ''
+              const cellBgClass = isSelected
+                ? 'bg-blue-600 text-white font-bold rounded-lg shadow-2xs'
+                : 'hover:bg-slate-100 text-slate-700 rounded-lg'
+
+              return (
+                <button
+                  key={`curr-${d}`}
+                  type="button"
+                  onClick={() => handleSelectDay(d)}
+                  className={`py-1.5 transition-colors cursor-pointer text-xs ${cellBgClass} ${todayClass}`}
+                >
+                  {d}
+                </button>
+              )
+            })}
+            {nextMonthDays.map(d => (
+              <div key={`next-${d}`} className="py-1.5 text-slate-300 pointer-events-none">
+                {d}
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-1.5 pt-1">
+            <label className="block text-xs font-semibold text-slate-600">Ngày đến hạn</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={hasDueDate}
+                onChange={e => setHasDueDate(e.target.checked)}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <input
+                type="text"
+                readOnly
+                value={formattedDueDate}
+                className="w-28 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer text-slate-800 font-medium"
+                placeholder="dd/mm/yyyy"
+              />
+              <input
+                type="time"
+                value={timeStr}
+                onChange={e => setTimeStr(e.target.value)}
+                className="flex-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800 font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-600">Thiết lập nhắc nhở hạn chót</label>
+            <select
+              value={reminderOption}
+              onChange={e => setReminderOption(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
+            >
+              <option value="none">Không có</option>
+              <option value="at_due">Tại thời điểm đến hạn</option>
+              <option value="5_min_before">5 phút trước</option>
+              <option value="15_min_before">15 phút trước</option>
+              <option value="1_hour_before">1 giờ trước</option>
+              <option value="2_hours_before">2 giờ trước</option>
+              <option value="1_day_before">1 ngày trước (Mặc định)</option>
+              <option value="2_days_before">2 ngày trước</option>
+            </select>
+            <p className="text-[10px] text-slate-400 font-medium">Thông báo nhắc nhở sẽ được gửi đến tất cả thành viên của thẻ.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 shrink-0">
+          <button
+            type="button"
+            onClick={handleSave}
+            className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+          >
+            Lưu
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onRemove()
+              onClose()
+            }}
+            className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer border border-slate-200"
+          >
+            Xóa
+          </button>
+        </div>
+      </div>
+  )
+}
+
 export const EditCardModel: React.FC<EditCardModelProps> = ({
   card,
   open,
   onOpenChange,
   onSave,
 }) => {
+  const { boardId } = useParams<{ boardId: string }>()
+  const navigate = useNavigate()
+  const currentUser = getCurrentUser()
+
+  // Fetch full card details
+  const cardDetailQuery = useCardDetailQuery(open ? card?.id : undefined)
+  const cardDetail = cardDetailQuery.data
+
   const updateCardMutation = useUpdateCardMutation()
   const toggleCompletedMutation = useToggleCardCompletedMutation()
-  const [titleError, setTitleError] = useState('')
-  const [deadlineError, setDeadlineError] = useState('')
+  const moveCardMutation = useMoveCardMutation()
+  const createCardMutation = useCreateCardMutation()
 
+  // Checklist mutations
+  const createChecklistMutation = useCreateChecklistMutation()
+  const updateChecklistMutation = useUpdateChecklistMutation()
+  const deleteChecklistMutation = useDeleteChecklistMutation()
+  const addChecklistItemMutation = useAddChecklistItemMutation()
+  const updateChecklistItemMutation = useUpdateChecklistItemMutation()
+  const toggleChecklistItemMutation = useToggleChecklistItemMutation()
+  const deleteChecklistItemMutation = useDeleteChecklistItemMutation()
+
+  // Comment mutations
+  const addCommentMutation = useAddCommentMutation()
+  const updateCommentMutation = useUpdateCommentMutation()
+  const deleteCommentMutation = useDeleteCommentMutation()
+
+  // Attachment mutations
+  const addLinkAttachmentMutation = useAddLinkAttachmentMutation()
+  const uploadFileAttachmentMutation = useUploadFileAttachmentMutation()
+  const deleteAttachmentMutation = useDeleteAttachmentMutation()
+
+  // Form states
   const [title, setTitle] = useState(card?.title || '')
+  const [titleError, setTitleError] = useState('')
   const [description, setDescription] = useState(card?.description || '')
+  const [isEditingDesc, setIsEditingDesc] = useState(false)
   const [deadline, setDeadline] = useState(card?.deadline ? formatToDatetimeLocal(card.deadline) : '')
   const [priority, setPriority] = useState<string>(card?.priority || 'MEDIUM')
   const [completed, setCompleted] = useState<boolean>(card?.completed || false)
 
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Auto-save state
+  const [, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const isInitializedRef = useRef(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSavedRef = useRef({
@@ -124,22 +441,19 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     completed: card?.completed || false,
   })
 
+  // Label management
   const [selectedLabels, setSelectedLabels] = useState<CardLabel[]>([])
-  const [isLabelMenuOpen, setIsLabelMenuOpen] = useState(false)
   const [newLabelText, setNewLabelText] = useState('')
   const [selectedColor, setSelectedColor] = useState(COLOR_SCHEMES[0])
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null)
   const [labelToDelete, setLabelToDelete] = useState<CardLabel | null>(null)
 
-  const { boardId } = useParams<{ boardId: string }>()
   const boardDetailQuery = useBoardDetailQuery(boardId)
-
+  const { data: userBoards = [] } = useBoardsQuery()
   const isOwner = boardDetailQuery.data?.currentUserRole === 'OWNER'
   const permissions = boardDetailQuery.data?.currentUserPermissions || []
 
   const canEditCard = isOwner || permissions.includes('EDIT_CARD')
-  const canManageLabels = isOwner || permissions.includes('MANAGE_LABELS')
-  const canDeleteCard = isOwner || permissions.includes('DELETE_CARD')
 
   const { data: boardLabelsData } = useBoardLabelsQuery(boardId)
   const createBoardLabelMutation = useCreateBoardLabelMutation()
@@ -147,6 +461,8 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   const deleteBoardLabelMutation = useDeleteBoardLabelMutation()
   const addLabelToCardMutation = useAddLabelToCardMutation()
   const removeLabelFromCardMutation = useRemoveLabelFromCardMutation()
+
+  // Member management
   const assignMemberMutation = useAssignMemberMutation()
   const unassignMemberMutation = useUnassignMemberMutation()
   const availableMembers: MemberItem[] = (boardDetailQuery.data?.members || []).map(m => ({
@@ -157,24 +473,71 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     isOwner: (m.role || '').toUpperCase() === 'OWNER',
   }))
   const [selectedMembers, setSelectedMembers] = useState<MemberItem[]>([])
-  const [isMemberPopupOpen, setIsMemberPopupOpen] = useState(false)
   const [memberSearchQuery, setMemberSearchQuery] = useState('')
 
-  const [isPriorityOpen, setIsPriorityOpen] = useState(false)
+  // Popover Single Control State
+  const [activePopover, setActivePopover] = useState<ActivePopover>(null)
+  const [newChecklistTitle, setNewChecklistTitle] = useState('Việc cần làm')
+  const [optionsSubView, setOptionsSubView] = useState<'main' | 'move' | 'copy'>('main')
 
+  // Move/Copy Form Selections
+  const [selectedTargetBoardId, setSelectedTargetBoardId] = useState<string>(boardId || '')
+  const [selectedTargetListId, setSelectedTargetListId] = useState<string>(card?.listId || '')
+  const [selectedTargetPosition, setSelectedTargetPosition] = useState<number>(0)
+  const [copyCardTitle, setCopyCardTitle] = useState('')
+
+  const targetBoardDetailQuery = useBoardDetailQuery(selectedTargetBoardId)
+  const targetBoardLists: BoardList[] = targetBoardDetailQuery.data?.lists || []
+  const currentTargetList = targetBoardLists.find(l => l.id === selectedTargetListId) || targetBoardLists[0]
+  const targetListCardsCount = currentTargetList?.cards?.length || 0
+
+  // Checklist inline states
+  const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null)
+  const [editingChecklistTitleText, setEditingChecklistTitleText] = useState('')
+  const [addingItemChecklistId, setAddingItemChecklistId] = useState<string | null>(null)
+  const [newItemText, setNewItemText] = useState('')
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editingItemText, setEditingItemText] = useState('')
+
+  // Comment & Activity log state
+  const [newCommentText, setNewCommentText] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editingCommentText, setEditingCommentText] = useState('')
+  const [showActivityDetails, setShowActivityDetails] = useState(false)
+
+  // Attachment input states
+  const [attachmentType, setAttachmentType] = useState<'link' | 'file'>('file')
+  const [attachmentUrl, setAttachmentUrl] = useState('')
+  const [attachmentName, setAttachmentName] = useState('')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  const togglePopover = (name: ActivePopover) => {
+    setActivePopover(prev => (prev === name ? null : name))
+    if (name === 'options') {
+      setOptionsSubView('main')
+    }
+  }
+
+  // Sync state when card or cardDetail changes
   useEffect(() => {
-    if (card) {
-      const initTitle = card.title || ''
-      const initDeadline = card.deadline ? formatToDatetimeLocal(card.deadline) : ''
-      const initPriority = card.priority || 'MEDIUM'
-      const initCompleted = card.completed || false
-      const initDesc = card.description || ''
+    const activeCard = cardDetail || card
+    if (activeCard) {
+      const initTitle = activeCard.title || ''
+      const initDeadline = activeCard.deadline ? formatToDatetimeLocal(activeCard.deadline) : ''
+      const initPriority = activeCard.priority || 'MEDIUM'
+      const initCompleted = activeCard.completed || false
+      const initDesc = activeCard.description || ''
 
       setTitle(initTitle)
       setDeadline(initDeadline)
       setPriority(initPriority)
       setCompleted(initCompleted)
       setDescription(initDesc)
+      setCopyCardTitle(`${initTitle} (Bản sao)`)
+
+      setSelectedTargetBoardId(boardId || (activeCard as any).boardId || '')
+      setSelectedTargetListId(activeCard.listId || '')
+      setSelectedTargetPosition((activeCard.position ?? 0) + 1)
 
       lastSavedRef.current = {
         title: initTitle,
@@ -184,14 +547,14 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
         completed: initCompleted,
       }
 
-      if (card.labels) {
-        setSelectedLabels(card.labels)
+      if (activeCard.labels) {
+        setSelectedLabels(activeCard.labels)
       } else {
         setSelectedLabels([])
       }
 
-      if (card.assignedMembers) {
-        const mappedMembers: MemberItem[] = card.assignedMembers.map((m: CardMember) => {
+      if (activeCard.assignedMembers) {
+        const mappedMembers: MemberItem[] = activeCard.assignedMembers.map((m: any) => {
           const boardMember = (boardDetailQuery.data?.members || []).find(bm => bm.user.id === m.id)
           return {
             id: m.id,
@@ -209,17 +572,41 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       isInitializedRef.current = true
       setAutoSaveStatus('idle')
     }
-  }, [card, open])
+  }, [card, cardDetail, open, boardId, boardDetailQuery.data?.members])
 
-  // Close all popups when modal closes
+  // Reset target list when target board changes
+  useEffect(() => {
+    if (targetBoardLists.length > 0 && !targetBoardLists.some(l => l.id === selectedTargetListId)) {
+      setSelectedTargetListId(targetBoardLists[0].id)
+    }
+  }, [selectedTargetBoardId, targetBoardLists])
+
+  // Close popups on modal close
   useEffect(() => {
     if (!open) {
-      setIsMemberPopupOpen(false)
-      setIsLabelMenuOpen(false)
-      setIsPriorityOpen(false)
+      setActivePopover(null)
+      setOptionsSubView('main')
+      setIsEditingDesc(false)
     }
   }, [open])
 
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!activePopover) return
+      const target = event.target as Element | null
+      if (target && !target.closest('.popover-container')) {
+        setActivePopover(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [activePopover])
+
+  // Auto-save effect for title, description, deadline, priority, completed
   useEffect(() => {
     if (!open || !card?.id || !isInitializedRef.current || !canEditCard) return
 
@@ -230,8 +617,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     } else {
       if (titleError) setTitleError('')
     }
-
-
 
     const hasChanged =
       title.trim() !== lastSavedRef.current.title ||
@@ -281,18 +666,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
             deadline,
             priority: priority as any,
             completed,
-            labels: selectedLabels.map(l => ({
-              id: l.id,
-              boardId: card?.listId || '',
-              name: l.name,
-              color: l.color,
-            })),
-            assignedMembers: selectedMembers.map(m => ({
-              id: m.id,
-              email: m.email || '',
-              fullName: m.fullName,
-              avatarUrl: m.avatarUrl,
-            })),
           })
         }
       } catch (err) {
@@ -310,36 +683,14 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
   if (!open) return null
 
-  const togglePriorityOpen = () => {
-    setIsPriorityOpen(prev => !prev)
-    setIsLabelMenuOpen(false)
-    setIsMemberPopupOpen(false)
-  }
-
-  const toggleLabelMenuOpen = () => {
-    setIsLabelMenuOpen(prev => !prev)
-    setIsPriorityOpen(false)
-    setIsMemberPopupOpen(false)
-    setEditingLabelId(null)
-    setNewLabelText('')
-  }
-
-  const toggleMemberPopupOpen = () => {
-    setIsMemberPopupOpen(prev => !prev)
-    setIsPriorityOpen(false)
-    setIsLabelMenuOpen(false)
-  }
-
-  const handleRemoveLabel = (id: string) => {
-    setSelectedLabels(prev => prev.filter(l => l.id !== id))
-  }
-
-  const handleToggleSelectLabel = (lbl: CardLabel) => {
+  // Priority & Labels & Members handlers
+  const handleToggleSelectLabel = async (lbl: CardLabel) => {
+    if (!card?.id) return
     if (selectedLabels.some(l => l.id === lbl.id)) {
-      removeLabelFromCardMutation.mutateAsync({ cardId: card?.id!, labelId: lbl.id });
+      await removeLabelFromCardMutation.mutateAsync({ cardId: card.id, labelId: lbl.id })
       setSelectedLabels(prev => prev.filter(l => l.id !== lbl.id))
     } else {
-      addLabelToCardMutation.mutateAsync({ cardId: card?.id!, labelId: lbl.id });
+      await addLabelToCardMutation.mutateAsync({ cardId: card.id, labelId: lbl.id })
       setSelectedLabels(prev => [...prev, lbl])
     }
   }
@@ -364,561 +715,1733 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     setNewLabelText('')
   }
 
-  const handleStartEditLabel = (lbl: CardLabel, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setEditingLabelId(lbl.id)
-    setNewLabelText(lbl.name)
-    const scheme = COLOR_SCHEMES.find(c => c === lbl.color) || COLOR_SCHEMES[0]
-    setSelectedColor(scheme)
-  }
-
-  const onRequestDeleteLabel = (lbl: CardLabel, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setLabelToDelete(lbl)
-  }
-
-  const handleConfirmDeleteLabel = () => {
-    if (labelToDelete) {
-      deleteBoardLabelMutation.mutateAsync({ labelId: labelToDelete.id, boardId })
-      setSelectedLabels(prev => prev.filter(l => l.id !== labelToDelete.id))
-      setLabelToDelete(null)
-    }
-  }
-
-  const handleToggleMember = (member: MemberItem) => {
+  const handleToggleMember = async (member: MemberItem) => {
+    if (!card?.id) return
     if (selectedMembers.some(m => m.id === member.id)) {
-      unassignMemberMutation.mutateAsync({ cardId: card?.id!, userId: member.id })
+      await unassignMemberMutation.mutateAsync({ cardId: card.id, userId: member.id })
       setSelectedMembers(prev => prev.filter(m => m.id !== member.id))
     } else {
-      assignMemberMutation.mutateAsync({ cardId: card?.id!, userId: member.id })
+      await assignMemberMutation.mutateAsync({ cardId: card.id, userId: member.id })
       setSelectedMembers(prev => [...prev, member])
     }
   }
 
-  const handleRemoveMember = (id: string) => {
-    unassignMemberMutation.mutateAsync({ cardId: card?.id!, userId: id })
-    setSelectedMembers(prev => prev.filter(m => m.id !== id))
+  const handleToggleCurrentMemberJoin = async () => {
+    if (!card?.id || !currentUser) return
+    const isJoined = selectedMembers.some(m => m.id === currentUser.id)
+    if (isJoined) {
+      await unassignMemberMutation.mutateAsync({ cardId: card.id, userId: currentUser.id })
+      setSelectedMembers(prev => prev.filter(m => m.id !== currentUser.id))
+    } else {
+      await assignMemberMutation.mutateAsync({ cardId: card.id, userId: currentUser.id })
+      setSelectedMembers(prev => [...prev, {
+        id: currentUser.id,
+        fullName: currentUser.fullName,
+        email: currentUser.email,
+        avatarUrl: getAvatarUrl(currentUser.avatarUrl),
+      }])
+    }
   }
+
+  const handleToggleComplete = async () => {
+    if (!card?.id || !canEditCard) return
+    const nextCompleted = !completed
+    setCompleted(nextCompleted)
+    try {
+      setAutoSaveStatus('saving')
+      await toggleCompletedMutation.mutateAsync({
+        cardId: card.id,
+        completed: nextCompleted,
+        listId: card.listId,
+      })
+      lastSavedRef.current.completed = nextCompleted
+      setAutoSaveStatus('saved')
+    } catch (err) {
+      console.error('Failed to toggle completion:', err)
+      setCompleted(!nextCompleted)
+      setAutoSaveStatus('error')
+    }
+  }
+
+  // Move & Copy actions
+  const handleExecuteMoveCard = async () => {
+    if (!card?.id || !selectedTargetListId) return
+    try {
+      await moveCardMutation.mutateAsync({
+        cardId: card.id,
+        targetListId: selectedTargetListId,
+        targetPosition: Math.max(0, selectedTargetPosition - 1),
+      })
+      setActivePopover(null)
+      setOptionsSubView('main')
+      if (selectedTargetBoardId !== boardId) {
+        onOpenChange(false)
+        navigate(`/b/${selectedTargetBoardId}`)
+      }
+    } catch (err) {
+      console.error('Failed to move card:', err)
+    }
+  }
+
+  const handleExecuteCopyCard = async () => {
+    if (!copyCardTitle.trim() || !selectedTargetListId) return
+    try {
+      await createCardMutation.mutateAsync({
+        listId: selectedTargetListId,
+        payload: {
+          title: copyCardTitle.trim(),
+        },
+      })
+      setActivePopover(null)
+      setOptionsSubView('main')
+    } catch (err) {
+      console.error('Failed to copy card:', err)
+    }
+  }
+
+  // Checklist Actions
+  const handleCreateChecklist = async () => {
+    if (!card?.id || !newChecklistTitle.trim()) return
+    await createChecklistMutation.mutateAsync({ cardId: card.id, title: newChecklistTitle.trim() })
+    setNewChecklistTitle('Việc cần làm')
+    setActivePopover(null)
+  }
+
+  const handleSaveChecklistTitle = async (checklistId: string) => {
+    if (!card?.id || !editingChecklistTitleText.trim()) return
+    await updateChecklistMutation.mutateAsync({
+      checklistId,
+      title: editingChecklistTitleText.trim(),
+      cardId: card.id,
+    })
+    setEditingChecklistId(null)
+  }
+
+  const handleDeleteChecklist = async (checklistId: string) => {
+    if (!card?.id) return
+    await deleteChecklistMutation.mutateAsync({ checklistId, cardId: card.id })
+  }
+
+  const handleAddChecklistItem = async (checklistId: string) => {
+    if (!card?.id || !newItemText.trim()) return
+    await addChecklistItemMutation.mutateAsync({
+      checklistId,
+      content: newItemText.trim(),
+      cardId: card.id,
+    })
+    setNewItemText('')
+  }
+
+  const handleToggleItem = async (itemId: string) => {
+    if (!card?.id) return
+    await toggleChecklistItemMutation.mutateAsync({ itemId, cardId: card.id })
+  }
+
+  const handleSaveItemContent = async (itemId: string) => {
+    if (!card?.id || !editingItemText.trim()) return
+    await updateChecklistItemMutation.mutateAsync({
+      itemId,
+      content: editingItemText.trim(),
+      cardId: card.id,
+    })
+    setEditingItemId(null)
+  }
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!card?.id) return
+    await deleteChecklistItemMutation.mutateAsync({ itemId, cardId: card.id })
+  }
+
+  // Comment Actions
+  const handleAddComment = async () => {
+    if (!card?.id || !newCommentText.trim()) return
+    await addCommentMutation.mutateAsync({ cardId: card.id, content: newCommentText.trim() })
+    setNewCommentText('')
+  }
+
+  const handleSaveComment = async (commentId: string) => {
+    if (!card?.id || !editingCommentText.trim()) return
+    await updateCommentMutation.mutateAsync({
+      commentId,
+      content: editingCommentText.trim(),
+      cardId: card.id,
+    })
+    setEditingCommentId(null)
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!card?.id) return
+    await deleteCommentMutation.mutateAsync({ commentId, cardId: card.id })
+  }
+
+  // Attachment Actions
+  const handleAddAttachment = async () => {
+    if (!card?.id) return
+    if (attachmentType === 'link') {
+      if (!attachmentUrl.trim()) return
+      let finalUrl = attachmentUrl.trim()
+      if (!finalUrl.startsWith('/') && !/^https?:\/\//i.test(finalUrl)) {
+        finalUrl = `https://${finalUrl}`
+      }
+      await addLinkAttachmentMutation.mutateAsync({
+        cardId: card.id,
+        fileUrl: finalUrl,
+        fileName: attachmentName.trim() || attachmentUrl.trim(),
+      })
+    } else {
+      if (!selectedFile) return
+      await uploadFileAttachmentMutation.mutateAsync({
+        cardId: card.id,
+        file: selectedFile,
+      })
+    }
+    setAttachmentUrl('')
+    setAttachmentName('')
+    setSelectedFile(null)
+    setActivePopover(null)
+  }
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!card?.id) return
+    await deleteAttachmentMutation.mutateAsync({ attachmentId, cardId: card.id })
+  }
+
+  // Data collections from query or summary prop
+  const checklists: ChecklistResponse[] = cardDetail?.checklists || []
+  const comments: CommentResponse[] = cardDetail?.comments || []
+  const attachments: AttachmentResponse[] = cardDetail?.attachments || []
+  const activityLogs: ActivityLogResponse[] = cardDetail?.activityLogs || []
+
+  // Combine comments and important activity logs into a single timeline sorted by date (newest first)
+  interface CombinedFeedItem {
+    id: string
+    type: 'comment' | 'log'
+    user?: any
+    content?: string
+    action?: string
+    detail?: string
+    createdAt: string
+    rawComment?: CommentResponse
+  }
+
+  // Filter out redundant "commented" activity log entries since comments are already rendered
+  const filteredActivityLogs = activityLogs.filter(log => {
+    const act = (log.action || '').toLowerCase()
+    const det = (log.detail || '').toLowerCase()
+    return !act.includes('comment') && !det.includes('comment') && !det.includes('bình luận')
+  })
+
+  const feedItems: CombinedFeedItem[] = [
+    ...comments.map(c => ({
+      id: c.id,
+      type: 'comment' as const,
+      user: c.author,
+      content: c.content,
+      createdAt: c.createdAt,
+      rawComment: c,
+    })),
+    ...filteredActivityLogs.map(l => ({
+      id: l.id,
+      type: 'log' as const,
+      user: l.user,
+      action: l.action,
+      detail: l.detail,
+      createdAt: l.createdAt,
+    })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  // Helper to translate activity log text & move details to Vietnamese
+  const formatActivityLogText = (action?: string, detail?: string) => {
+    const act = (action || '').toLowerCase()
+    const det = (detail || '').toLowerCase()
+    const rawText = detail || action || ''
+
+    // 1. Move logs: "di chuyển từ list nào sang list nào"
+    if (act.includes('move') || det.includes('move') || det.includes('di chuyển') || det.includes('chuyển')) {
+      const fromToMatch = detail?.match(/(?:from|từ)\s+["']?([^"']+)["']?\s+(?:to|sang)\s+["']?([^"']+)["']?/i)
+      if (fromToMatch) {
+        return `đã di chuyển thẻ từ danh sách "${fromToMatch[1]}" sang "${fromToMatch[2]}"`
+      }
+      return `đã di chuyển thẻ sang danh sách mới`
+    }
+
+    // 2. Creation logs
+    if (act.includes('create') || det.includes('create') || act.includes('tạo') || det.includes('tạo') || det.includes('added card')) {
+      return 'đã tạo thẻ này'
+    }
+
+    // 3. Copy logs
+    if (act.includes('copy') || det.includes('copy') || det.includes('sao chép')) {
+      const copyMatch = detail?.match(/(?:from|từ)\s+["']?([^"']+)["']?/i)
+      if (copyMatch) {
+        return `đã sao chép từ thẻ "${copyMatch[1]}"`
+      }
+      return 'đã sao chép thẻ này'
+    }
+
+    // 4. Completion logs
+    if (det.includes('marked complete') || det.includes('đánh dấu hoàn thành') || (act.includes('complete') && !det.includes('incomplete'))) {
+      return 'đã đánh dấu hoàn thành thẻ'
+    }
+    if (det.includes('marked incomplete') || det.includes('chưa hoàn thành')) {
+      return 'đã đánh dấu chưa hoàn thành thẻ'
+    }
+
+    // 5. Member logs
+    if (det.includes('assigned') || act.includes('assign')) {
+      const memberMatch = detail?.match(/assigned\s+(.+)/i)
+      if (memberMatch) {
+        return `đã thêm thành viên ${memberMatch[1]} vào thẻ`
+      }
+      return 'đã thêm thành viên vào thẻ'
+    }
+    if (det.includes('unassigned') || det.includes('removed member') || act.includes('unassign')) {
+      const memberMatch = detail?.match(/(?:unassigned|removed)\s+(.+)/i)
+      if (memberMatch) {
+        return `đã xóa thành viên ${memberMatch[1]} khỏi thẻ`
+      }
+      return 'đã xóa thành viên khỏi thẻ'
+    }
+    if (det.includes('joined') || act.includes('join')) {
+      return 'đã tham gia thẻ'
+    }
+    if (det.includes('left') || act.includes('leave')) {
+      return 'đã rời khỏi thẻ'
+    }
+
+    // 6. Deadline logs
+    if (det.includes('deadline') || det.includes('due date') || det.includes('ngày đến hạn') || det.includes('hạn chót')) {
+      if (det.includes('removed') || det.includes('deleted') || det.includes('xóa')) {
+        return 'đã xóa ngày đến hạn của thẻ'
+      }
+      return 'đã cập nhật ngày đến hạn của thẻ'
+    }
+
+    // 7. Checklist logs
+    if (det.includes('checklist')) {
+      if (det.includes('removed') || det.includes('deleted') || det.includes('xóa')) {
+        return 'đã xóa danh sách việc cần làm'
+      }
+      if (det.includes('added') || det.includes('created') || det.includes('tạo')) {
+        return 'đã thêm danh sách việc cần làm'
+      }
+      return 'đã cập nhật danh sách việc cần làm'
+    }
+
+    // 8. Attachment logs
+    if (det.includes('attachment') || det.includes('đính kèm')) {
+      if (det.includes('removed') || det.includes('deleted') || det.includes('xóa')) {
+        return 'đã xóa tệp đính kèm'
+      }
+      return 'đã thêm tệp đính kèm mới'
+    }
+
+    // 9. Generic updates
+    if (det.includes('card updated') || act.includes('update')) {
+      return 'đã cập nhật thông tin thẻ'
+    }
+
+    if (rawText.toLowerCase().startsWith('đã ')) {
+      return rawText
+    }
+
+    return `đã ${rawText.toLowerCase()}`
+  }
+
+  // Helper to detect card creation activity log entries
+  const isCreationLog = (item: CombinedFeedItem) => {
+    if (item.type !== 'log') return false
+    const act = (item.action || '').toLowerCase()
+    const det = (item.detail || '').toLowerCase()
+    return (
+      act.includes('create') ||
+      act.includes('tạo') ||
+      det.includes('create') ||
+      det.includes('tạo') ||
+      det.includes('thêm thẻ') ||
+      det.includes('thẻ được tạo') ||
+      det.includes('added card')
+    )
+  }
+
+  // Filter feed items: When hidden, show ONLY comments and card creation info. When shown, show all activity logs.
+  const displayedFeedItems = showActivityDetails
+    ? feedItems
+    : feedItems.filter(item => item.type === 'comment' || isCreationLog(item))
 
   const filteredMembers = availableMembers.filter(m =>
     m.fullName.toLowerCase().includes(memberSearchQuery.toLowerCase()) ||
     (m.email && m.email.toLowerCase().includes(memberSearchQuery.toLowerCase()))
   )
 
-  const activePriority = PRIORITY_OPTIONS.find(p => p.value.toLowerCase() === priority.toLowerCase()) || PRIORITY_OPTIONS[1]
+  const currentListTitle = cardDetail?.listTitle || card?.listId || 'Cột'
+  const isCurrentMemberJoined = !!currentUser && selectedMembers.some(m => m.id === currentUser.id)
 
-  const handleToggleComplete = async () => {
-    if (!card?.id || !canEditCard) return
-    const nextCompleted = !completed
-    setCompleted(nextCompleted)
-
-    if (isInitializedRef.current) {
-      try {
-        setAutoSaveStatus('saving')
-        await toggleCompletedMutation.mutateAsync({
-          cardId: card.id,
-          completed: nextCompleted,
-          listId: card.listId,
-        })
-        lastSavedRef.current.completed = nextCompleted
-        setAutoSaveStatus('saved')
-      } catch (err) {
-        console.error('Failed to toggle card completion status:', err)
-        setCompleted(!nextCompleted)
-        setAutoSaveStatus('error')
-      }
-    }
-  }
+  const hasMembers = selectedMembers.length > 0
+  const hasLabels = selectedLabels.length > 0
+  const hasDate = !!deadline
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-2xl max-w-2xl w-[640px] max-h-[92vh] overflow-y-auto bg-white p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100">
-        <DialogHeader className="p-0 space-y-0">
+      <DialogContent
+        showCloseButton={false}
+        className="w-full max-w-[95vw] lg:max-w-6xl lg:w-[1140px] h-[95vh] lg:h-[92vh] flex flex-col bg-white text-slate-800 p-4 sm:p-6 lg:p-7 rounded-xl sm:rounded-2xl shadow-2xl border border-slate-100 select-none overflow-hidden"
+      >
+        {/* Top Bar Header */}
+        <DialogHeader className="p-0 space-y-0 shrink-0">
           <DialogTitle className="text-left font-normal">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-slate-800 tracking-tight">Chi tiết thẻ</h2>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              {/* Left Side: List Name Button Trigger for Move */}
+              <div className="relative popover-container flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleToggleComplete}
-                  disabled={!canEditCard}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all ${!canEditCard ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${completed
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                    }`}
+                  onClick={() => togglePopover('move')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold transition-colors cursor-pointer border border-blue-200/60"
                 >
-                  <div
-                    className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all ${completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white'
-                      }`}
-                  >
-                    {completed && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                  </div>
-                  <span>{completed ? 'Đã hoàn thành' : 'Đánh dấu hoàn thành'}</span>
+                  <span>{currentListTitle}</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
                 </button>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
-        <div className="py-4 space-y-5">
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Tên thẻ <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              disabled={!canEditCard}
-              value={title}
-              onChange={e => {
-                if (!canEditCard) return
-                setTitle(e.target.value)
-                if (titleError) setTitleError('')
-              }}
-              onBlur={() => {
-                if (!canEditCard) return
-                if (!title.trim()) {
-                  setTitle(lastSavedRef.current.title || card?.title || '')
-                  setTitleError('')
-                }
-              }}
-              placeholder="Nhập tên thẻ..."
-              className={`w-full px-4 py-2.5 text-sm font-medium text-slate-800 bg-slate-50/50 border rounded-lg outline-none focus:bg-white transition-all ${!canEditCard ? 'opacity-70 bg-slate-100/60 cursor-not-allowed' : ''} ${titleError
-                ? 'border-red-500 ring-2 ring-red-500/10'
-                : 'border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10'
-                }`}
-            />
-            {titleError && (
-              <p className="text-xs text-red-500 font-medium mt-1">{titleError}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">Mô tả</label>
-            <textarea
-              rows={3}
-              disabled={!canEditCard}
-              value={description}
-              onChange={e => {
-                if (!canEditCard) return
-                setDescription(e.target.value)
-              }}
-              placeholder="Nhập mô tả chi tiết..."
-              className={`w-full px-4 py-3 text-sm text-slate-800 bg-slate-50/50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none ${!canEditCard ? 'opacity-70 bg-slate-100/60 cursor-not-allowed' : ''}`}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">
-                Hạn chót &amp; Thời gian
-              </label>
-              <DateTimeInput
-                disabled={!canEditCard}
-                className='w-full h-[37.8px]'
-                value={deadline}
-                onChange={(newDate) => {
-                  if (!canEditCard) return
-                  if (newDate) {
-                    const tzOffset = newDate.getTimezoneOffset() * 60000;
-                    const localIso = new Date(newDate.getTime() - tzOffset).toISOString().slice(0, 16);
-                    setDeadline(localIso);
-                  } else {
-                    setDeadline('');
-                  }
-                  setDeadlineError('');
-                }}
-              />
-              {deadlineError && (
-                <p className="text-xs text-red-500 font-semibold mt-1">{deadlineError}</p>
-              )}
-              {deadline && !completed && new Date(deadline).getTime() < Date.now() && (
-                <p className="text-xs text-red-500 font-semibold mt-1 flex items-center gap-1">
-                  Quá hạn
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5 relative">
-              <label className="block text-xs font-semibold text-slate-700">
-                Độ ưu tiên
-              </label>
-              <button
-                type="button"
-                disabled={!canEditCard}
-                onClick={togglePriorityOpen}
-                className={`w-full flex items-center justify-between px-3 py-2 bg-slate-50/50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 transition-all ${!canEditCard ? 'opacity-70 bg-slate-100/60 cursor-not-allowed' : 'hover:bg-slate-100/60 cursor-pointer'
-                  }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 rounded-full ${activePriority.colorClass}`} />
-                  <span>{activePriority.label}</span>
-                </div>
-                <ChevronDown className="w-4 h-4 text-slate-400" />
-              </button>
-
-              {isPriorityOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-150 rounded-2xl shadow-xl z-30 overflow-hidden py-1">
-                  {PRIORITY_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setPriority(opt.value)
-                        setIsPriorityOpen(false)
-                      }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                    >
-                      <span className={`w-2.5 h-2.5 rounded-full ${opt.colorClass}`} />
-                      <span>{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5 relative">
-              <label className="block text-xs font-semibold text-slate-700">Nhãn</label>
-              <div className="flex items-center gap-1.5">
-                <div
-                  onClick={toggleLabelMenuOpen}
-                  className={`flex-1 min-h-[42px] flex items-center justify-between px-2.5 py-1.5 bg-slate-50/50 border border-slate-200 rounded-lg transition-colors ${!canManageLabels ? 'opacity-70 bg-slate-100/60 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-100/40'
-                    }`}
-                >
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {selectedLabels.map(lbl => (
-                      <span
-                        key={lbl.id}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold ${lbl.color && lbl.color.startsWith('#') ? 'text-white border-transparent' : lbl.color || 'bg-purple-100 text-purple-700 border-purple-200'
-                          }`}
-                        style={{ backgroundColor: lbl.color && lbl.color.startsWith('#') ? lbl.color : undefined }}
-                      >
-                        {lbl.name}
-                        {canManageLabels && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleRemoveLabel(lbl.id)
-                            }}
-                            className="hover:opacity-75 transition-opacity cursor-pointer ml-0.5"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </span>
-                    ))}
-                    {selectedLabels.length === 0 && (
-                      <span className="text-xs text-slate-400">Chọn hoặc tạo nhãn...</span>
-                    )}
-                  </div>
-
-                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
-                </div>
-              </div>
-
-              {isLabelMenuOpen && (
-                <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-30 p-3 space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="text-xs font-bold text-slate-700">
-                      {editingLabelId ? 'Chỉnh sửa nhãn' : 'Thêm / Chọn nhãn'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsLabelMenuOpen(false)}
-                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        value={newLabelText}
-                        onChange={e => setNewLabelText(e.target.value)}
-                        placeholder="Nhập tên nhãn..."
-                        className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleCreateOrUpdateLabel}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 cursor-pointer"
-                      >
-                        {editingLabelId ? 'Lưu' : 'Tạo'}
+                {/* Move Card Dropdown Popover */}
+                {activePopover === 'move' && (
+                  <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-4 space-y-3.5 text-slate-800">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <span className="text-xs font-bold text-slate-800">Di chuyển thẻ</span>
+                      <button type="button" onClick={() => setActivePopover(null)}>
+                        <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                      <span className="text-[11px] text-slate-400 font-medium">Màu sắc:</span>
-                      {COLOR_SCHEMES.map(scheme => (
-                        <button
-                          key={scheme}
-                          type="button"
-                          onClick={() => setSelectedColor(scheme)}
-                          className={`w-5 h-5 rounded-full border flex items-center justify-center cursor-pointer transition-transform ${selectedColor === scheme ? 'scale-110 ring-2 ring-blue-500/40' : ''
-                            }`}
-                          style={{ backgroundColor: scheme }}
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">Bảng làm việc</label>
+                        <select
+                          value={selectedTargetBoardId}
+                          onChange={e => setSelectedTargetBoardId(e.target.value)}
+                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
                         >
-                          {selectedColor === scheme && <Check className="w-3 h-3 text-white stroke-[3]" />}
-                        </button>
-                      ))}
+                          {userBoards.map(b => (
+                            <option key={b.id} value={b.id}>
+                              {b.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                      {(() => {
-                        const isPreset = COLOR_SCHEMES.includes(selectedColor)
-                        return (
-                          <div className="relative flex items-center" title="Chọn màu tùy chỉnh">
-                            <label
-                              className={`w-5 h-5 rounded-full border border-slate-200 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden ${!isPreset
-                                ? 'ring-2 ring-offset-1 ring-blue-600 scale-110'
-                                : 'hover:border-slate-400 bg-slate-50'
-                                }`}
-                              style={{
-                                backgroundColor: !isPreset ? selectedColor : undefined,
-                              }}
-                            >
-                              <input
-                                type="color"
-                                value={selectedColor.startsWith('#') ? selectedColor : '#5E60CE'}
-                                onChange={e => setSelectedColor(e.target.value)}
-                                className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
-                              />
-                              <Palette
-                                className={`w-2.5 h-2.5 ${!isPreset ? 'text-white drop-shadow-xs' : 'text-slate-500'
-                                  }`}
-                              />
-                            </label>
-                          </div>
-                        )
-                      })()}
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">Danh sách (Cột)</label>
+                        <select
+                          value={selectedTargetListId}
+                          onChange={e => setSelectedTargetListId(e.target.value)}
+                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                        >
+                          {targetBoardLists.map(l => (
+                            <option key={l.id} value={l.id}>
+                              {l.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-500 font-semibold mb-1">Vị trí</label>
+                        <select
+                          value={selectedTargetPosition}
+                          onChange={e => setSelectedTargetPosition(Number(e.target.value))}
+                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                        >
+                          {Array.from({ length: targetListCardsCount + 1 }).map((_, idx) => (
+                            <option key={idx + 1} value={idx + 1}>
+                              {idx + 1}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleExecuteMoveCard}
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors cursor-pointer"
+                      >
+                        Di chuyển
+                      </button>
                     </div>
                   </div>
+                )}
+              </div>
 
-                  <div className="space-y-1 max-h-36 overflow-y-auto pt-1 border-t border-slate-100">
-                    <span className="text-[11px] font-semibold text-slate-400">Nhãn hiện có:</span>
-                    {boardLabelsData?.map(lbl => {
-                      const isSelected = selectedLabels.some(l => l.id === lbl.id)
-                      return (
-                        <div
-                          key={lbl.id}
-                          onClick={() => handleToggleSelectLabel(lbl)}
-                          className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+              {/* Right Side: Options Menu (...) & Close (X) Only */}
+              <div className="flex items-center gap-2">
+                {/* Three Dots Menu Options Dropdown */}
+                <div className="relative popover-container">
+                  <button
+                    type="button"
+                    onClick={() => togglePopover('options')}
+                    className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                    title="Tùy chọn khác"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+
+                  {activePopover === 'options' && (
+                    <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
+                      {/* Main Menu Sub-view */}
+                      {optionsSubView === 'main' && (
+                        <>
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                            <span className="text-xs font-bold text-slate-800">Thao tác thẻ</span>
+                            <button type="button" onClick={() => setActivePopover(null)}>
+                              <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-1 text-xs font-medium">
+                            <button
+                              type="button"
+                              onClick={handleToggleCurrentMemberJoin}
+                              className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
+                            >
+                              {isCurrentMemberJoined ? (
+                                <>
+                                  <UserMinus className="w-4 h-4 text-red-500" />
+                                  <span>Rời khỏi thẻ</span>
+                                </>
+                              ) : (
+                                <>
+                                  <UserPlus className="w-4 h-4 text-blue-600" />
+                                  <span>Tham gia thẻ</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setOptionsSubView('move')}
+                              className="w-full flex items-center justify-between px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <ArrowRight className="w-4 h-4 text-slate-500" />
+                                <span>Di chuyển</span>
+                              </div>
+                              <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setOptionsSubView('copy')}
+                              className="w-full flex items-center justify-between px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <Copy className="w-4 h-4 text-slate-500" />
+                                <span>Copy (Tạo bản sao)</span>
+                              </div>
+                              <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
+                            </button>
+
+                            <button
+                              type="button"
+                              className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer opacity-70"
+                              title="Lưu trữ thẻ"
+                            >
+                              <Archive className="w-4 h-4 text-slate-500" />
+                              <span>Lưu trữ</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Move Card Sub-view */}
+                      {optionsSubView === 'move' && (
+                        <>
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => setOptionsSubView('main')}
+                              className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800"
+                            >
+                              <ArrowLeft className="w-4 h-4" />
+                            </button>
+                            <span className="text-xs font-bold text-slate-800">Di chuyển thẻ</span>
+                            <button type="button" onClick={() => setActivePopover(null)}>
+                              <X className="w-3.5 h-3.5 text-slate-400" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3 text-xs">
+                            <div>
+                              <label className="block text-slate-500 font-semibold mb-1">Bảng làm việc</label>
+                              <select
+                                value={selectedTargetBoardId}
+                                onChange={e => setSelectedTargetBoardId(e.target.value)}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                              >
+                                {userBoards.map(b => (
+                                  <option key={b.id} value={b.id}>
+                                    {b.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-500 font-semibold mb-1">Danh sách (Cột)</label>
+                              <select
+                                value={selectedTargetListId}
+                                onChange={e => setSelectedTargetListId(e.target.value)}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                              >
+                                {targetBoardLists.map(l => (
+                                  <option key={l.id} value={l.id}>
+                                    {l.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-500 font-semibold mb-1">Vị trí</label>
+                              <select
+                                value={selectedTargetPosition}
+                                onChange={e => setSelectedTargetPosition(Number(e.target.value))}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                              >
+                                {Array.from({ length: targetListCardsCount + 1 }).map((_, idx) => (
+                                  <option key={idx + 1} value={idx + 1}>
+                                    {idx + 1}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleExecuteMoveCard}
+                              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Di chuyển
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Copy Card Sub-view */}
+                      {optionsSubView === 'copy' && (
+                        <>
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => setOptionsSubView('main')}
+                              className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800"
+                            >
+                              <ArrowLeft className="w-4 h-4" />
+                            </button>
+                            <span className="text-xs font-bold text-slate-800">Tạo bản sao thẻ</span>
+                            <button type="button" onClick={() => setActivePopover(null)}>
+                              <X className="w-3.5 h-3.5 text-slate-400" />
+                            </button>
+                          </div>
+
+                          <div className="space-y-3 text-xs">
+                            <div>
+                              <label className="block text-slate-500 font-semibold mb-1">Tên bản sao</label>
+                              <input
+                                type="text"
+                                value={copyCardTitle}
+                                onChange={e => setCopyCardTitle(e.target.value)}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-500 font-semibold mb-1">Bảng sao chép tới</label>
+                              <select
+                                value={selectedTargetBoardId}
+                                onChange={e => setSelectedTargetBoardId(e.target.value)}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                              >
+                                {userBoards.map(b => (
+                                  <option key={b.id} value={b.id}>
+                                    {b.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-slate-500 font-semibold mb-1">Danh sách (Cột)</label>
+                              <select
+                                value={selectedTargetListId}
+                                onChange={e => setSelectedTargetListId(e.target.value)}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                              >
+                                {targetBoardLists.map(l => (
+                                  <option key={l.id} value={l.id}>
+                                    {l.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={!copyCardTitle.trim()}
+                              onClick={handleExecuteCopyCard}
+                              className="w-full py-2 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Tạo bản sao
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Modal Main 2-Column Parallel Body (Gap 0: Left expands to border, Right stays 340px) */}
+        <div className="flex flex-col md:flex-row gap-0 pt-4 min-h-0 flex-1 overflow-hidden">
+          {/* Left Column: Card Title, Action Buttons, Waterfall Metadata, Details (Expands directly to right column border) */}
+          <div className="flex-1 min-w-0 space-y-6 overflow-y-auto pr-4 max-h-[calc(92vh-100px)]">
+            {/* Sticky Scaffold Title & Action Row */}
+            <div className="sticky top-0 bg-white z-20 pb-3 pt-1 border-b border-slate-100 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <button
+                    type="button"
+                    onClick={handleToggleComplete}
+                    className={`mt-1.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                      completed
+                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                        : 'border-slate-300 hover:border-emerald-500 bg-white'
+                    }`}
+                  >
+                    {completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  </button>
+
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      disabled={!canEditCard}
+                      value={title}
+                      onChange={e => {
+                        if (!canEditCard) return
+                        setTitle(e.target.value)
+                        if (titleError) setTitleError('')
+                      }}
+                      className={`w-full px-2 py-1 text-xl font-bold text-slate-800 bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-blue-500 rounded-lg outline-none transition-all ${
+                        completed ? 'line-through text-slate-400' : ''
+                      }`}
+                      placeholder="Nhập tên thẻ..."
+                    />
+                    {titleError && <p className="text-xs text-red-500 font-medium mt-1 pl-2">{titleError}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Pills Bar Directly Below Title */}
+              <div className="flex items-center gap-2 flex-wrap pl-8">
+                {/* Dedicated Member Pill - Hidden if hasMembers */}
+                {!hasMembers && (
+                  <div className="relative popover-container">
+                    <button
+                      type="button"
+                      onClick={() => togglePopover('member')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Thành viên</span>
+                    </button>
+
+                    {activePopover === 'member' && canEditCard && (
+                      <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <span className="text-xs font-bold text-slate-800">Thành viên</span>
+                          <button type="button" onClick={() => setActivePopover(null)}>
+                            <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                          <input
+                            type="text"
+                            value={memberSearchQuery}
+                            onChange={e => setMemberSearchQuery(e.target.value)}
+                            placeholder="Tìm thành viên..."
+                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {filteredMembers.map(member => {
+                            const isSelected = selectedMembers.some(m => m.id === member.id)
+                            return (
+                              <div
+                                key={member.id}
+                                onClick={() => handleToggleMember(member)}
+                                className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                                  isSelected ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {member.avatarUrl ? (
+                                    <img
+                                      src={getAvatarUrl(member.avatarUrl)}
+                                      alt={member.fullName}
+                                      className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
+                                    />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0">
+                                      {getInitials(member.fullName)}
+                                    </div>
+                                  )}
+                                  <span className="text-xs font-medium truncate">{member.fullName}</span>
+                                </div>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 font-bold" />}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Labels Pill - Hidden if hasLabels */}
+                {!hasLabels && (
+                  <div className="relative popover-container">
+                    <button
+                      type="button"
+                      onClick={() => togglePopover('label')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                    >
+                      <Tag className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Nhãn</span>
+                    </button>
+
+                    {activePopover === 'label' && (
+                      <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <span className="text-xs font-bold text-slate-800">Nhãn thẻ</span>
+                          <button type="button" onClick={() => setActivePopover(null)}>
+                            <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={newLabelText}
+                              onChange={e => setNewLabelText(e.target.value)}
+                              placeholder="Tên nhãn..."
+                              className="flex-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleCreateOrUpdateLabel}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 cursor-pointer"
+                            >
+                              {editingLabelId ? 'Lưu' : 'Tạo'}
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                            {COLOR_SCHEMES.map(scheme => (
+                              <button
+                                key={scheme}
+                                type="button"
+                                onClick={() => setSelectedColor(scheme)}
+                                className={`w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-transform ${
+                                  selectedColor === scheme ? 'ring-2 ring-blue-500 scale-110' : ''
+                                }`}
+                                style={{ backgroundColor: scheme }}
+                              >
+                                {selectedColor === scheme && <Check className="w-3 h-3 text-white" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 max-h-40 overflow-y-auto pt-1 border-t border-slate-100">
+                          {boardLabelsData?.map(lbl => {
+                            const isSelected = selectedLabels.some(l => l.id === lbl.id)
+                            return (
+                              <div
+                                key={lbl.id}
+                                onClick={() => handleToggleSelectLabel(lbl)}
+                                className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer"
+                              >
+                                <span
+                                  className="px-2 py-0.5 rounded text-xs font-semibold text-white"
+                                  style={{ backgroundColor: lbl.color || '#5E60CE' }}
+                                >
+                                  {lbl.name}
+                                </span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 font-bold" />}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Dates Pill - Hidden if hasDate */}
+                {!hasDate && (
+                  <div className="relative popover-container">
+                    <button
+                      type="button"
+                      onClick={() => togglePopover('date')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Ngày hạn</span>
+                    </button>
+
+                    {activePopover === 'date' && (
+                      <DirectDatePickerPopover
+                        value={deadline}
+                        disabled={!canEditCard}
+                        onChange={async iso => {
+                          setDeadline(iso)
+                          if (card?.id && canEditCard) {
+                            await updateCardMutation.mutateAsync({
+                              cardId: card.id,
+                              cardData: { deadline: iso },
+                            })
+                            lastSavedRef.current.deadline = iso
+                          }
+                        }}
+                        onRemove={async () => {
+                          setDeadline('')
+                          if (card?.id && canEditCard) {
+                            await updateCardMutation.mutateAsync({
+                              cardId: card.id,
+                              cardData: { deadline: null },
+                            })
+                            lastSavedRef.current.deadline = ''
+                          }
+                        }}
+                        onClose={() => setActivePopover(null)}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Checklist Pill */}
+                <div className="relative popover-container">
+                  <button
+                    type="button"
+                    onClick={() => togglePopover('checklist')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                  >
+                    <CheckSquare className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Việc cần làm</span>
+                  </button>
+
+                  {activePopover === 'checklist' && (
+                    <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <span className="text-xs font-bold text-slate-800">Thêm danh sách công việc</span>
+                        <button type="button" onClick={() => setActivePopover(null)}>
+                          <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold text-slate-600">Tiêu đề danh sách</label>
+                        <input
+                          type="text"
+                          value={newChecklistTitle}
+                          onChange={e => setNewChecklistTitle(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
+                          placeholder="Việc cần làm..."
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCreateChecklist}
+                          className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
                         >
+                          Thêm
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Attachment Pill */}
+                <div className="relative popover-container">
+                  <button
+                    type="button"
+                    onClick={() => togglePopover('attachment')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                  >
+                    <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Đính kèm</span>
+                  </button>
+
+                  {activePopover === 'attachment' && (
+                    <div className="absolute left-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-4 space-y-4 text-slate-800">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <span className="text-xs font-bold text-slate-800">Đính kèm tệp hoặc link</span>
+                        <button type="button" onClick={() => setActivePopover(null)}>
+                          <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                        </button>
+                      </div>
+
+                      {/* Mode Toggle Tabs */}
+                      <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setAttachmentType('file')}
+                          className={`flex-1 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+                            attachmentType === 'file' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
+                          }`}
+                        >
+                          Tệp máy tính
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAttachmentType('link')}
+                          className={`flex-1 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+                            attachmentType === 'link' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
+                          }`}
+                        >
+                          Đường dẫn (URL)
+                        </button>
+                      </div>
+
+                      {attachmentType === 'file' ? (
+                        <div className="space-y-3">
+                          <label className="block text-xs font-semibold text-slate-600">Chọn tệp để tải lên</label>
+                          <input
+                            type="file"
+                            onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+                            className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                          />
+                          <button
+                            type="button"
+                            disabled={!selectedFile}
+                            onClick={handleAddAttachment}
+                            className="w-full py-1.5 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                          >
+                            Tải tệp lên
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Dán liên kết (URL)</label>
+                            <input
+                              type="text"
+                              value={attachmentUrl}
+                              onChange={e => setAttachmentUrl(e.target.value)}
+                              placeholder="https://..."
+                              className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Tên hiển thị (tùy chọn)</label>
+                            <input
+                              type="text"
+                              value={attachmentName}
+                              onChange={e => setAttachmentName(e.target.value)}
+                              placeholder="Tên tài liệu..."
+                              className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={!attachmentUrl.trim()}
+                            onClick={handleAddAttachment}
+                            className="w-full py-1.5 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                          >
+                            Gắn đường dẫn
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Waterfall Section: Members, Labels, Dates */}
+              {(hasMembers || hasLabels || hasDate) && (
+                <div className="flex flex-wrap items-start gap-5 pl-8 pt-1">
+                  {/* Thành viên (Members Waterfall) */}
+                  {hasMembers && (
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-bold text-slate-500 tracking-wide block uppercase">Thành viên</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {selectedMembers.map(m => (
+                          <div
+                            key={m.id}
+                            onClick={() => handleToggleMember(m)}
+                            className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden cursor-pointer hover:ring-2 hover:ring-red-400 transition-all"
+                            title={`${m.fullName} (Click để xóa)`}
+                          >
+                            {m.avatarUrl ? (
+                              <img src={getAvatarUrl(m.avatarUrl)} alt={m.fullName} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[10px] font-bold text-slate-700">{getInitials(m.fullName)}</span>
+                            )}
+                          </div>
+                        ))}
+                        <div className="relative popover-container">
+                          <button
+                            type="button"
+                            onClick={() => togglePopover('member')}
+                            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                            title="Thêm thành viên"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Member Popover inside Waterfall */}
+                          {activePopover === 'member' && canEditCard && (
+                            <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                <span className="text-xs font-bold text-slate-800">Thành viên</span>
+                                <button type="button" onClick={() => setActivePopover(null)}>
+                                  <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                                </button>
+                              </div>
+
+                              <div className="relative">
+                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                                <input
+                                  type="text"
+                                  value={memberSearchQuery}
+                                  onChange={e => setMemberSearchQuery(e.target.value)}
+                                  placeholder="Tìm thành viên..."
+                                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                                />
+                              </div>
+
+                              <div className="space-y-1 max-h-48 overflow-y-auto">
+                                {filteredMembers.map(member => {
+                                  const isSelected = selectedMembers.some(m => m.id === member.id)
+                                  return (
+                                    <div
+                                      key={member.id}
+                                      onClick={() => handleToggleMember(member)}
+                                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                                        isSelected ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        {member.avatarUrl ? (
+                                          <img
+                                            src={getAvatarUrl(member.avatarUrl)}
+                                            alt={member.fullName}
+                                            className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
+                                          />
+                                        ) : (
+                                          <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0">
+                                            {getInitials(member.fullName)}
+                                          </div>
+                                        )}
+                                        <span className="text-xs font-medium truncate">{member.fullName}</span>
+                                      </div>
+                                      {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 font-bold" />}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Nhãn (Labels Waterfall) */}
+                  {hasLabels && (
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-bold text-slate-500 tracking-wide block uppercase">Nhãn</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {selectedLabels.map(lbl => (
                           <span
-                            className={`px-2 py-0.5 rounded border text-xs font-medium ${lbl.color && lbl.color.startsWith('#') ? 'text-white border-transparent' : lbl.color || 'bg-purple-100 text-purple-700 border-purple-200'
-                              }`}
-                            style={{ backgroundColor: lbl.color && lbl.color.startsWith('#') ? lbl.color : undefined }}
+                            key={lbl.id}
+                            onClick={() => handleToggleSelectLabel(lbl)}
+                            className="px-2.5 py-1 rounded-md text-xs font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity"
+                            style={{ backgroundColor: lbl.color || '#5E60CE' }}
                           >
                             {lbl.name}
                           </span>
-                          <div className="flex items-center gap-2">
-                            {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 font-bold" />}
-                            <button
-                              type="button"
-                              onClick={(e) => handleStartEditLabel(lbl, e)}
-                              className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors cursor-pointer"
-                              title="Sửa tên nhãn"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => onRequestDeleteLabel(lbl, e)}
-                              className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors cursor-pointer"
-                              title="Xóa nhãn"
-                            >
-                              <Trash className="w-3 h-3" />
-                            </button>
-                          </div>
+                        ))}
+                        <div className="relative popover-container">
+                          <button
+                            type="button"
+                            onClick={() => togglePopover('label')}
+                            className="w-7 h-7 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                            title="Thêm nhãn"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Label Popover inside Waterfall */}
+                          {activePopover === 'label' && (
+                            <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                <span className="text-xs font-bold text-slate-800">Nhãn thẻ</span>
+                                <button type="button" onClick={() => setActivePopover(null)}>
+                                  <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                                </button>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={newLabelText}
+                                    onChange={e => setNewLabelText(e.target.value)}
+                                    placeholder="Tên nhãn..."
+                                    className="flex-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handleCreateOrUpdateLabel}
+                                    className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 cursor-pointer"
+                                  >
+                                    {editingLabelId ? 'Lưu' : 'Tạo'}
+                                  </button>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                                  {COLOR_SCHEMES.map(scheme => (
+                                    <button
+                                      key={scheme}
+                                      type="button"
+                                      onClick={() => setSelectedColor(scheme)}
+                                      className={`w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-transform ${
+                                        selectedColor === scheme ? 'ring-2 ring-blue-500 scale-110' : ''
+                                      }`}
+                                      style={{ backgroundColor: scheme }}
+                                    >
+                                      {selectedColor === scheme && <Check className="w-3 h-3 text-white" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="space-y-1 max-h-40 overflow-y-auto pt-1 border-t border-slate-100">
+                                {boardLabelsData?.map(lbl => {
+                                  const isSelected = selectedLabels.some(l => l.id === lbl.id)
+                                  return (
+                                    <div
+                                      key={lbl.id}
+                                      onClick={() => handleToggleSelectLabel(lbl)}
+                                      className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer"
+                                    >
+                                      <span
+                                        className="px-2 py-0.5 rounded text-xs font-semibold text-white"
+                                        style={{ backgroundColor: lbl.color || '#5E60CE' }}
+                                      >
+                                        {lbl.name}
+                                      </span>
+                                      {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 font-bold" />}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )
-                    })}
-                  </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ngày đến hạn (Dates Waterfall) */}
+                  {hasDate && (
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-bold text-slate-500 tracking-wide block uppercase">Ngày đến hạn</span>
+                      <div className="relative popover-container">
+                        <button
+                          type="button"
+                          onClick={() => togglePopover('date')}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold border border-slate-200/80 cursor-pointer"
+                        >
+                          <Clock className="w-3.5 h-3.5 text-slate-500" />
+                          <span>{formatDateDisplay(deadline)}</span>
+                        </button>
+
+                        {activePopover === 'date' && (
+                          <DirectDatePickerPopover
+                            value={deadline}
+                            disabled={!canEditCard}
+                            onChange={async iso => {
+                              setDeadline(iso)
+                              if (card?.id && canEditCard) {
+                                await updateCardMutation.mutateAsync({
+                                  cardId: card.id,
+                                  cardData: { deadline: iso },
+                                })
+                                lastSavedRef.current.deadline = iso
+                              }
+                            }}
+                            onRemove={async () => {
+                              setDeadline('')
+                              if (card?.id && canEditCard) {
+                                await updateCardMutation.mutateAsync({
+                                  cardId: card.id,
+                                  cardData: { deadline: null },
+                                })
+                                lastSavedRef.current.deadline = ''
+                              }
+                            }}
+                            onClose={() => setActivePopover(null)}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="space-y-1.5 relative">
-              <label className="block text-xs font-semibold text-slate-700">
-                Người thực hiện
-              </label>
-              <div
-                onClick={() => {
-                  if (canEditCard) setIsMemberPopupOpen(prev => !prev)
-                }}
-                className={`min-h-[42px] flex items-center justify-between px-2.5 py-1.5 bg-slate-50/50 border border-slate-200 rounded-lg transition-colors ${!canEditCard ? 'opacity-70 bg-slate-100/60 cursor-not-allowed' : 'cursor-pointer hover:bg-slate-100/40'
-                  }`}
-              >
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {selectedMembers.map(m => (
-                    <span
-                      key={m.id}
-                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-100 text-slate-800 text-xs font-medium border border-slate-200 whitespace-nowrap"
-                    >
-                      <div className="relative shrink-0">
-                        {!!m.avatarUrl ? (
-                          <img src={getAvatarUrl(m.avatarUrl)} alt={m.fullName} className="w-4.5 h-4.5 rounded-full object-cover shrink-0 ring-1 ring-slate-200" />
-                        ) : (
-                          <div className="w-4.5 h-4.5 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0 tracking-wider uppercase">
-                            {getInitials(m.fullName)}
-                          </div>
-                        )}
-                        {m.isOwner && (
-                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-400 text-amber-950 rounded-full flex items-center justify-center shadow-2xs border border-white z-10" title="Chủ sở hữu">
-                            <Star className="w-1.5 h-1.5 fill-amber-950 stroke-none" />
-                          </span>
-                        )}
-                      </div>
-                      <span className="truncate">{m.fullName}</span>
-                      {canEditCard && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleRemoveMember(m.id)
-                          }}
-                          className="text-slate-400 hover:text-slate-600 transition-colors shrink-0 cursor-pointer"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                  {selectedMembers.length === 0 && (
-                    <span className="text-xs text-slate-400">Chọn thành viên...</span>
-                  )}
-                </div>
-
-                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-1" />
+            {/* Description Section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <AlignLeft className="w-4 h-4 text-slate-500" />
+                <h3 className="text-sm font-bold text-slate-800">Mô tả</h3>
               </div>
 
-              {isMemberPopupOpen && canEditCard && (
-                <div className="absolute left-0 right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-2xl shadow-2xl z-30 p-3 space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="text-xs font-bold text-slate-700">Chọn người thực hiện</span>
+              <div className="pl-6 space-y-2">
+                <textarea
+                  rows={isEditingDesc ? 4 : 2}
+                  disabled={!canEditCard}
+                  value={description}
+                  onFocus={() => setIsEditingDesc(true)}
+                  onChange={e => {
+                    if (!canEditCard) return
+                    setDescription(e.target.value)
+                  }}
+                  placeholder="Thêm mô tả chi tiết hơn..."
+                  className="w-full px-3.5 py-2.5 text-sm text-slate-800 bg-slate-50/70 hover:bg-slate-100/50 focus:bg-white border border-slate-200/80 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none"
+                />
+                {isEditingDesc && (
+                  <div className="flex items-center gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => setIsMemberPopupOpen(false)}
-                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                      onClick={() => setIsEditingDesc(false)}
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      Lưu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDescription(lastSavedRef.current.description || card?.description || '')
+                        setIsEditingDesc(false)
+                      }}
+                      className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 cursor-pointer font-medium"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Attachments List Section */}
+            {attachments.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="w-4 h-4 text-slate-500" />
+                    <h3 className="text-sm font-bold text-slate-800">Tệp đính kèm</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => togglePopover('attachment')}
+                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                  >
+                    Thêm
+                  </button>
+                </div>
+
+                <div className="pl-6 space-y-2">
+                  {attachments.map(att => (
+                    <div
+                      key={att.id}
+                      className="flex items-center justify-between p-3 bg-slate-50/80 rounded-xl border border-slate-200/70 group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 text-blue-600">
+                          {att.fileType === 'link' ? <ExternalLink className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                        </div>
+                        <div className="min-w-0">
+                          <a
+                            href={formatExternalUrl(att.fileUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-bold text-slate-800 hover:text-blue-600 truncate block cursor-pointer"
+                          >
+                            {att.fileName}
+                          </a>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            Thêm bởi {att.uploadedBy?.fullName || 'thành viên'} • {formatDateDisplay(att.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttachment(att.id)}
+                        className="p-1 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        title="Xóa đính kèm"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Checklists Sections */}
+            {checklists.map(ck => {
+              const totalItems = ck.items?.length || 0
+              const completedItems = ck.items?.filter(i => i.completed).length || 0
+              const percent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+
+              return (
+                <div key={ck.id} className="space-y-3">
+                  {/* Checklist Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <CheckSquare className="w-4 h-4 text-slate-500 shrink-0" />
+                      {editingChecklistId === ck.id ? (
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <input
+                            type="text"
+                            value={editingChecklistTitleText}
+                            onChange={e => setEditingChecklistTitleText(e.target.value)}
+                            className="px-2 py-1 text-sm bg-white border border-blue-500 rounded-lg text-slate-800 outline-none flex-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveChecklistTitle(ck.id)}
+                            className="px-2.5 py-1 bg-blue-600 text-white text-xs font-semibold rounded-lg cursor-pointer"
+                          >
+                            Lưu
+                          </button>
+                        </div>
+                      ) : (
+                        <h3
+                          onClick={() => {
+                            setEditingChecklistId(ck.id)
+                            setEditingChecklistTitleText(ck.title)
+                          }}
+                          className="text-sm font-bold text-slate-800 hover:text-blue-600 cursor-pointer truncate"
+                        >
+                          {ck.title}
+                        </h3>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteChecklist(ck.id)}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                    >
+                      Xóa
                     </button>
                   </div>
 
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={memberSearchQuery}
-                      onChange={e => setMemberSearchQuery(e.target.value)}
-                      placeholder="Tìm theo tên hoặc email..."
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-blue-500"
-                    />
+                  {/* Progress Bar */}
+                  <div className="pl-6 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                      <span>{percent}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                      <div
+                        className={`h-full transition-all duration-300 ${percent === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
                   </div>
 
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {filteredMembers.map(member => {
-                      const isSelected = selectedMembers.some(m => m.id === member.id)
-                      return (
-                        <div
-                          key={member.id}
-                          onClick={() => handleToggleMember(member)}
-                          className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-50/70 border border-blue-100' : 'hover:bg-slate-50'
+                  {/* Items List */}
+                  <div className="pl-6 space-y-2 pt-1">
+                    {ck.items?.map(item => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between group py-1.5 px-2.5 rounded-lg hover:bg-slate-50"
+                      >
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleItem(item.id)}
+                            className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                              item.completed
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'border-slate-300 bg-white hover:border-blue-500'
                             }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="relative shrink-0">
-                              {member.avatarUrl ? (
-                                <img
-                                  src={getAvatarUrl(member.avatarUrl)}
-                                  alt={member.fullName}
-                                  className="w-7 h-7 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
-                                />
-                              ) : (
-                                <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0 tracking-wider uppercase">
-                                  {getInitials(member.fullName)}
-                                </div>
-                              )}
-                              {member.isOwner && (
-                                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 text-amber-950 rounded-full flex items-center justify-center shadow-2xs border border-white z-10" title="Chủ sở hữu">
-                                  <Star className="w-2 h-2 fill-amber-950 stroke-none" />
-                                </span>
-                              )}
+                          >
+                            {item.completed && <Check className="w-3 h-3 stroke-[3]" />}
+                          </button>
+
+                          {editingItemId === item.id ? (
+                            <div className="flex items-center gap-1.5 flex-1">
+                              <input
+                                type="text"
+                                value={editingItemText}
+                                onChange={e => setEditingItemText(e.target.value)}
+                                className="px-2 py-0.5 text-xs bg-white border border-blue-500 rounded-lg text-slate-800 outline-none flex-1"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveItemContent(item.id)}
+                                className="px-2 py-0.5 bg-blue-600 text-white text-xs font-semibold rounded-lg cursor-pointer"
+                              >
+                                Lưu
+                              </button>
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-800 truncate">{member.fullName}</p>
-                              {member.email && (
-                                <p className="text-[11px] text-slate-400 truncate">{member.email}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'
-                            }`}>
-                            {isSelected && <Check className="w-3 h-3" />}
-                          </div>
+                          ) : (
+                            <span
+                              onClick={() => {
+                                setEditingItemId(item.id)
+                                setEditingItemText(item.content)
+                              }}
+                              className={`text-xs text-slate-700 hover:text-slate-900 font-medium cursor-pointer truncate ${
+                                item.completed ? 'line-through text-slate-400' : ''
+                              }`}
+                            >
+                              {item.content}
+                            </span>
+                          )}
                         </div>
-                      )
-                    })}
-                    {filteredMembers.length === 0 && (
-                      <p className="text-xs text-slate-400 text-center py-2">Không tìm thấy thành viên</p>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-1 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Add Item Form */}
+                    {addingItemChecklistId === ck.id ? (
+                      <div className="space-y-2 pt-2">
+                        <textarea
+                          rows={2}
+                          value={newItemText}
+                          onChange={e => setNewItemText(e.target.value)}
+                          placeholder="Thêm việc cần làm..."
+                          className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-blue-500 rounded-xl outline-none resize-none shadow-2xs"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleAddChecklistItem(ck.id)
+                              setAddingItemChecklistId(null)
+                            }}
+                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs"
+                          >
+                            Thêm công việc
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAddingItemChecklistId(null)
+                              setNewItemText('')
+                            }}
+                            className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 font-medium cursor-pointer"
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddingItemChecklistId(ck.id)
+                          setNewItemText('')
+                        }}
+                        className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer mt-1 border border-slate-200/60"
+                      >
+                        Thêm việc cần làm
+                      </button>
                     )}
                   </div>
                 </div>
+              )
+            })}
+          </div>
+
+          {/* Right Column: Parallel Comments & Activity Stream (Fixed 340px width with independent scrollbar) */}
+          <div className="w-full md:w-[340px] shrink-0 space-y-5 overflow-y-auto pl-5 border-t md:border-t-0 md:border-l border-slate-100 max-h-[calc(92vh-100px)]">
+            {/* Feed Header & Details Toggle */}
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-slate-500" />
+                <h3 className="text-sm font-bold text-slate-800">Bình luận và hoạt động</h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowActivityDetails(prev => !prev)}
+                className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg transition-colors cursor-pointer border border-slate-200/80 shadow-2xs"
+              >
+                {showActivityDetails ? 'Ẩn chi tiết' : 'Hiển thị chi tiết'}
+              </button>
+            </div>
+
+            {/* Comment Input Box */}
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden mt-0.5 shadow-2xs">
+                {currentUser?.avatarUrl ? (
+                  <img src={getAvatarUrl(currentUser.avatarUrl)} alt={currentUser.fullName || 'User'} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-700">{getInitials(currentUser?.fullName)}</span>
+                )}
+              </div>
+
+              <div className="flex-1 space-y-2">
+                <textarea
+                  rows={2}
+                  value={newCommentText}
+                  onChange={e => setNewCommentText(e.target.value)}
+                  placeholder="Viết bình luận..."
+                  className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none shadow-2xs"
+                />
+                {newCommentText.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleAddComment}
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs"
+                  >
+                    Lưu
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Combined Activity & Comment Stream Feed */}
+            <div className="space-y-3.5 pt-1">
+              {displayedFeedItems.map(item => (
+                <div key={item.id} className="flex items-start gap-2.5 text-xs">
+                  <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden mt-0.5">
+                    {item.user?.avatarUrl ? (
+                      <img src={getAvatarUrl(item.user.avatarUrl)} alt={item.user.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-700">{getInitials(item.user?.fullName)}</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-slate-800">{item.user?.fullName || 'Hệ thống'}</span>
+                      {item.type === 'log' && <span className="text-slate-500 font-normal">{formatActivityLogText(item.action, item.detail)}</span>}
+                    </div>
+
+                    {item.type === 'comment' && (
+                      <div className="bg-slate-50/70 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-1.5">
+                        {editingCommentId === item.id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              rows={2}
+                              value={editingCommentText}
+                              onChange={e => setEditingCommentText(e.target.value)}
+                              className="w-full px-2 py-1 text-xs text-slate-800 bg-white border border-blue-500 rounded-lg outline-none resize-none"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveComment(item.id)}
+                                className="px-2.5 py-1 bg-blue-600 text-white text-[11px] font-semibold rounded-lg cursor-pointer"
+                              >
+                                Lưu
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingCommentId(null)}
+                                className="px-2 py-1 text-[11px] text-slate-500 font-medium cursor-pointer"
+                              >
+                                Hủy
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{item.content}</p>
+                            {item.user?.id === currentUser?.id && (
+                              <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingCommentId(item.id)
+                                    setEditingCommentText(item.content || '')
+                                  }}
+                                  className="hover:underline hover:text-slate-600 cursor-pointer"
+                                >
+                                  Chỉnh sửa
+                                </button>
+                                <span>•</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(item.id)}
+                                  className="hover:underline hover:text-red-600 cursor-pointer"
+                                >
+                                  Xóa
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-slate-400 font-medium">{formatDateDisplay(item.createdAt)}</p>
+                  </div>
+                </div>
+              ))}
+
+              {displayedFeedItems.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-4 font-medium">
+                  {showActivityDetails ? 'Chưa có hoạt động nào' : 'Chưa có bình luận hoặc thông tin tạo thẻ nào'}
+                </p>
               )}
             </div>
           </div>
         </div>
-        <DialogFooter className="p-0 border-t-0">
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100 sticky bottom-0 bg-white z-10 w-full">
-            <div className="flex items-center gap-2">
-              {!canEditCard && (
-                <span className="text-xs text-slate-400 font-medium px-1">Chế độ chỉ xem (Bảng công khai)</span>
-              )}
-              {canEditCard && autoSaveStatus === 'saving' && (
-                <div className="flex items-center gap-2 text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full text-xs font-semibold">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Đang tự động lưu</span>
-                </div>
-              )}
-              {canEditCard && autoSaveStatus === 'saved' && (
-                <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full text-xs font-semibold">
-                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  <span>Đã lưu</span>
-                </div>
-              )}
-              {canEditCard && autoSaveStatus === 'error' && (
-                <div className="text-red-500 bg-red-50 px-3 py-1.5 rounded-full text-xs font-semibold">
-                  Tự động lưu thất bại
-                </div>
-              )}
-              {canEditCard && autoSaveStatus === 'idle' && (
-                <span className="text-xs text-slate-400 font-medium px-1">Tự động lưu khi thay đổi</span>
-              )}
-            </div>
-          </div>
-        </DialogFooter>
-      </DialogContent>
 
-      {/* Delete Label Confirmation Modal */}
-      {
-        labelToDelete &&
-        <ConfirmDeleteModal
-          open={!!labelToDelete}
-          onOpenChange={() => setLabelToDelete(null)}
-          onConfirm={handleConfirmDeleteLabel}
-          title="Xóa nhãn"
-          description={`Bạn có chắc chắn muốn xóa nhãn \`${labelToDelete.name}\`?`}
-        />
-      }
+        {/* Delete Label Confirmation Modal */}
+        {labelToDelete && (
+          <ConfirmDeleteModal
+            open={!!labelToDelete}
+            onOpenChange={() => setLabelToDelete(null)}
+            onConfirm={() => {
+              if (labelToDelete) {
+                deleteBoardLabelMutation.mutateAsync({ labelId: labelToDelete.id, boardId })
+                setSelectedLabels(prev => prev.filter(l => l.id !== labelToDelete.id))
+                setLabelToDelete(null)
+              }
+            }}
+            title="Xóa nhãn"
+            description={`Bạn có chắc chắn muốn xóa nhãn \`${labelToDelete.name}\`?`}
+          />
+        )}
+      </DialogContent>
     </Dialog>
   )
 }

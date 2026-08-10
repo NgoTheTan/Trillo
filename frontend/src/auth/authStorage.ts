@@ -73,4 +73,9 @@ export function getAvatarUrl(url?: string | null): string | undefined {
   return url.startsWith('/') ? `http://localhost:8080${url}` : `http://localhost:8080/${url}`
 }
 
+export function getCurrentUser(): AuthUser | null {
+  return readJson<AuthUser>(USER_KEY)
+}
+
+
 

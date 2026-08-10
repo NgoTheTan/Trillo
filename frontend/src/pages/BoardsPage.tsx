@@ -73,7 +73,7 @@ export const BoardsPage = () => {
     return (
         <div className="max-w-7xl mx-auto space-y-6 text-slate-800">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Bảng công việc</h1>
+                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Bảng</h1>
                 <button
                     onClick={() => setIsCreateOpen(true)}
                     className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg shadow-sm transition-all cursor-pointer"

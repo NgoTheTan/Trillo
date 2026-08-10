@@ -25,6 +25,7 @@ public class CommentService {
     private final AuthService authService;
     private final NotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public CommentResponse addComment(String cardId, CreateCommentRequest request, User currentUser) {
@@ -38,6 +39,9 @@ public class CommentService {
                 .build();
 
         Comment saved = commentRepository.save(comment);
+
+        activityLogService.logActivity(card, currentUser, "commented",
+                currentUser.getFullName() + " commented on this card");
 
         // Notify card assignees (except commenter)
         card.getAssignedMembers().stream()
@@ -78,6 +82,9 @@ public class CommentService {
         if (!isAuthor && !isOwner) {
             throw new AccessDeniedException("Not authorized to delete this comment");
         }
+
+        activityLogService.logActivity(comment.getCard(), currentUser, "deleted_comment",
+                currentUser.getFullName() + " deleted a comment");
 
         commentRepository.delete(comment);
     }

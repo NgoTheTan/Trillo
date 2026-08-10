@@ -28,6 +28,14 @@ public class ChecklistController {
                 .body(checklistService.createChecklist(cardId, request, user));
     }
 
+    @PutMapping("/api/checklists/{checklistId}")
+    public ResponseEntity<ChecklistResponse> updateChecklist(
+            @PathVariable String checklistId,
+            @Valid @RequestBody CreateChecklistRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(checklistService.updateChecklist(checklistId, request, user));
+    }
+
     @DeleteMapping("/api/checklists/{checklistId}")
     public ResponseEntity<Void> deleteChecklist(
             @PathVariable String checklistId,
@@ -43,6 +51,14 @@ public class ChecklistController {
             @AuthenticationPrincipal User user) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(checklistService.addItem(checklistId, request, user));
+    }
+
+    @PutMapping("/api/checklists/items/{itemId}")
+    public ResponseEntity<ChecklistItemResponse> updateItem(
+            @PathVariable String itemId,
+            @Valid @RequestBody CreateChecklistItemRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(checklistService.updateItem(itemId, request, user));
     }
 
     @PatchMapping("/api/checklists/items/{itemId}/toggle")

@@ -35,6 +35,15 @@ public class AttachmentController {
                 .body(attachmentService.addAttachment(cardId, request, user));
     }
 
+    @PostMapping("/api/cards/{cardId}/attachments/upload")
+    public ResponseEntity<AttachmentResponse> uploadFile(
+            @PathVariable String cardId,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(attachmentService.uploadFileAttachment(cardId, file, user));
+    }
+
     @DeleteMapping("/api/attachments/{attachmentId}")
     public ResponseEntity<Void> deleteAttachment(
             @PathVariable String attachmentId,

@@ -16,6 +16,7 @@ interface KanbanCardProps {
   isOpenEditCardRef?: React.MutableRefObject<boolean>
   card: ListCardResponse
   isOverlay?: boolean
+  canEditCard?: boolean
 }
 
 const renderPriorityTag = (priority?: string) => {

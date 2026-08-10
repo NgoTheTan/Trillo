@@ -6,8 +6,8 @@ import {
   useToggleChecklistItemMutation,
   type ListCardResponse,
 } from '../../services/cardService.ts'
-import { EditCardModel } from '../listCard/EditCardModel'
-import { ConfirmDeleteCardModal } from '../listCard/ConfirmDeleteCardModal'
+import { EditCardModel } from '../card/EditCardModel'
+import { ConfirmDeleteCardModal } from '../card/ConfirmDeleteCardModal'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { formatDeadlineDisplay } from '../../utils/dateUtils'

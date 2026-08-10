@@ -6,7 +6,7 @@ import {
     UserPlus,
     Star
 } from 'lucide-react'
-import { useBoardDetailQuery, type BoardList } from '../services/boardServices'
+import { useBoardDetailQuery, useUpdateBoardTitleMutation, type BoardList } from '../services/boardServices'
 import { KanbanColumn } from '../components/kanban/KanbanColumn'
 import { BoardListFormModal } from '../components/boardList/BoardListFormModal'
 import {
@@ -78,6 +78,9 @@ export const BoardDetailPage: React.FC = () => {
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isInviteOpen, setIsInviteOpen] = useState(false)
     const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
+    const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false)
+    const [editTitle, setEditTitle] = useState<string>('')
+    const updateBoardTitleMutation = useUpdateBoardTitleMutation()
 
     const [cardFilterFeatures, setCardFilterFeatures] = useState<FilterCardsPayload>({
         search: '',
@@ -118,6 +121,25 @@ export const BoardDetailPage: React.FC = () => {
     const canEditCard = isOwner || (board?.currentUserPermissions?.includes('EDIT_CARD') ?? false)
     const canDeleteCard = isOwner || (board?.currentUserPermissions?.includes('DELETE_CARD') ?? false)
     const canMoveCard = isOwner || (board?.currentUserPermissions?.includes('MOVE_CARD') ?? false)
+
+    const handleSaveTitle = async () => {
+        setIsEditingTitle(false)
+        const trimmed = editTitle.trim()
+        
+        // Nếu tiêu đề bị xóa sạch hoặc giống hệt tiêu đề ban đầu, reset về ban đầu và không gọi API
+        if (!trimmed || trimmed === board?.title) {
+            return
+        }
+
+        try {
+            await updateBoardTitleMutation.mutateAsync({
+                id: boardId!,
+                title: trimmed,
+            })
+        } catch (err) {
+            console.error("Lỗi cập nhật tiêu đề bảng:", err)
+        }
+    }
 
     useEffect(() => {
         if (listsQuery.data) {
@@ -413,9 +435,38 @@ export const BoardDetailPage: React.FC = () => {
                 {/* Left Section: Title & Visibility */}
                 <div className="flex items-center gap-3 flex-wrap min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                        <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">
-                            {board?.title}
-                        </h1>
+                        {isEditingTitle && isOwner ? (
+                            <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                onBlur={handleSaveTitle}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        handleSaveTitle()
+                                    } else if (e.key === 'Escape') {
+                                        setIsEditingTitle(false)
+                                    }
+                                }}
+                                autoFocus
+                                className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight bg-white border border-blue-500 rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-blue-500/10 min-w-[200px]"
+                            />
+                        ) : (
+                            <h1
+                                onDoubleClick={() => {
+                                    if (isOwner) {
+                                        setEditTitle(board?.title || '')
+                                        setIsEditingTitle(true)
+                                    }
+                                }}
+                                className={`text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate ${
+                                    isOwner ? 'cursor-pointer hover:bg-slate-100 rounded px-1' : ''
+                                }`}
+                                title={isOwner ? 'Nhấp đúp chuột để sửa tiêu đề bảng' : undefined}
+                            >
+                                {board?.title}
+                            </h1>
+                        )}
                     </div>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full shrink-0">
                         <Globe className="w-3 h-3 text-emerald-600" />

@@ -170,6 +170,10 @@ export const updateBoard = async (id: string, payload: BoardFormPayload): Promis
   return await Api.put<BoardDetailResponse>(`/boards/${id}`, payload);
 }
 
+export const updateBoardTitle = async (id: string, title: string): Promise<BoardDetailResponse> => {
+  return await Api.patch<BoardDetailResponse>(`/boards/${id}/title`, { title });
+}
+
 export const deleteBoard = async (id: string): Promise<void> => {
   try {
     await Api.delete<void>(`/boards/${id}`);
@@ -240,6 +244,17 @@ export const useUpdateBoardMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: BoardFormPayload }) => updateBoard(id, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['boards'] });
+      queryClient.invalidateQueries({ queryKey: ['boards', variables.id] });
+    },
+  });
+};
+
+export const useUpdateBoardTitleMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => updateBoardTitle(id, title),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['boards'] });
       queryClient.invalidateQueries({ queryKey: ['boards', variables.id] });

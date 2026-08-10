@@ -9,7 +9,7 @@ import {
 import { Filter } from 'lucide-react'
 import { useBoardDetailQuery } from '../../services/boardServices'
 import { getInitials } from '../../auth/authStorage'
-import type { MemberItem } from '../listCard/EditCardModel'
+import type { MemberItem } from '../card/EditCardModel'
 import type { FilterCardsPayload } from '../../services/cardService.ts'
 import { DateTimeInput } from '../common/DateTimeInput.tsx'
 

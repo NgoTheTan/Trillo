@@ -100,6 +100,20 @@ public class BoardService {
         return toBoardResponse(saved, currentUser);
     }
 
+    @Transactional
+    public BoardResponse updateBoardTitle(String boardId, com.example.trillo.dto.request.UpdateBoardTitleRequest request, User currentUser) {
+        Board board = findBoardOrThrow(boardId);
+        requireOwner(board, currentUser);
+
+        board.setTitle(request.title());
+        Board saved = boardRepository.save(board);
+
+        // Broadcast update to all board subscribers
+        messagingTemplate.convertAndSend("/topic/board/" + boardId, "BOARD_UPDATED");
+
+        return toBoardResponse(saved, currentUser);
+    }
+
     // ── Delete Board ──────────────────────────────────────────────────────────
     @Transactional
     public void deleteBoard(String boardId, User currentUser) {

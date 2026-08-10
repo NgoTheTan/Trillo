@@ -61,6 +61,14 @@ public class BoardController {
         return ResponseEntity.ok(boardService.updateBoard(boardId, request, user));
     }
 
+    @PatchMapping("/{boardId}/title")
+    public ResponseEntity<BoardResponse> updateBoardTitle(
+            @PathVariable String boardId,
+            @Valid @RequestBody com.example.trillo.dto.request.UpdateBoardTitleRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(boardService.updateBoardTitle(boardId, request, user));
+    }
+
     @DeleteMapping("/{boardId}")
     public ResponseEntity<Void> deleteBoard(
             @PathVariable String boardId,

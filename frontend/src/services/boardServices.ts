@@ -81,7 +81,6 @@ export interface BoardCard {
   listId: string
   title: string
   deadline?: string
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | string
   position: number
   completed: boolean
   assignedMembers?: UserResponse[]

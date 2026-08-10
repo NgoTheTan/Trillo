@@ -426,7 +426,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   const [description, setDescription] = useState(card?.description || '')
   const [isEditingDesc, setIsEditingDesc] = useState(false)
   const [deadline, setDeadline] = useState(card?.deadline ? formatToDatetimeLocal(card.deadline) : '')
-  const [priority, setPriority] = useState<string>(card?.priority || 'MEDIUM')
   const [completed, setCompleted] = useState<boolean>(card?.completed || false)
 
   // Auto-save state
@@ -437,7 +436,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     title: card?.title || '',
     description: card?.description || '',
     deadline: card?.deadline ? formatToDatetimeLocal(card.deadline) : '',
-    priority: card?.priority || 'MEDIUM',
     completed: card?.completed || false,
   })
 
@@ -524,13 +522,11 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     if (activeCard) {
       const initTitle = activeCard.title || ''
       const initDeadline = activeCard.deadline ? formatToDatetimeLocal(activeCard.deadline) : ''
-      const initPriority = activeCard.priority || 'MEDIUM'
       const initCompleted = activeCard.completed || false
       const initDesc = activeCard.description || ''
 
       setTitle(initTitle)
       setDeadline(initDeadline)
-      setPriority(initPriority)
       setCompleted(initCompleted)
       setDescription(initDesc)
       setCopyCardTitle(`${initTitle} (Bản sao)`)
@@ -543,7 +539,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
         title: initTitle,
         description: initDesc,
         deadline: initDeadline,
-        priority: initPriority,
         completed: initCompleted,
       }
 
@@ -606,7 +601,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     }
   }, [activePopover])
 
-  // Auto-save effect for title, description, deadline, priority, completed
+  // Auto-save effect for title, description, deadline, completed
   useEffect(() => {
     if (!open || !card?.id || !isInitializedRef.current || !canEditCard) return
 
@@ -622,7 +617,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       title.trim() !== lastSavedRef.current.title ||
       description !== lastSavedRef.current.description ||
       deadline !== lastSavedRef.current.deadline ||
-      priority !== lastSavedRef.current.priority ||
       completed !== lastSavedRef.current.completed
 
     if (!hasChanged) return
@@ -639,7 +633,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
           title: title.trim(),
           description,
           deadline: formatDeadlineForApi(deadline),
-          priority: priority.toUpperCase(),
           completed,
         }
 
@@ -652,7 +645,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
           title: title.trim(),
           description,
           deadline,
-          priority,
           completed,
         }
 
@@ -664,7 +656,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
             title: title.trim(),
             description,
             deadline,
-            priority: priority as any,
             completed,
           })
         }
@@ -679,11 +670,11 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
         clearTimeout(saveTimeoutRef.current)
       }
     }
-  }, [title, description, deadline, priority, completed, card?.id, open])
+  }, [title, description, deadline, completed, card?.id, open])
 
   if (!open) return null
 
-  // Priority & Labels & Members handlers
+  // Labels & Members handlers
   const handleToggleSelectLabel = async (lbl: CardLabel) => {
     if (!card?.id) return
     if (selectedLabels.some(l => l.id === lbl.id)) {

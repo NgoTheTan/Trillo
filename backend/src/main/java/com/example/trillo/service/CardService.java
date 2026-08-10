@@ -46,7 +46,6 @@ public class CardService {
                 .title(request.title())
                 .description(request.description())
                 .deadline(request.deadline())
-                .priority(request.priority() != null ? request.priority() : com.example.trillo.enums.Priority.MEDIUM)
                 .position(maxPos + 1)
                 .build();
 
@@ -66,7 +65,6 @@ public class CardService {
         if (request.title() != null && !request.title().isBlank()) { changes.append("title, "); card.setTitle(request.title()); }
         card.setDescription(request.description());
         card.setDeadline(request.deadline());
-        if (request.priority() != null) { changes.append("priority, "); card.setPriority(request.priority()); }
         if (request.completed() != null) { card.setCompleted(request.completed()); changes.append(request.completed() ? "marked complete" : "marked incomplete"); }
 
         Card saved = cardRepository.save(card);
@@ -343,7 +341,7 @@ public class CardService {
 
         return new CardSummaryResponse(
                 card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
-                card.getDeadline(), card.getPriority(), card.getPosition(),
+                card.getDeadline(), card.getPosition(),
                 card.isCompleted(), members, labels,
                 totalItems, completedItems, card.getComments().size(), card.getCreatedAt()
         );
@@ -374,7 +372,7 @@ public class CardService {
         return new CardResponse(
                 card.getId(), card.getList().getId(), card.getList().getTitle(),
                 card.getList().getBoard().getId(), card.getTitle(), card.getDescription(),
-                card.getDeadline(), card.getPriority(), card.getPosition(), card.isCompleted(),
+                card.getDeadline(), card.getPosition(), card.isCompleted(),
                 members, labels, checklists, comments, attachments, logs,
                 card.getCreatedAt(), card.getUpdatedAt()
         );

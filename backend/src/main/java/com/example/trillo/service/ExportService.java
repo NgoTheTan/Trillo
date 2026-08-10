@@ -39,7 +39,7 @@ public class ExportService {
         StringBuilder csv = new StringBuilder();
 
         // Header
-        csv.append("List,Card Title,Description,Priority,Deadline,Completed,Assigned Members,Labels\n");
+        csv.append("List,Card Title,Description,Deadline,Completed,Assigned Members,Labels\n");
 
         for (BoardList list : board.getLists()) {
             for (Card card : list.getCards()) {
@@ -53,11 +53,10 @@ public class ExportService {
 
                 String deadline = card.getDeadline() != null ? card.getDeadline().toString() : "";
 
-                csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"%n",
                         escape(list.getTitle()),
                         escape(card.getTitle()),
                         escape(card.getDescription() != null ? card.getDescription() : ""),
-                        card.getPriority(),
                         escape(deadline),
                         card.isCompleted(),
                         escape(members),
@@ -85,7 +84,6 @@ public class ExportService {
                                 "id", card.getId(),
                                 "title", card.getTitle(),
                                 "description", card.getDescription() != null ? card.getDescription() : "",
-                                "priority", card.getPriority().toString(),
                                 "deadline", card.getDeadline() != null ? card.getDeadline().toString() : "",
                                 "completed", card.isCompleted(),
                                 "assignedMembers", card.getAssignedMembers().stream()

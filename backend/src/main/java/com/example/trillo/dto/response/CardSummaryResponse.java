@@ -1,7 +1,5 @@
 package com.example.trillo.dto.response;
 
-import com.example.trillo.enums.Priority;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,7 +9,6 @@ public record CardSummaryResponse(
         String title,
         String description,
         LocalDateTime deadline,
-        Priority priority,
         int position,
         boolean completed,
         List<UserResponse> assignedMembers,

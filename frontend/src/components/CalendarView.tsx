@@ -63,18 +63,17 @@ export default function CalendarView() {
         const allBoardsData = await Promise.all(calendarPromises);
 
         const combinedEvents = allBoardsData.flat().map((card: any) => {
-          let eventColor = '#2563eb'; 
-          const priority = card.priority?.toUpperCase(); 
-          
-          if (priority === 'HIGH') eventColor = '#ef4444';      
-          else if (priority === 'MEDIUM') eventColor = '#f59e0b'; 
-          else if (priority === 'LOW') eventColor = '#10b981';    
+          // Dùng màu nhãn đầu tiên nếu có, ngược lại dùng màu mặc định
+          let eventColor = '#2563eb';
+          if (card.labels && card.labels.length > 0 && card.labels[0].color) {
+            eventColor = card.labels[0].color;
+          }
 
           return {
             id: card.id,
             title: card.title || 'Chưa có tiêu đề',
             start: card.deadline,
-            allDay: false, 
+            allDay: false,
             backgroundColor: eventColor,
             borderColor: eventColor,
             extendedProps: { card }

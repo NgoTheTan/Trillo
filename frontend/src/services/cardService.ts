@@ -72,7 +72,6 @@ export interface CardDetailResponse {
     title: string;
     description?: string | null;
     deadline?: string | null;
-    priority: 'LOW' | 'MEDIUM' | 'HIGH' | string;
     position: number;
     completed: boolean;
     assignedMembers: CardMember[];
@@ -91,7 +90,6 @@ export interface ListCardResponse {
     title: string;
     description?: string | null;
     deadline?: string | null;
-    priority: 'LOW' | 'MEDIUM' | 'HIGH' | string;
     position: number;
     completed: boolean;
     assignedMembers: CardMember[];
@@ -106,7 +104,6 @@ export interface UpdateCardPayload {
     title?: string;
     description?: string;
     deadline?: string | null;
-    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | string;
     completed?: boolean;
 }
 

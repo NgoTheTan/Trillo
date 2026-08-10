@@ -1,6 +1,5 @@
 package com.example.trillo.entity;
 
-import com.example.trillo.enums.Priority;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -35,10 +34,6 @@ public class Card {
     private String description;
 
     private LocalDateTime deadline;
-
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private Priority priority = Priority.MEDIUM;
 
     @Column(nullable = false)
     private Integer position;

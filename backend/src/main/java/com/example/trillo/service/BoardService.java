@@ -480,7 +480,7 @@ public class BoardService {
 
         return new CardSummaryResponse(
                 card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
-                card.getDeadline(), card.getPriority(), card.getPosition(),
+                card.getDeadline(), card.getPosition(),
                 card.isCompleted(), members, labels,
                 totalItems, completedItems, card.getComments().size(), card.getCreatedAt()
         );

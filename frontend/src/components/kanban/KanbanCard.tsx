@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { Calendar1, Check, ListSortDescending, MessageSquareText, Paperclip, SquareCheck } from 'lucide-react'
+import { Calendar1, Check, ListSortDescending, MessageSquareText, Paperclip, SquareCheck, ChevronDown, ChevronRight } from 'lucide-react'
 import {
   useDeleteCardMutation,
   useToggleCardCompletedMutation,
+  useToggleChecklistItemMutation,
   type ListCardResponse,
 } from '../../services/cardService.ts'
 import { EditCardModel } from '../listCard/EditCardModel'
@@ -11,6 +12,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { formatDeadlineDisplay } from '../../utils/dateUtils'
 import { getAvatarUrl } from '../../auth/authStorage'
+import { Button } from '@base-ui/react'
 
 interface KanbanCardProps {
   isOpenEditCardRef?: React.MutableRefObject<boolean>
@@ -22,8 +24,15 @@ interface KanbanCardProps {
 export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false, canEditCard = true }) => {
   const [openEditCardModal, setOpenEditCardModal] = useState<boolean>(false)
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false)
+  const [isShowCheckList, setIsShowCheckList] = useState<boolean>(false)
+  const [expandedChecklists, setExpandedChecklists] = useState<Record<string, boolean>>({})
   const deleteCardMutation = useDeleteCardMutation()
   const toggleCompletedMutation = useToggleCardCompletedMutation()
+  const toggleChecklistItemMutation = useToggleChecklistItemMutation()
+
+  const toggleChecklistCollapse = (id: string) => {
+    setExpandedChecklists(prev => ({ ...prev, [id]: !prev[id] }))
+  }
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -122,15 +131,14 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
         </div>
 
         {/* Card Footer: Stats */}
-        <div className="flex items-center gap-3 font-medium pt-1.5 border-t border-slate-50 text-slate-400 text-xs">
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-2 font-medium pt-1.5 border-t border-slate-50 text-slate-400 text-xs">
           {/* Deadline — chỉ hiện khi có */}
           {card.deadline && (
             <div
-              className={`flex items-center gap-1 font-medium ${
-                !card.completed && new Date(card.deadline).getTime() < Date.now()
-                  ? 'text-red-500 font-semibold'
-                  : 'text-slate-400'
-              }`}
+              className={`flex items-center gap-1 font-medium ${!card.completed && new Date(card.deadline).getTime() < Date.now()
+                ? 'text-red-500 font-semibold'
+                : 'text-slate-400'
+                }`}
             >
               <Calendar1 className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{formatDeadlineDisplay(card.deadline)}</span>
@@ -162,19 +170,29 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
 
           {/* Checklist progress — xanh nếu xong hết, đỏ nếu chưa */}
           {card.checklistTotal > 0 && (
-            <div
-              className={`flex items-center gap-1 font-semibold ${
-                card.checklistCompleted === card.checklistTotal
-                  ? 'text-emerald-500'
-                  : 'text-red-400'
-              }`}
+            <Button
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsShowCheckList(!isShowCheckList)
+              }}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] translate-x-[-7px] font-semibold transition-all border cursor-pointer select-none ${isShowCheckList
+                ? 'bg-blue-50/80 text-blue-600 border-blue-200 shadow-3xs'
+                : 'border-transparent hover:bg-slate-100'
+                }`}
             >
-              <SquareCheck className="w-3.5 h-3.5" />
-              <span>{card.checklistCompleted}/{card.checklistTotal}</span>
-            </div>
+              <div
+                className={`flex items-center gap-1 font-semibold ${card.checklistCompleted === card.checklistTotal
+                  ? 'text-emerald-500'
+                    : 'text-red-400'
+                  }`}
+              >
+                <SquareCheck className="w-3.5 h-3.5" />
+                <span>{card.checklistCompleted}/{card.checklistTotal}</span>
+              </div>
+            </Button>
           )}
         </div>
-        <div className='w-full flex justify-end'>
+        <div className="w-full flex justify-end">
           {card.assignedMembers && card.assignedMembers.length > 0 && (
             <div className="flex items-center shrink-0 ml-2">
               {card.assignedMembers.slice(0, 3).map((member, idx) => (
@@ -213,6 +231,91 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
             </div>
           )}
         </div>
+
+        {/* Checklist dropdown */}
+        {isShowCheckList && card.checklists && card.checklists.length > 0 && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="pt-2 border-t border-slate-100 space-y-2 text-xs transition-all duration-300"
+          >
+            {card.checklists.map((checklist) => {
+              const totalItems = checklist.items?.length || 0
+              const completedItems = checklist.items?.filter(i => i.completed).length || 0
+              const isExpanded = !!expandedChecklists[checklist.id]
+
+              return (
+                <div key={checklist.id} className="space-y-1 bg-slate-50/30 p-1.5 rounded-lg border border-slate-200/40">
+                  {/* Collapsible Header */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleChecklistCollapse(checklist.id)
+                    }}
+                    className="flex items-center justify-between py-0.5 px-0.5 font-semibold text-slate-700 hover:text-slate-900 cursor-pointer select-none"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className={`p-0.5 rounded transition-all flex items-center justify-center shrink-0 border ${isExpanded
+                            ? 'border-blue-500 bg-blue-50/50 text-blue-600'
+                            : 'border-transparent text-slate-400 hover:text-slate-600'
+                          }`}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-3 h-3 stroke-[2.5]" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3 stroke-[2.5]" />
+                        )}
+                      </span>
+                      <span className="truncate text-xs font-medium text-slate-800">{checklist.title}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-bold shrink-0">
+                      {completedItems}/{totalItems}
+                    </span>
+                  </div>
+
+                  {/* Checklist items list */}
+                  {isExpanded && (
+                    <div className="space-y-0.5 pt-1 pl-1 border-t border-dashed border-slate-200/50">
+                      {checklist.items?.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              await toggleChecklistItemMutation.mutateAsync({
+                                itemId: item.id,
+                                cardId: card.id,
+                              })
+                            } catch (err) {
+                              console.error("Lỗi toggle checklist item:", err)
+                            }
+                          }}
+                          className="flex items-center gap-2 py-1 px-1.5 rounded-md hover:bg-slate-100/50 cursor-pointer group/item text-slate-600 transition-colors"
+                        >
+                          <span
+                            className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-all ${item.completed
+                                ? 'bg-emerald-500 border-emerald-500 text-white'
+                                : 'border-slate-300 bg-white group-hover/item:border-emerald-500 group-hover/item:bg-emerald-50/30'
+                              }`}
+                          >
+                            {item.completed && <Check className="w-2 h-2 stroke-[3]" />}
+                          </span>
+                          <span
+                            className={`text-[11px] leading-tight select-none truncate ${item.completed ? 'line-through text-slate-400' : 'font-medium text-slate-700'
+                              }`}
+                            title={item.content}
+                          >
+                            {item.content}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Edit Card Modal */}

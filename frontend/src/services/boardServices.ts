@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Api } from "../api/api";
+import type { ChecklistResponse } from "./cardService";
 
 // ── Permission Types ──────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export interface BoardCard {
   checklistCompleted: number
   commentCount: number
   attachmentCount: number
+  checklists?: ChecklistResponse[]
   createdAt?: string
 }
 

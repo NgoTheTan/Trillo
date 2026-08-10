@@ -98,6 +98,7 @@ export interface ListCardResponse {
     checklistCompleted: number;
     commentCount: number;
     attachmentCount: number;
+    checklists: ChecklistResponse[];
     createdAt?: string;
 }
 

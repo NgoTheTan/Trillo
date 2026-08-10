@@ -339,11 +339,14 @@ public class CardService {
         int completedItems = card.getChecklists().stream()
                 .mapToInt(c -> (int) c.getItems().stream().filter(ChecklistItem::isCompleted).count()).sum();
 
+        List<ChecklistResponse> checklists = card.getChecklists().stream()
+                .map(ChecklistResponse::from).toList();
+
         return new CardSummaryResponse(
                 card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
                 card.getDeadline(), card.getPosition(),
                 card.isCompleted(), members, labels,
-                totalItems, completedItems, card.getComments().size(), card.getAttachments().size(), card.getCreatedAt()
+                totalItems, completedItems, card.getComments().size(), card.getAttachments().size(), checklists, card.getCreatedAt()
         );
     }
 

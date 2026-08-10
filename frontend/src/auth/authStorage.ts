@@ -1,10 +1,7 @@
-export type Role = 'PM' | 'User'
-
 export type AuthUser = {
   id: string
   email: string
   fullName: string
-  role: Role
   avatarUrl?: string
   createdAt?: string
 }
@@ -16,9 +13,6 @@ type AuthSession = {
 
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user'
-const ROLE_MAP_KEY = 'trillo-role-map'
-
-type RoleMap = Record<string, Role>
 
 function readJson<T>(key: string): T | null {
   const rawValue = localStorage.getItem(key)
@@ -35,24 +29,6 @@ function readJson<T>(key: string): T | null {
 
 function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value))
-}
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase()
-}
-
-export function resolveRole(email: string): Role {
-  const normalizedEmail = normalizeEmail(email)
-  const roleMap = readJson<RoleMap>(ROLE_MAP_KEY) ?? {}
-
-  return roleMap[normalizedEmail] ?? (normalizedEmail === 'pm@trillo.app' ? 'PM' : 'User')
-}
-
-export function rememberRole(email: string, role: Role) {
-  const normalizedEmail = normalizeEmail(email)
-  const roleMap = readJson<RoleMap>(ROLE_MAP_KEY) ?? {}
-  roleMap[normalizedEmail] = role
-  writeJson(ROLE_MAP_KEY, roleMap)
 }
 
 export function getCurrentSession() {
@@ -80,13 +56,6 @@ export function setSession(session: AuthSession) {
   saveSession(session)
 }
 
-export function enrichUser(user: Omit<AuthUser, 'role'> & Partial<Pick<AuthUser, 'role'>>): AuthUser {
-  return {
-    ...user,
-    role: user.role ?? resolveRole(user.email),
-  }
-}
-
 export function getInitials(fullName: string) {
   return fullName
     .split(' ')
@@ -95,3 +64,4 @@ export function getInitials(fullName: string) {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('')
 }
+

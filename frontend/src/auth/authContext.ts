@@ -1,11 +1,11 @@
 import { createContext, useContext } from 'react'
-import type { AuthUser, Role } from './authStorage'
+import type { AuthUser } from './authStorage'
 
 export type AuthContextValue = {
   user: AuthUser | null
   isReady: boolean
   login: (input: { email: string; password: string }) => Promise<AuthUser>
-  register: (input: { fullName: string; email: string; password: string; role: Role }) => Promise<AuthUser>
+  register: (input: { fullName: string; email: string; password: string }) => Promise<AuthUser>
   logout: () => void
 }
 

@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAppearance } from '../context/AppearanceContext';
 import { Monitor, Moon, Sun, Eye, EyeOff, LogOut, MonitorSmartphone, AlertTriangle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { PasswordChecklist, defaultPasswordRules } from '../components/common/PasswordChecklist';
+import { defaultPasswordRules } from '../components/common/PasswordChecklist';
 
 // Axios instance
 const api = axios.create({
@@ -16,7 +15,6 @@ api.interceptors.request.use((config) => {
 });
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('account');
   const fileInputRef = useRef<HTMLInputElement>(null);
 

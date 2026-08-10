@@ -8,7 +8,6 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../auth/authContext'
 import { AuthLayout } from './AuthLayout'
 import { PasswordChecklist } from '../components/common/PasswordChecklist'
-import type { Role } from '../auth/authStorage'
 
 const registerSchema = z
   .object({
@@ -25,7 +24,6 @@ const registerSchema = z
         'Mật khẩu phải có ít nhất một ký tự đặc biệt'
       ),
     confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
-    role: z.enum(['PM', 'User']),
   })
   .refine((values) => values.password === values.confirmPassword, {
     path: ['confirmPassword'],
@@ -57,7 +55,6 @@ export function RegisterPage() {
         fullName: values.fullName,
         email: values.email,
         password: values.password,
-        role: values.role as Role,
       })
       toast.success('Tạo tài khoản thành công. Giờ bạn có thể đăng nhập.')
       navigate('/login', { replace: true })
@@ -69,7 +66,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Tạo tài khoản"
-      subtitle="Tham gia Trillo để quản lý dự án theo phân vai."
+      subtitle="Tham gia Trillo để bắt đầu quản lý dự án."
       compact
     >
       <form className="auth-form" onSubmit={onSubmit} noValidate>
@@ -150,30 +147,6 @@ export function RegisterPage() {
         </div>
 
         <PasswordChecklist password={passwordValue} />
-
-        <div className="stack">
-          <span>Loại tài khoản</span>
-          <div className="radio-group">
-            <label className="radio-card">
-              <input type="radio" value="PM" {...register('role')} />
-              <span className="radio-card__surface">
-                <span className="radio-card__title">PM</span>
-                <span className="radio-card__description">
-                  Quản lý dự án, phê duyệt và quyền truy cập cao.
-                </span>
-              </span>
-            </label>
-            <label className="radio-card">
-              <input type="radio" value="User" {...register('role')} />
-              <span className="radio-card__surface">
-                <span className="radio-card__title">User</span>
-                <span className="radio-card__description">
-                  Lập trình viên, kiểm thử, thiết kế và cộng tác viên.
-                </span>
-              </span>
-            </label>
-          </div>
-        </div>
 
         <button type="submit" className="primary-button" disabled={isSubmitting}>
           {isSubmitting ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link as LinkIcon, Trash2, X, Check, Shield, Loader2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader } from '../ui/dialog'
-import { inviteMember, removeMember, useInviteMemberMutation, useRemoveMemberMutation } from '../../services/boardServices'
+import { useInviteMemberMutation, useRemoveMemberMutation } from '../../services/boardServices'
 import { useQueryClient } from '@tanstack/react-query'
 
 export interface Member {

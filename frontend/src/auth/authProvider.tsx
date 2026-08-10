@@ -2,9 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import {
   clearSession,
   getCurrentSession,
-  resolveRole,
   setSession,
-  rememberRole,
   type AuthUser,
 } from './authStorage'
 import { AuthContext, type AuthContextValue } from './authContext'
@@ -25,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const backendUser = await meRequest(session.token)
-        const nextUser = toAuthUser(backendUser, session.user.role ?? resolveRole(backendUser.email))
+        const nextUser = toAuthUser(backendUser)
         setSession({ token: session.token, user: nextUser })
         setUser(nextUser)
       } catch {
@@ -44,8 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isReady,
     login: async (input) => {
       const response = await loginRequest(input)
-      const nextUser = toAuthUser(response.user, resolveRole(response.user.email))
-      rememberRole(nextUser.email, nextUser.role)
+      const nextUser = toAuthUser(response.user)
       setSession({ token: response.token, user: nextUser })
       setUser(nextUser)
       return nextUser
@@ -57,8 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password: input.password,
       })
       const loginRes = await loginRequest({ email: input.email, password: input.password })
-      const nextUser = toAuthUser(loginRes.user, input.role || resolveRole(loginRes.user.email))
-      rememberRole(nextUser.email, nextUser.role)
+      const nextUser = toAuthUser(loginRes.user)
       setSession({ token: loginRes.token, user: nextUser })
       setUser(nextUser)
       return nextUser

@@ -60,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
     const markAllReadMutation = useMarkAllReadMutation()
 
     const displayName = user?.fullName || userName || 'User'
-    const displayRole = user?.role === 'PM' ? 'Project Manager' : user?.role || userRole || 'Member'
+    const displayRole = userRole || user?.email || 'Thành viên'
     const userInitials = displayName
         ? displayName
             .split(' ')

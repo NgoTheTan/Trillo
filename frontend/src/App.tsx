@@ -60,22 +60,6 @@ function App() {
                 <Route path=":boardId" element={<BoardDetailPage />} />
               </Route>
               <Route path="schedule" element={<CalendarView />} />
-              <Route
-                path="pm"
-                element={
-                  <ProtectedRoute allowedRoles={['PM']}>
-                    <DashboardPage variant="pm" />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="team"
-                element={
-                  <ProtectedRoute allowedRoles={['PM', 'User']}>
-                    <DashboardPage variant="team" />
-                  </ProtectedRoute>
-                }
-              />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="/" element={<Navigate to="/app" replace />} />

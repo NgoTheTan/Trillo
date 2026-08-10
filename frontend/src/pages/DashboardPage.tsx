@@ -475,9 +475,7 @@ export function DashboardPage({
             <div>
               <h1 className="dashboard-title">{variantCopy.title}</h1>
               <p className="dashboard-subtitle">
-                {variant === 'overview'
-                  ? 'Người dùng đăng nhập lần đầu sẽ thấy trang này, giúp trả lời nhanh: có bao nhiêu bảng và khối lượng công việc ở đâu?'
-                  : variantCopy.subtitle}
+                {variantCopy.subtitle}
               </p>
             </div>
             <button type="button" className="secondary-button" onClick={handleNavigateToBoards}>

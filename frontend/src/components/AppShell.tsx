@@ -42,7 +42,7 @@ export function AppShell() {
         <div className="app-topbar__actions">
           <span className="role-pill">
             <ShieldCheck size={16} />
-            {user?.role === 'PM' ? 'Không gian PM' : 'Không gian thành viên'}
+            Không gian làm việc
           </span>
           
           <NotificationBell />
@@ -72,7 +72,7 @@ export function AppShell() {
           <div className="panel">
             <p className="panel__title">Xin chào, {user?.fullName}</p>
             <p className="panel__subtitle">
-              Bạn đang đăng nhập với vai trò {user?.role}. Quyền truy cập các trang được bảo vệ theo vai trò của bạn.
+              Bạn đang đăng nhập trong hệ thống Trillo. Quản lý dự án và các thẻ công việc của bạn.
             </p>
 
             <div className="stats-grid">
@@ -93,15 +93,15 @@ export function AppShell() {
             <div className="task-list">
               <div className="task-item">
                 <div>
-                  <p className="task-item__title">Tổng quan bảng PM</p>
-                  <p className="task-item__meta">Chỉ vai trò PM mới có thể truy cập kế hoạch và phê duyệt.</p>
+                  <p className="task-item__title">Bảng dự án</p>
+                  <p className="task-item__meta">Theo dõi tiến độ và quản lý thẻ công việc.</p>
                 </div>
-                <span className="task-item__badge task-item__badge--pm">Chỉ PM</span>
+                <span className="task-item__badge task-item__badge--pm">Quản lý</span>
               </div>
               <div className="task-item">
                 <div>
                   <p className="task-item__title">Không gian làm việc nhóm</p>
-                  <p className="task-item__meta">Vai trò User bao gồm Dev, Tester, Designer và các cộng tác viên khác.</p>
+                  <p className="task-item__meta">Cộng tác với thành viên trong từng bảng.</p>
                 </div>
                 <span className="task-item__badge task-item__badge--user">Thành viên</span>
               </div>
@@ -127,11 +127,9 @@ export function AppShell() {
                 <p className="sample-account__meta">{user?.email}</p>
               </div>
               <div className="sample-account">
-                <p className="sample-account__title">Vai trò</p>
+                <p className="sample-account__title">Trạng thái</p>
                 <p className="sample-account__meta">
-                  {user?.role === 'PM'
-                    ? 'PM có thể truy cập kế hoạch, phê duyệt và các trang nhạy cảm.'
-                    : 'Thành viên có thể truy cập các trang thực thi và cộng tác.'}
+                  Thành viên có thể truy cập các trang thực thi và cộng tác trong dự án.
                 </p>
               </div>
             </div>

@@ -100,13 +100,12 @@ function parseAuthResponse(response: Response) {
   return response.json() as Promise<AuthResponse>
 }
 
-export function toAuthUser(user: BackendUserResponse, role: AuthUser['role']): AuthUser {
+export function toAuthUser(user: BackendUserResponse): AuthUser {
   return {
     id: user.id,
     email: user.email,
     fullName: user.fullName,
     avatarUrl: user.avatarUrl ?? undefined,
     createdAt: user.createdAt ?? undefined,
-    role,
   }
 }

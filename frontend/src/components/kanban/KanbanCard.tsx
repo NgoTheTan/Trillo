@@ -168,7 +168,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false 
             <Calendar className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">
               {formatDeadlineDisplay(card.deadline)}
-              {card.deadline && !card.completed && new Date(card.deadline).getTime() < Date.now() && ' (Overdue)'}
+              {card.deadline && !card.completed && new Date(card.deadline).getTime() < Date.now() && ' (Quá hạn)'}
             </span>
           </div>
 

@@ -15,5 +15,6 @@ public record BoardSummaryResponse(
         BoardRole currentUserRole,
         int memberCount,
         int cardCount,
+        boolean starred,
         LocalDateTime createdAt
 ) {}

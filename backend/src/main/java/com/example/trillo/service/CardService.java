@@ -12,7 +12,9 @@ import com.example.trillo.exception.AccessDeniedException;
 import com.example.trillo.exception.DuplicateResourceException;
 import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.*;
+import com.example.trillo.specification.CardSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -241,65 +243,11 @@ public class CardService {
         Board board = boardService.findBoardOrThrow(boardId);
         boardService.checkAccess(board, currentUser);
 
-        List<Card> cards = cardRepository.findAllByBoardId(boardId);
+        Specification<Card> spec = CardSpecification.filterCards(
+                boardId, labelIds, memberIds, listIds, status, noDeadline, deadlineFrom, deadlineTo, search
+        );
 
-        // 1. Keyword search (in title or description)
-        if (search != null && !search.isBlank()) {
-            String lowerSearch = search.trim().toLowerCase();
-            cards = cards.stream()
-                    .filter(c -> (c.getTitle() != null && c.getTitle().toLowerCase().contains(lowerSearch)) ||
-                                 (c.getDescription() != null && c.getDescription().toLowerCase().contains(lowerSearch)))
-                    .toList();
-        }
-
-        // 2. Filter by Columns (listIds)
-        if (listIds != null && !listIds.isEmpty()) {
-            cards = cards.stream()
-                    .filter(c -> listIds.contains(c.getList().getId()))
-                    .toList();
-        }
-
-        // 3. Filter by Status (completed vs pending)
-        if (status != null) {
-            cards = cards.stream()
-                    .filter(c -> c.isCompleted() == status)
-                    .toList();
-        }
-
-        // 4. Filter by Labels (labelIds)
-        if (labelIds != null && !labelIds.isEmpty()) {
-            cards = cards.stream()
-                    .filter(c -> c.getLabels().stream()
-                            .anyMatch(cl -> labelIds.contains(cl.getLabel().getId())))
-                    .toList();
-        }
-
-        // 5. Filter by Members (memberIds)
-        if (memberIds != null && !memberIds.isEmpty()) {
-            cards = cards.stream()
-                    .filter(c -> c.getAssignedMembers().stream()
-                            .anyMatch(cm -> memberIds.contains(cm.getUser().getId())))
-                    .toList();
-        }
-
-        // 6. Filter by No Deadline vs Deadline range
-        if (Boolean.TRUE.equals(noDeadline)) {
-            cards = cards.stream()
-                    .filter(c -> c.getDeadline() == null)
-                    .toList();
-        } else {
-            if (deadlineFrom != null) {
-                cards = cards.stream()
-                        .filter(c -> c.getDeadline() != null && !c.getDeadline().isBefore(deadlineFrom))
-                        .toList();
-            }
-            if (deadlineTo != null) {
-                cards = cards.stream()
-                        .filter(c -> c.getDeadline() != null && !c.getDeadline().isAfter(deadlineTo))
-                        .toList();
-            }
-        }
-
+        List<Card> cards = cardRepository.findAll(spec);
         return cards.stream().map(this::toCardSummaryResponse).toList();
     }
 

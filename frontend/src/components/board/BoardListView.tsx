@@ -1,5 +1,5 @@
 import React from 'react'
-import { Plus, Dot } from 'lucide-react'
+import { Plus, Globe, Lock, Star } from 'lucide-react'
 import type { BoardSummaryResponse } from '../../services/boardServices'
 import { BoardActionMenu } from './BoardActionMenu'
 import { useNavigate } from 'react-router-dom'
@@ -14,6 +14,7 @@ interface BoardListViewProps {
 
 export const BoardListView: React.FC<BoardListViewProps> = ({
   boards,
+  onToggleStar,
   onCreateClick,
   onEditBoard,
   onDeleteBoard
@@ -26,6 +27,7 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-slate-400 text-xs font-semibold uppercase tracking-wider bg-slate-50/50">
+              <th className="py-3 px-4 w-10"></th>
               <th className="py-3 px-6">Tên bảng</th>
               <th className="py-3 px-6">Quyền riêng tư</th>
               <th className="py-3 px-6">Thành viên</th>
@@ -45,6 +47,23 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
                   onClick={() => board.id && navigate(`/app/boards/${board.id}`)}
                   className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
                 >
+                  {/* Star column */}
+                  <td className="py-4 px-4" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => onToggleStar?.(board.id)}
+                      title={board.starred ? 'Bỏ đánh dấu sao' : 'Đánh dấu sao'}
+                      className={`p-1.5 rounded-full transition-all duration-200 cursor-pointer
+                        ${board.starred
+                          ? 'text-amber-400 hover:text-amber-500'
+                          : 'text-slate-300 hover:text-amber-400 opacity-0 group-hover:opacity-100'
+                        }`}
+                    >
+                      <Star
+                        className={`w-4 h-4 transition-colors ${board.starred ? 'fill-amber-400' : 'fill-transparent'}`}
+                      />
+                    </button>
+                  </td>
+
                   <td className="py-4 px-6 font-semibold text-slate-800">
                     <div className="flex items-center gap-3">
                       <div
@@ -61,10 +80,17 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
                   </td>
 
                   <td className="py-4 px-6">
-                    <span className="inline-flex items-center text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
-                      <Dot className="w-4 h-4 text-slate-400 -ml-1" />
-                      {board.visibility === 'PRIVATE' ? 'CÔNG KHAI' : (board.visibility || 'CÔNG KHAI')}
-                    </span>
+                    {board.visibility === 'PRIVATE' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80 rounded-full">
+                        <Lock className="w-3 h-3 text-amber-600" />
+                        Riêng tư
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full">
+                        <Globe className="w-3 h-3 text-emerald-600" />
+                        Công khai
+                      </span>
+                    )}
                   </td>
 
                   <td className="py-4 px-6 text-slate-600 font-medium text-xs">

@@ -17,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/boards")
@@ -46,6 +47,12 @@ public class BoardController {
         return ResponseEntity.status(HttpStatus.CREATED).body(boardService.createBoard(request, user));
     }
 
+    @GetMapping("/starred")
+    public ResponseEntity<List<BoardSummaryResponse>> getStarredBoards(
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(boardService.getStarredBoards(user));
+    }
+
     @GetMapping("/{boardId}")
     public ResponseEntity<BoardResponse> getBoard(
             @PathVariable String boardId,
@@ -67,6 +74,18 @@ public class BoardController {
             @Valid @RequestBody com.example.trillo.dto.request.UpdateBoardTitleRequest request,
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(boardService.updateBoardTitle(boardId, request, user));
+    }
+
+    /**
+     * Toggle the starred state of a board for the authenticated user.
+     * Returns { "starred": true/false } reflecting the new state.
+     */
+    @RequestMapping(value = "/{boardId}/star", method = {RequestMethod.PATCH, RequestMethod.POST})
+    public ResponseEntity<Map<String, Boolean>> toggleStar(
+            @PathVariable String boardId,
+            @AuthenticationPrincipal User user) {
+        boolean starred = boardService.toggleStar(boardId, user);
+        return ResponseEntity.ok(Map.of("starred", starred));
     }
 
     @DeleteMapping("/{boardId}")

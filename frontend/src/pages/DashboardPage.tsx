@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGrid, Rocket, Users2, ChevronDown, Star } from 'lucide-react'
+import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGrid, Rocket, Users2, ChevronDown, Star, Lock, Globe } from 'lucide-react'
 import { useQueries } from '@tanstack/react-query'
 import { useBoardDetailQuery, useBoardsQuery, type BoardList, type BoardMember } from '../services/boardServices'
 import { getAllListCards, useListCardsQuery, type ListCardResponse } from '../services/cardService.ts'
@@ -619,7 +619,17 @@ export function DashboardPage({
                       {board.description || 'Chưa có mô tả. Hãy thêm mô tả ngắn gọn cho bảng này.'}
                     </p>
                   </div>
-                  <span className="dashboard-board-card__badge">{board.visibility || 'PUBLIC'}</span>
+                  {board.visibility === 'PRIVATE' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80 rounded-full">
+                      <Lock className="w-3 h-3 text-amber-600" />
+                      Riêng tư
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full">
+                      <Globe className="w-3 h-3 text-emerald-600" />
+                      Công khai
+                    </span>
+                  )}
                 </div>
 
                 <div className="dashboard-board-card__stats">

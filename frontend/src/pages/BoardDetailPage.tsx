@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
     Globe,
+    Lock,
     Loader2,
     UserPlus,
     Star
 } from 'lucide-react'
-import { useBoardDetailQuery, useUpdateBoardTitleMutation, type BoardList } from '../services/boardServices'
+import { useBoardDetailQuery, useUpdateBoardTitleMutation, useToggleBoardStarMutation, type BoardList } from '../services/boardServices'
 import { KanbanColumn } from '../components/kanban/KanbanColumn'
 import { BoardListFormModal } from '../components/boardList/BoardListFormModal'
 import {
@@ -82,6 +83,7 @@ export const BoardDetailPage: React.FC = () => {
     const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false)
     const [editTitle, setEditTitle] = useState<string>('')
     const updateBoardTitleMutation = useUpdateBoardTitleMutation()
+    const toggleStarMutation = useToggleBoardStarMutation()
 
     const [cardFilterFeatures, setCardFilterFeatures] = useState<FilterCardsPayload>({
         search: '',
@@ -499,10 +501,37 @@ export const BoardDetailPage: React.FC = () => {
                             </h1>
                         )}
                     </div>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full shrink-0">
-                        <Globe className="w-3 h-3 text-emerald-600" />
-                        {board?.visibility === 'PUBLIC' ? 'Công khai' : 'Riêng tư'}
-                    </span>
+                    {board?.visibility === 'PRIVATE' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80 rounded-full shrink-0">
+                            <Lock className="w-3 h-3 text-amber-600" />
+                            Riêng tư
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full shrink-0">
+                            <Globe className="w-3 h-3 text-emerald-600" />
+                            Công khai
+                        </span>
+                    )}
+
+                    {/* Star button */}
+                    <button
+                        onClick={() => boardId && toggleStarMutation.mutate(boardId)}
+                        disabled={toggleStarMutation.isPending}
+                        title={board?.starred ? 'Bỏ đánh dấu sao' : 'Đánh dấu sao board này'}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all duration-200 cursor-pointer text-xs font-semibold shrink-0
+                            ${
+                                board?.starred
+                                    ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                                    : 'bg-white border-slate-200 text-slate-500 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50'
+                            } ${toggleStarMutation.isPending ? 'opacity-60' : ''}`}
+                    >
+                        <Star
+                            className={`w-3.5 h-3.5 transition-all ${
+                                board?.starred ? 'fill-amber-400 text-amber-400' : 'fill-transparent'
+                            } ${toggleStarMutation.isPending ? 'animate-pulse' : ''}`}
+                        />
+                        {board?.starred ? 'Đã đánh dấu' : 'Đánh dấu'}
+                    </button>
                 </div>
 
                 {/* Right Section: Members (online presence) + Invite + Filter */}

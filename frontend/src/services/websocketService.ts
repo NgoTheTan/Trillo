@@ -202,15 +202,27 @@ export function useWebSocketNotifications() {
       webSocketService.connect(token);
 
       const unsubscribe = webSocketService.onNotification((notif) => {
-        // Show real-time toast alert
-        toast(notif.message, {
-          icon: notif.type === 'DEADLINE_REMINDER' ? '⏰' : '🔔',
-          duration: 5000,
-        });
+        // Determine icon based on notification type
+        const iconMap: Record<string, string> = {
+          DEADLINE_REMINDER: '⏰',
+          BOARD_INVITE: '🎉',
+          CARD_ASSIGNED: '✅',
+          COMMENT_ADDED: '💬',
+          MEMBER_JOINED: '👥',
+        };
+        const icon = iconMap[notif.type] ?? '🔔';
 
-        // Invalidate queries so notifications list and unread count update instantly
+        // Show real-time toast with title (if available) and message
+        const toastMessage = notif.title
+          ? `${notif.title}\n${notif.message}`
+          : notif.message;
+
+        toast(toastMessage, { icon, duration: 5000 });
+
+        // Immediately refetch so notification bell updates in real-time
+        queryClient.refetchQueries({ queryKey: ['notifications'], type: 'active' });
+        // Also invalidate so any mounted component re-fetches
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
       });
 
       return () => {

@@ -16,6 +16,7 @@ public record BoardResponse(
         UserResponse owner,
         BoardRole currentUserRole,
         List<BoardPermission> currentUserPermissions,
+        boolean starred,
         List<MemberResponse> members,
         List<ListResponse> lists,
         List<LabelResponse> labels,

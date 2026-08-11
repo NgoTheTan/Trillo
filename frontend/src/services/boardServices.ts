@@ -112,6 +112,7 @@ export interface BoardDetailResponse {
   owner: UserResponse
   currentUserRole?: 'OWNER' | 'MEMBER' | string
   currentUserPermissions?: BoardPermission[]
+  starred?: boolean
   members: BoardMember[]
   lists: BoardList[]
   labels: BoardLabel[]
@@ -129,6 +130,7 @@ export interface BoardSummaryResponse {
   currentUserRole?: 'OWNER' | 'MEMBER' | string
   memberCount?: number
   cardCount?: number
+  starred?: boolean
   createdAt?: string
   updatedAt?: string
 }
@@ -204,6 +206,14 @@ export const updateMemberPermissions = async (
   permissions: BoardPermission[]
 ): Promise<BoardMember> => {
   return await Api.put<BoardMember>(`/boards/${boardId}/members/${memberId}/permissions`, { permissions });
+}
+
+export const toggleBoardStar = async (boardId: string): Promise<{ starred: boolean }> => {
+  return await Api.patch<{ starred: boolean }>(`/boards/${boardId}/star`);
+}
+
+export const getStarredBoards = async (): Promise<BoardSummaryResponse[]> => {
+  return await Api.get<BoardSummaryResponse[]>('/boards/starred');
 }
 
 // ── React Query Hooks ─────────────────────────────────────────────────────────
@@ -308,3 +318,69 @@ export const useUpdateMemberPermissionsMutation = () => {
     },
   });
 };
+
+export const useStarredBoardsQuery = () => {
+  return useQuery({
+    queryKey: ['boards', 'starred'],
+    queryFn: getStarredBoards,
+    staleTime: 0,
+  });
+};
+
+export const useToggleBoardStarMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (boardId: string) => toggleBoardStar(boardId),
+    // Optimistic update: flip the starred flag instantly in all cached board lists
+    onMutate: async (boardId: string) => {
+      await queryClient.cancelQueries({ queryKey: ['boards'] });
+
+      const updateBoard = (boards: BoardSummaryResponse[] | undefined) =>
+        boards?.map(b => b.id === boardId ? { ...b, starred: !b.starred } : b);
+
+      // Snapshot previous values for rollback
+      const previousAll = queryClient.getQueryData<BoardSummaryResponse[]>(['boards', 'my', '']);
+      const previousStarred = queryClient.getQueryData<BoardSummaryResponse[]>(['boards', 'starred']);
+
+      // Flip in all cached board-list queries
+      queryClient.setQueriesData<BoardSummaryResponse[]>({ queryKey: ['boards', 'my'] }, updateBoard);
+      queryClient.setQueriesData<BoardSummaryResponse[]>({ queryKey: ['boards', 'public'] }, updateBoard);
+
+      // Update starred list: add or remove the board
+      queryClient.setQueryData<BoardSummaryResponse[]>(['boards', 'starred'], (old = []) => {
+        const exists = old.some(b => b.id === boardId);
+        if (exists) {
+          return old.filter(b => b.id !== boardId);
+        } else {
+          // Find the board in the 'my' cache to add it
+          const allBoards = queryClient.getQueryData<BoardSummaryResponse[]>(['boards', 'my', '']);
+          const board = allBoards?.find(b => b.id === boardId);
+          return board ? [...old, { ...board, starred: true }] : old;
+        }
+      });
+
+      // Update board detail cache if open
+      queryClient.setQueryData<BoardDetailResponse>(['boards', boardId], (old) =>
+        old ? { ...old, starred: !old.starred } : old
+      );
+
+      return { previousAll, previousStarred };
+    },
+    onError: (_err, boardId, context: any) => {
+      // Rollback on error
+      if (context?.previousAll) {
+        queryClient.setQueryData(['boards', 'my', ''], context.previousAll);
+      }
+      if (context?.previousStarred) {
+        queryClient.setQueryData(['boards', 'starred'], context.previousStarred);
+      }
+    },
+    onSettled: (_data, _err, boardId) => {
+      // Sync with server after mutation settles
+      queryClient.invalidateQueries({ queryKey: ['boards', 'my'] });
+      queryClient.invalidateQueries({ queryKey: ['boards', 'starred'] });
+      queryClient.invalidateQueries({ queryKey: ['boards', boardId] });
+    },
+  });
+};
+

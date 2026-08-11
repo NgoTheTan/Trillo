@@ -93,13 +93,7 @@ export const BoardDetailPage: React.FC = () => {
         deadlineTo: null,
     })
 
-    // Track pending cross-list move to execute API only on drag end
-    const pendingCrossListMove = React.useRef<{
-        cardId: string;
-        sourceListId: string;
-        destListId: string;
-        destPosition: number;
-    } | null>(null);
+
 
     const filterCardsQuery = useFilterCardsQuery(boardId, cardFilterFeatures)
 
@@ -181,7 +175,23 @@ export const BoardDetailPage: React.FC = () => {
         if (current?.listId || findListByCardId(active.id as string)) {
             setActiveDraggingId(active.id as string)
             setActiveDraggingItemType(ACTIVE_DRAG_ITEM_TYPE.CARD);
-            setActiveDraggingData(current as ListCardResponse);
+            
+            let cardData = current as ListCardResponse;
+            const list = findListByCardId(active.id as string);
+            let startIndex = -1;
+            if (list) {
+                const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', list.id]) || [];
+                const foundCard = cachedCards.find(c => c.id === active.id);
+                if (foundCard) {
+                    cardData = foundCard;
+                }
+                startIndex = cachedCards.findIndex(c => c.id === active.id);
+            }
+            
+            setActiveDraggingData({
+                ...cardData,
+                position: startIndex !== -1 ? startIndex : (cardData?.position ?? 0)
+            } as any);
             return;
         }
     };
@@ -234,12 +244,9 @@ export const BoardDetailPage: React.FC = () => {
                 return list;
             });
         });
-
-        // Track latest pending move — only the final position on drop will be committed
-        pendingCrossListMove.current = { cardId, sourceListId, destListId: destinationListId, destPosition: newIndex };
     };
 
-    // trigger trong quá trình kéo 1 phần tử card/list vào column khác
+    // trigger trong quá trình kéo 1 phần tử card/list vào column khác hoặc trong cùng column
     const handleDragOver = (event: DragOverEvent) => {
         if (document.querySelector('[data-slot="dialog-content"]')) {
             return;
@@ -252,6 +259,8 @@ export const BoardDetailPage: React.FC = () => {
 
         const { id: activeCardId } = active;
         const { id: overCardId } = over;
+
+        if (activeCardId === overCardId) return;
 
         const activeList = findListByCardId(activeCardId as string);
         const overList = findListByCardId(overCardId as string);
@@ -279,13 +288,44 @@ export const BoardDetailPage: React.FC = () => {
                 newIndex,
                 activeCardId as string
             );
+        } else {
+            // Cập nhật vị trí kéo trong cùng cột thời gian thực
+            const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', activeList.id]) || [];
+            const oldIndex = cachedCards.findIndex(c => c.id === activeCardId);
+            let newIndex = cachedCards.findIndex(c => c.id === overCardId);
+
+            if (newIndex === -1 && overCardId === activeList.id) {
+                newIndex = cachedCards.length > 0 ? cachedCards.length - 1 : 0;
+            }
+
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                const reordered = arrayMove(cachedCards, oldIndex, newIndex);
+                queryClient.setQueryData(['list-cards', activeList.id], reordered);
+            }
+
+            const oldStateIndex = activeList.cards?.findIndex((c: any) =>
+                typeof c === 'string' ? c === activeCardId : c?.id === activeCardId
+            ) ?? -1;
+            let newStateIndex = activeList.cards?.findIndex((c: any) =>
+                typeof c === 'string' ? c === overCardId : c?.id === overCardId
+            ) ?? -1;
+
+            if (newStateIndex === -1 && overCardId === activeList.id) {
+                newStateIndex = activeList.cards?.length ? activeList.cards.length - 1 : 0;
+            }
+
+            if (oldStateIndex !== -1 && newStateIndex !== -1 && oldStateIndex !== newStateIndex) {
+                const newCards = arrayMove(activeList.cards || [], oldStateIndex, newStateIndex);
+                setOrderedLists(prev =>
+                    prev.map(l => (l.id === activeList.id ? { ...l, cards: newCards } : l))
+                );
+            }
         }
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over) {
-            pendingCrossListMove.current = null;
             setActiveDraggingId(null);
             setActiveDraggingItemType(null);
             setActiveDraggingData(null);
@@ -309,53 +349,43 @@ export const BoardDetailPage: React.FC = () => {
         // Dragging Card
         if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.CARD) {
             const activeCardId = active.id as string;
-            const pending = pendingCrossListMove.current;
+            const originalCardData = activeDraggingData as ListCardResponse;
+            const originalListId = originalCardData?.listId;
 
-            if (pending && pending.cardId === activeCardId) {
-                // Cross-list move — fire the single pending API call now
-                moveCard(pending.cardId, pending.destListId, pending.destPosition)
-                    .then(() => {
-                        queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
-                        queryClient.invalidateQueries({ queryKey: ['list-cards'] });
-                    })
-                    .catch(err => {
-                        console.error('Failed to move card:', err);
-                        queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
-                        queryClient.invalidateQueries({ queryKey: ['list-cards'] });
-                    });
-                pendingCrossListMove.current = null;
-            } else {
-                const overCardId = over.id as string;
-                const activeList = findListByCardId(activeCardId);
-                const overList = findListByCardId(overCardId);
+            const currentList = findListByCardId(activeCardId);
+            if (currentList) {
+                const currentListId = currentList.id;
+                const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', currentListId]) || [];
+                const finalIndex = cachedCards.findIndex(c => c.id === activeCardId);
 
-                if (activeList && overList && activeList.id === overList.id) {
-                    // Same column reorder
-                    pendingCrossListMove.current = null;
-                    const listId = activeList.id;
-                    const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', listId]) || [];
-                    const oldIndex = cachedCards.findIndex(c => c.id === activeCardId);
-                    const newIndex = cachedCards.findIndex(c => c.id === overCardId);
-
-                    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                        const reordered = arrayMove(cachedCards, oldIndex, newIndex);
-                        queryClient.setQueryData(['list-cards', listId], reordered);
-                    }
-
-                    const oldStateIndex = activeList.cards?.findIndex((c: any) =>
-                        typeof c === 'string' ? c === activeCardId : c?.id === activeCardId
-                    ) ?? -1;
-                    const newStateIndex = overList.cards?.findIndex((c: any) =>
-                        typeof c === 'string' ? c === overCardId : c?.id === overCardId
-                    ) ?? -1;
-
-                    if (oldStateIndex !== -1 && newStateIndex !== -1 && oldStateIndex !== newStateIndex) {
-                        const newCards = arrayMove(activeList.cards || [], oldStateIndex, newStateIndex);
-                        const updateCard = newCards.map((card: any) => typeof card === 'string' ? card : card.id);
-                        setOrderedLists(prev =>
-                            prev.map(l => (l.id === activeList.id ? { ...l, cards: newCards } : l))
-                        );
-                        reorderCards(activeList.id, updateCard as string[]);
+                if (originalListId !== currentListId) {
+                    // Di chuyển sang cột khác — gọi API di chuyển
+                    const destPosition = finalIndex !== -1 ? finalIndex : 0;
+                    moveCard(activeCardId, currentListId, destPosition)
+                        .then(() => {
+                            queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+                            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+                        })
+                        .catch(err => {
+                            console.error('Failed to move card:', err);
+                            queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+                            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+                        });
+                } else {
+                    // Sắp xếp trong cùng cột — gọi API sắp xếp lại nếu vị trí thay đổi
+                    const originalIndex = originalCardData?.position ?? -1;
+                    if (finalIndex !== -1 && finalIndex !== originalIndex) {
+                        const cardIds = cachedCards.map(c => c.id);
+                        reorderCards(currentListId, cardIds)
+                            .then(() => {
+                                queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+                                queryClient.invalidateQueries({ queryKey: ['list-cards', currentListId] });
+                            })
+                            .catch(err => {
+                                console.error('Failed to reorder cards:', err);
+                                queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+                                queryClient.invalidateQueries({ queryKey: ['list-cards', currentListId] });
+                            });
                     }
                 }
             }

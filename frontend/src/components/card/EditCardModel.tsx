@@ -197,7 +197,6 @@ const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
     return `${h}:${m}`
   })
 
-  const [hasDueDate, setHasDueDate] = useState(true)
   const [reminderOption, setReminderOption] = useState(() => reminderValue || '1_day_before')
 
   const year = viewMonth.getFullYear()
@@ -226,11 +225,6 @@ const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
 
   const handleSave = () => {
     if (disabled) return
-    if (!hasDueDate) {
-      onRemove()
-      onClose()
-      return
-    }
     const [hStr, mStr] = timeStr.split(':')
     const h = parseInt(hStr || '0', 10)
     const m = parseInt(mStr || '0', 10)
@@ -293,7 +287,7 @@ const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
             {currentMonthDays.map(d => {
               const thisDay = new Date(year, month, d)
               const isToday = isSameDay(thisDay, new Date())
-              const isSelected = hasDueDate && isSameDay(thisDay, selectedDate)
+              const isSelected = isSameDay(thisDay, selectedDate)
 
               const todayClass = isToday ? 'underline underline-offset-4 decoration-2 decoration-blue-600 font-bold' : ''
               const cellBgClass = isSelected
@@ -322,23 +316,17 @@ const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
             <label className="block text-xs font-semibold text-slate-600">Ngày đến hạn</label>
             <div className="flex items-center gap-2">
               <input
-                type="checkbox"
-                checked={hasDueDate}
-                onChange={e => setHasDueDate(e.target.checked)}
-                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-              />
-              <input
                 type="text"
                 readOnly
                 value={formattedDueDate}
-                className="w-28 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer text-slate-800 font-medium"
+                className="flex-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer text-slate-800 font-medium"
                 placeholder="dd/mm/yyyy"
               />
               <input
                 type="time"
                 value={timeStr}
                 onChange={e => setTimeStr(e.target.value)}
-                className="flex-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800 font-medium"
+                className="w-28 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800 font-medium"
               />
             </div>
           </div>

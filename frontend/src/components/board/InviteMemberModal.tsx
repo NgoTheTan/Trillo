@@ -52,11 +52,11 @@ const getInitials = (name?: string) => {
 const PERMISSION_GROUPS = [
   {
     label: 'Thẻ (Card)',
-    permissions: ['CREATE_CARD', 'EDIT_CARD', 'DELETE_CARD', 'MOVE_CARD'] as BoardPermission[],
+    permissions: ['CREATE_CARD', 'EDIT_CARD', 'MOVE_CARD'] as BoardPermission[],
   },
   {
     label: 'Cột (List)',
-    permissions: ['CREATE_LIST', 'EDIT_LIST', 'DELETE_LIST'] as BoardPermission[],
+    permissions: ['CREATE_LIST', 'EDIT_LIST'] as BoardPermission[],
   },
   {
     label: 'Lưu trữ (Archive)',

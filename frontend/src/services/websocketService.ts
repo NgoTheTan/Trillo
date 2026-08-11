@@ -545,7 +545,7 @@ export function useDraggingPresence(boardId: string | undefined) {
         cardId,
         userId: currentUser.id,
         fullName: currentUser.fullName,
-        avatarUrl: currentUser.avatarUrl ?? '',
+        avatarUrl: getAvatarUrl(currentUser.avatarUrl) ?? '',
       })
     );
   };
@@ -564,7 +564,7 @@ export function useDraggingPresence(boardId: string | undefined) {
         columnId,
         userId: currentUser.id,
         fullName: currentUser.fullName,
-        avatarUrl: currentUser.avatarUrl ?? '',
+        avatarUrl: getAvatarUrl(currentUser.avatarUrl) ?? '',
       })
     );
   };

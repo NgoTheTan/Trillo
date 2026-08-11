@@ -95,8 +95,8 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
         {/* Drag Presence Indicator — ai đang kéo card này */}
         {dragger && !isOverlay && (
           <div className="flex items-center gap-1.5 mb-1 px-2 py-1 bg-orange-50 border border-orange-200/60 rounded-md">
-            {dragger.avatarUrl ? (
-              <img src={dragger.avatarUrl} alt={dragger.fullName} className="w-4 h-4 rounded-full object-cover shrink-0" />
+            {getAvatarUrl(dragger.avatarUrl) ? (
+              <img src={getAvatarUrl(dragger.avatarUrl)} alt={dragger.fullName} className="w-4 h-4 rounded-full object-cover shrink-0" />
             ) : (
               <div className="w-4 h-4 rounded-full bg-orange-400 text-white text-[8px] font-bold flex items-center justify-center shrink-0">
                 {dragger.fullName.charAt(0).toUpperCase()}

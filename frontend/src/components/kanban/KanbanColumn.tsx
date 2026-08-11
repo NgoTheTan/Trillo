@@ -16,6 +16,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { CardDragEvent, ColumnDragEvent } from '../../services/websocketService';
 import { ListMenuPopover } from './ListMenuPopover';
 import { useAuth } from '../../auth/authContext';
+import { getAvatarUrl } from '../../auth/authStorage';
 
 interface KanbanColumnProps {
   list: BoardList
@@ -176,8 +177,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         {/* Column Drag Presence Indicator — ai đang kéo column này */}
         {columnDragger && !isOverlay && (
           <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-50 border border-orange-200/60 rounded-md -mt-1 mb-0">
-            {columnDragger.avatarUrl ? (
-              <img src={columnDragger.avatarUrl} alt={columnDragger.fullName} className="w-4 h-4 rounded-full object-cover shrink-0" />
+            {getAvatarUrl(columnDragger.avatarUrl) ? (
+              <img src={getAvatarUrl(columnDragger.avatarUrl)} alt={columnDragger.fullName} className="w-4 h-4 rounded-full object-cover shrink-0" />
             ) : (
               <div className="w-4 h-4 rounded-full bg-orange-400 text-white text-[8px] font-bold flex items-center justify-center shrink-0">
                 {columnDragger.fullName.charAt(0).toUpperCase()}

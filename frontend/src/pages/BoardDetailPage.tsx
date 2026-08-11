@@ -43,15 +43,16 @@ class SmartPointerSensor extends PointerSensor {
     static activators = [
         {
             eventName: 'onPointerDown' as const,
-            handler: ({ nativeEvent: event }: React.PointerEvent) => {
+            handler: (event: React.PointerEvent, options: any) => {
+                const target = event.target as HTMLElement;
                 if (
                     document.querySelector('[data-slot="dialog-content"]') ||
                     document.querySelector('[data-slot="dialog-portal"]') ||
-                    (event.target as HTMLElement).closest('[data-slot="dialog-content"]')
+                    target.closest('[data-slot="dialog-content"]')
                 ) {
                     return false;
                 }
-                return true;
+                return PointerSensor.activators[0].handler(event, options);
             },
         },
     ];

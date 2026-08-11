@@ -133,14 +133,19 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       className="h-full shrink-0"
     >
       <div
-        {...(isOverlay ? {} : listeners)}
+        {...(isOverlay ? {} : (canMoveCard ? listeners : {}))}
         className={`flex flex-col gap-3 w-[280px] sm:w-72 bg-[#f4f5f9] group/column rounded-xl p-4 border border-slate-200/60 transition-all ${isOverlay ? 'shadow-2xl ring-2 ring-blue-500/40 rotate-1 scale-[1.02] cursor-grabbing' : 'hover:shadow-md'
           }`}
       >
         {/* Column Header - Drag Handle */}
         <div
-          className={`flex items-center justify-between px-1 py-1 select-none ${isOverlay ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing'
-            }`}
+          className={`flex items-center justify-between px-1 py-1 select-none ${
+            isOverlay
+              ? 'cursor-grabbing'
+              : canMoveCard
+              ? 'cursor-grab active:cursor-grabbing'
+              : 'cursor-default'
+          }`}
         >
           {editingName ? (
             <input
@@ -215,6 +220,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   key={card.id}
                   card={card}
                   canEditCard={canEditCard}
+                  canMoveCard={canMoveCard}
                 />
               ))}
               {cardsToRender.length === 0 && (

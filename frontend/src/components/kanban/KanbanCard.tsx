@@ -19,9 +19,10 @@ interface KanbanCardProps {
   card: ListCardResponse
   isOverlay?: boolean
   canEditCard?: boolean
+  canMoveCard?: boolean
 }
 
-export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false, canEditCard = true }) => {
+export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false, canEditCard = true, canMoveCard = true }) => {
   const [openEditCardModal, setOpenEditCardModal] = useState<boolean>(false)
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false)
   const [isShowCheckList, setIsShowCheckList] = useState<boolean>(false)
@@ -37,7 +38,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
     data: { ...card },
-    disabled: isOverlay || openEditCardModal || openDeleteModal,
+    disabled: isOverlay || openEditCardModal || openDeleteModal || !canMoveCard,
   })
 
   const dndKitCardStyle: React.CSSProperties = {
@@ -75,10 +76,15 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
         ref={isOverlay ? undefined : setNodeRef}
         style={dndKitCardStyle}
         {...(isOverlay ? {} : attributes)}
-        {...(isOverlay ? {} : listeners)}
+        {...(isOverlay ? {} : (canMoveCard ? listeners : {}))}
         onClick={() => setOpenEditCardModal(true)}
-        className={`bg-white rounded-lg p-3.5 border border-slate-100 transition-all cursor-pointer space-y-2.5 group/card relative touch-none select-none ${isOverlay ? 'shadow-xl rotate-1 scale-[1.02] ring-2 ring-blue-500/30' : 'shadow-xs hover:shadow-md'
-          }`}
+        className={`bg-white rounded-lg p-3.5 border border-slate-100 transition-all space-y-2.5 group/card relative touch-none select-none ${
+          isOverlay
+            ? 'shadow-xl rotate-1 scale-[1.02] ring-2 ring-blue-500/30 cursor-grabbing'
+            : canMoveCard
+            ? 'cursor-grab active:cursor-grabbing shadow-xs hover:shadow-md'
+            : 'cursor-pointer shadow-xs hover:shadow-md'
+        }`}
       >
         {card.labels && card.labels.length > 0 && (
           <div className="flex flex-wrap gap-1">

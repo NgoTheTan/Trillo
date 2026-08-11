@@ -3,11 +3,19 @@ import { Loader2, Plus } from 'lucide-react'
 import type { BoardList } from '../../services/boardServices'
 import { KanbanCard } from './KanbanCard'
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal'
-import { useCreateCardMutation, useListCardsQuery, type ListCardResponse } from '../../services/cardService.ts'
+import {
+  useCreateCardMutation,
+  useListCardsQuery,
+  hasActiveFilter,
+  filterSingleCard,
+  type ListCardResponse,
+  type FilterCardsPayload
+} from '../../services/cardService.ts'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CardDragEvent, ColumnDragEvent } from '../../services/websocketService';
 import { ListMenuPopover } from './ListMenuPopover';
+import { useAuth } from '../../auth/authContext';
 
 interface KanbanColumnProps {
   list: BoardList
@@ -16,6 +24,7 @@ interface KanbanColumnProps {
   handleUpdateTitleColumn?: (boardId: string, listId: string, title: string) => void
   isOverlay?: boolean
   filteredCardIds?: Set<string> | null
+  cardFilterFeatures?: FilterCardsPayload
   canCreateCard?: boolean
   canEditCard?: boolean
   canDeleteCard?: boolean
@@ -33,6 +42,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   handleDeleteColumn,
   isOverlay = false,
   filteredCardIds = null,
+  cardFilterFeatures,
   canCreateCard = true,
   canEditCard = true,
   canMoveCard = true,
@@ -41,6 +51,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   canCreateList = true,
   canArchiveItem = true,
 }) => {
+  const { user: currentUser } = useAuth();
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(list.title);
   const [cardTitle, setCardTitle] = useState('');
@@ -57,6 +68,10 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     fetchedCards.forEach(c => map.set(c.id, c));
     return map;
   }, [fetchedCards]);
+
+  const isFilterActive = React.useMemo(() => {
+    return hasActiveFilter(cardFilterFeatures);
+  }, [cardFilterFeatures]);
 
   const cardsToRender = React.useMemo(() => {
     let baseCards = fetchedCards;
@@ -76,12 +91,16 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       baseCards = [...orderedCards, ...remainingCards];
     }
 
+    if (isFilterActive && cardFilterFeatures) {
+      return baseCards.filter(c => filterSingleCard(c, cardFilterFeatures, currentUser?.id));
+    }
+
     if (filteredCardIds) {
       return baseCards.filter(c => filteredCardIds.has(c.id));
     }
 
     return baseCards;
-  }, [list.cards, fetchedCards, cardsMap, list.id, filteredCardIds]);
+  }, [list.cards, fetchedCards, cardsMap, list.id, filteredCardIds, isFilterActive, cardFilterFeatures, currentUser?.id]);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
@@ -227,7 +246,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         </div>
 
 
-        {filteredCardIds !== null && (
+        {(isFilterActive || filteredCardIds !== null) && (
           <div className="mb-2 px-2.5 py-1.5 bg-blue-50/80 border border-blue-200/60 rounded-xl flex items-center justify-between text-xs font-semibold text-blue-700 shadow-2xs">
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />

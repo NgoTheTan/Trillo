@@ -102,6 +102,7 @@ export interface ListCardResponse {
     attachmentCount: number;
     checklists: ChecklistResponse[];
     createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface UpdateCardPayload {
@@ -112,14 +113,203 @@ export interface UpdateCardPayload {
 }
 
 export interface FilterCardsPayload {
-    search: string,
-    listIds: string[],
-    memberIds: string[],
-    labelIds: string[],
-    status: boolean | null,
-    noDeadline?: boolean,
-    deadlineFrom: string | Date | null,
-    deadlineTo: string | Date | null,
+    search: string;
+    listIds: string[];
+    // Member filters
+    noMembers?: boolean;
+    assignedToMe?: boolean;
+    memberIds: string[];
+    // Status filters
+    statusDone?: boolean;
+    statusPending?: boolean;
+    status?: boolean | null;
+    // Due date filters
+    noDeadline?: boolean;
+    overdue?: boolean;
+    dueNextDay?: boolean;
+    dueNextWeek?: boolean;
+    dueNextMonth?: boolean;
+    deadlineFrom?: string | Date | null;
+    deadlineTo?: string | Date | null;
+    // Label filters
+    noLabels?: boolean;
+    labelIds: string[];
+    // Activity filters
+    activityWeek?: boolean;
+    activityTwoWeeks?: boolean;
+    activityFourWeeks?: boolean;
+    noActivityFourWeeks?: boolean;
+}
+
+export function hasActiveFilter(filters?: FilterCardsPayload | null): boolean {
+    if (!filters) return false;
+    return Boolean(
+        (filters.search && filters.search.trim().length > 0) ||
+        (filters.listIds && filters.listIds.length > 0) ||
+        filters.noMembers ||
+        filters.assignedToMe ||
+        (filters.memberIds && filters.memberIds.length > 0) ||
+        filters.statusDone ||
+        filters.statusPending ||
+        (filters.status !== null && filters.status !== undefined) ||
+        filters.noDeadline ||
+        filters.overdue ||
+        filters.dueNextDay ||
+        filters.dueNextWeek ||
+        filters.dueNextMonth ||
+        filters.deadlineFrom ||
+        filters.deadlineTo ||
+        filters.noLabels ||
+        (filters.labelIds && filters.labelIds.length > 0) ||
+        filters.activityWeek ||
+        filters.activityTwoWeeks ||
+        filters.activityFourWeeks ||
+        filters.noActivityFourWeeks
+    );
+}
+
+export function filterSingleCard(card: ListCardResponse, filters: FilterCardsPayload, currentUserId?: string): boolean {
+    const now = new Date();
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const twentyEightDaysAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+
+    // 1. Search keyword
+    if (filters.search?.trim()) {
+        const query = filters.search.trim().toLowerCase();
+        const titleMatch = card.title?.toLowerCase().includes(query);
+        const descMatch = card.description?.toLowerCase().includes(query);
+        if (!titleMatch && !descMatch) return false;
+    }
+
+    // 2. Column listIds
+    if (filters.listIds && filters.listIds.length > 0) {
+        if (!filters.listIds.includes(card.listId)) return false;
+    }
+
+    // 3. Member filtering
+    const hasMemberFilters =
+        filters.noMembers ||
+        filters.assignedToMe ||
+        (filters.memberIds && filters.memberIds.length > 0);
+
+    if (hasMemberFilters) {
+        let memberMatch = false;
+        const members = card.assignedMembers || [];
+
+        if (filters.noMembers && members.length === 0) {
+            memberMatch = true;
+        }
+        if (filters.assignedToMe && currentUserId) {
+            if (members.some(m => m.id === currentUserId || (m as any).user?.id === currentUserId)) {
+                memberMatch = true;
+            }
+        }
+        if (filters.memberIds && filters.memberIds.length > 0) {
+            if (members.some(m => filters.memberIds.includes(m.id) || filters.memberIds.includes((m as any).user?.id))) {
+                memberMatch = true;
+            }
+        }
+        if (!memberMatch) return false;
+    }
+
+    // 4. Card Status
+    const hasStatusDone = filters.statusDone || filters.status === true;
+    const hasStatusPending = filters.statusPending || filters.status === false;
+
+    if (hasStatusDone && !hasStatusPending && !card.completed) return false;
+    if (hasStatusPending && !hasStatusDone && card.completed) return false;
+
+    // 5. Due date filtering
+    const hasDueDateFilters =
+        filters.noDeadline ||
+        filters.overdue ||
+        filters.dueNextDay ||
+        filters.dueNextWeek ||
+        filters.dueNextMonth;
+
+    if (hasDueDateFilters) {
+        let dateMatch = false;
+        const deadlineDate = card.deadline ? new Date(card.deadline) : null;
+
+        if (filters.noDeadline && !deadlineDate) {
+            dateMatch = true;
+        }
+        if (deadlineDate) {
+            if (filters.overdue && deadlineDate < now && !card.completed) {
+                dateMatch = true;
+            }
+            if (filters.dueNextDay && deadlineDate >= now && deadlineDate <= in24h) {
+                dateMatch = true;
+            }
+            if (filters.dueNextWeek && deadlineDate >= now && deadlineDate <= in7days) {
+                dateMatch = true;
+            }
+            if (filters.dueNextMonth && deadlineDate >= now && deadlineDate <= in30days) {
+                dateMatch = true;
+            }
+        }
+        if (!dateMatch) return false;
+    }
+
+    // 6. Label filtering
+    const hasLabelFilters =
+        filters.noLabels ||
+        (filters.labelIds && filters.labelIds.length > 0);
+
+    if (hasLabelFilters) {
+        let labelMatch = false;
+        const labels = card.labels || [];
+
+        if (filters.noLabels && labels.length === 0) {
+            labelMatch = true;
+        }
+        if (filters.labelIds && filters.labelIds.length > 0) {
+            if (labels.some(l => filters.labelIds.includes(l.id))) {
+                labelMatch = true;
+            }
+        }
+        if (!labelMatch) return false;
+    }
+
+    // 7. Activity filtering
+    const hasActivityFilters =
+        filters.activityWeek ||
+        filters.activityTwoWeeks ||
+        filters.activityFourWeeks ||
+        filters.noActivityFourWeeks;
+
+    if (hasActivityFilters) {
+        let activityMatch = false;
+        const cardActivityDate = card.updatedAt
+            ? new Date(card.updatedAt)
+            : (card.createdAt ? new Date(card.createdAt) : null);
+
+        if (cardActivityDate) {
+            if (filters.activityWeek && cardActivityDate >= sevenDaysAgo) {
+                activityMatch = true;
+            }
+            if (filters.activityTwoWeeks && cardActivityDate >= fourteenDaysAgo) {
+                activityMatch = true;
+            }
+            if (filters.activityFourWeeks && cardActivityDate >= twentyEightDaysAgo) {
+                activityMatch = true;
+            }
+            if (filters.noActivityFourWeeks && cardActivityDate < twentyEightDaysAgo) {
+                activityMatch = true;
+            }
+        } else if (filters.noActivityFourWeeks) {
+            activityMatch = true;
+        }
+
+        if (!activityMatch) return false;
+    }
+
+    return true;
 }
 
 export const createNewCard = async (listId: string, listCardPayload: ListCardPayload) => {

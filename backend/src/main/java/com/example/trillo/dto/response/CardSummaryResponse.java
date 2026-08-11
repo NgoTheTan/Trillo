@@ -19,5 +19,6 @@ public record CardSummaryResponse(
         int commentCount,
         int attachmentCount,
         List<ChecklistResponse> checklists,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {}

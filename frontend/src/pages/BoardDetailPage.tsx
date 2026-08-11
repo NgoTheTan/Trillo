@@ -41,7 +41,7 @@ import {
     type DragOverEvent,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { moveCard, reorderCards, useFilterCardsQuery, type FilterCardsPayload, type ListCardResponse } from '../services/cardService.ts'
+import { moveCard, reorderCards, type FilterCardsPayload, type ListCardResponse } from '../services/cardService.ts'
 import { KanbanCard } from '../components/kanban/KanbanCard'
 import { InviteMemberModal } from '../components/board/InviteMemberModal'
 import { CardFilterPopover } from '../components/kanban/CardFilterPopover.tsx'
@@ -97,17 +97,26 @@ export const BoardDetailPage: React.FC = () => {
     const [cardFilterFeatures, setCardFilterFeatures] = useState<FilterCardsPayload>({
         search: '',
         listIds: [],
+        noMembers: false,
+        assignedToMe: false,
         memberIds: [],
+        statusDone: false,
+        statusPending: false,
         status: null,
-        labelIds: [],
         noDeadline: false,
+        overdue: false,
+        dueNextDay: false,
+        dueNextWeek: false,
+        dueNextMonth: false,
         deadlineFrom: null,
         deadlineTo: null,
+        noLabels: false,
+        labelIds: [],
+        activityWeek: false,
+        activityTwoWeeks: false,
+        activityFourWeeks: false,
+        noActivityFourWeeks: false,
     })
-
-
-
-    const filterCardsQuery = useFilterCardsQuery(boardId, cardFilterFeatures)
 
     const boardQuery = useBoardDetailQuery(boardId)
     const listsQuery = useBoardListsQuery(boardId)
@@ -485,21 +494,196 @@ export const BoardDetailPage: React.FC = () => {
 
     const hasActiveFilter = React.useMemo(() => {
         return (
-            (cardFilterFeatures.listIds && cardFilterFeatures.listIds.length > 0) ||
-            (cardFilterFeatures.memberIds && cardFilterFeatures.memberIds.length > 0) ||
-            (cardFilterFeatures.labelIds && cardFilterFeatures.labelIds.length > 0) ||
             (cardFilterFeatures.search && cardFilterFeatures.search.trim().length > 0) ||
+            (cardFilterFeatures.listIds && cardFilterFeatures.listIds.length > 0) ||
+            !!cardFilterFeatures.noMembers ||
+            !!cardFilterFeatures.assignedToMe ||
+            (cardFilterFeatures.memberIds && cardFilterFeatures.memberIds.length > 0) ||
+            !!cardFilterFeatures.statusDone ||
+            !!cardFilterFeatures.statusPending ||
             (cardFilterFeatures.status !== null && cardFilterFeatures.status !== undefined) ||
             !!cardFilterFeatures.noDeadline ||
+            !!cardFilterFeatures.overdue ||
+            !!cardFilterFeatures.dueNextDay ||
+            !!cardFilterFeatures.dueNextWeek ||
+            !!cardFilterFeatures.dueNextMonth ||
             !!cardFilterFeatures.deadlineFrom ||
-            !!cardFilterFeatures.deadlineTo
+            !!cardFilterFeatures.deadlineTo ||
+            !!cardFilterFeatures.noLabels ||
+            (cardFilterFeatures.labelIds && cardFilterFeatures.labelIds.length > 0) ||
+            !!cardFilterFeatures.activityWeek ||
+            !!cardFilterFeatures.activityTwoWeeks ||
+            !!cardFilterFeatures.activityFourWeeks ||
+            !!cardFilterFeatures.noActivityFourWeeks
         );
     }, [cardFilterFeatures]);
 
+    const allCards = React.useMemo(() => {
+        const result: ListCardResponse[] = [];
+        orderedLists.forEach(l => {
+            const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', l.id]);
+            if (cachedCards && cachedCards.length > 0) {
+                result.push(...cachedCards);
+            } else if (l.cards && l.cards.length > 0) {
+                l.cards.forEach((c: any) => {
+                    if (typeof c !== 'string' && c?.id) result.push(c);
+                });
+            }
+        });
+        return result;
+    }, [orderedLists, queryClient]);
+
     const filteredCardIds = React.useMemo(() => {
-        if (!hasActiveFilter || !filterCardsQuery.data) return null;
-        return new Set(filterCardsQuery.data.map(c => c.id));
-    }, [hasActiveFilter, filterCardsQuery.data]);
+        if (!hasActiveFilter) return null;
+
+        const now = new Date();
+        const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const in30days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+        const twentyEightDaysAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+
+        const matchedIds = new Set<string>();
+
+        allCards.forEach(card => {
+            // 1. Search keyword
+            if (cardFilterFeatures.search?.trim()) {
+                const query = cardFilterFeatures.search.trim().toLowerCase();
+                const titleMatch = card.title?.toLowerCase().includes(query);
+                const descMatch = card.description?.toLowerCase().includes(query);
+                if (!titleMatch && !descMatch) return;
+            }
+
+            // 2. Column listIds
+            if (cardFilterFeatures.listIds && cardFilterFeatures.listIds.length > 0) {
+                if (!cardFilterFeatures.listIds.includes(card.listId)) return;
+            }
+
+            // 3. Member filtering
+            const hasMemberFilters =
+                cardFilterFeatures.noMembers ||
+                cardFilterFeatures.assignedToMe ||
+                (cardFilterFeatures.memberIds && cardFilterFeatures.memberIds.length > 0);
+
+            if (hasMemberFilters) {
+                let memberMatch = false;
+                const members = card.assignedMembers || [];
+
+                if (cardFilterFeatures.noMembers && members.length === 0) {
+                    memberMatch = true;
+                }
+                if (cardFilterFeatures.assignedToMe && currentUser) {
+                    if (members.some(m => m.id === currentUser.id || (m as any).user?.id === currentUser.id)) {
+                        memberMatch = true;
+                    }
+                }
+                if (cardFilterFeatures.memberIds && cardFilterFeatures.memberIds.length > 0) {
+                    if (members.some(m => cardFilterFeatures.memberIds.includes(m.id) || cardFilterFeatures.memberIds.includes((m as any).user?.id))) {
+                        memberMatch = true;
+                    }
+                }
+                if (!memberMatch) return;
+            }
+
+            // 4. Card Status
+            const hasStatusDone = cardFilterFeatures.statusDone || cardFilterFeatures.status === true;
+            const hasStatusPending = cardFilterFeatures.statusPending || cardFilterFeatures.status === false;
+
+            if (hasStatusDone && !hasStatusPending && !card.completed) return;
+            if (hasStatusPending && !hasStatusDone && card.completed) return;
+
+            // 5. Due date filtering
+            const hasDueDateFilters =
+                cardFilterFeatures.noDeadline ||
+                cardFilterFeatures.overdue ||
+                cardFilterFeatures.dueNextDay ||
+                cardFilterFeatures.dueNextWeek ||
+                cardFilterFeatures.dueNextMonth;
+
+            if (hasDueDateFilters) {
+                let dateMatch = false;
+                const deadlineDate = card.deadline ? new Date(card.deadline) : null;
+
+                if (cardFilterFeatures.noDeadline && !deadlineDate) {
+                    dateMatch = true;
+                }
+                if (deadlineDate) {
+                    if (cardFilterFeatures.overdue && deadlineDate < now && !card.completed) {
+                        dateMatch = true;
+                    }
+                    if (cardFilterFeatures.dueNextDay && deadlineDate >= now && deadlineDate <= in24h) {
+                        dateMatch = true;
+                    }
+                    if (cardFilterFeatures.dueNextWeek && deadlineDate >= now && deadlineDate <= in7days) {
+                        dateMatch = true;
+                    }
+                    if (cardFilterFeatures.dueNextMonth && deadlineDate >= now && deadlineDate <= in30days) {
+                        dateMatch = true;
+                    }
+                }
+                if (!dateMatch) return;
+            }
+
+            // 6. Label filtering
+            const hasLabelFilters =
+                cardFilterFeatures.noLabels ||
+                (cardFilterFeatures.labelIds && cardFilterFeatures.labelIds.length > 0);
+
+            if (hasLabelFilters) {
+                let labelMatch = false;
+                const labels = card.labels || [];
+
+                if (cardFilterFeatures.noLabels && labels.length === 0) {
+                    labelMatch = true;
+                }
+                if (cardFilterFeatures.labelIds && cardFilterFeatures.labelIds.length > 0) {
+                    if (labels.some(l => cardFilterFeatures.labelIds.includes(l.id))) {
+                        labelMatch = true;
+                    }
+                }
+                if (!labelMatch) return;
+            }
+
+            // 7. Activity filtering
+            const hasActivityFilters =
+                cardFilterFeatures.activityWeek ||
+                cardFilterFeatures.activityTwoWeeks ||
+                cardFilterFeatures.activityFourWeeks ||
+                cardFilterFeatures.noActivityFourWeeks;
+
+            if (hasActivityFilters) {
+                let activityMatch = false;
+                const cardActivityDate = card.updatedAt
+                    ? new Date(card.updatedAt)
+                    : (card.createdAt ? new Date(card.createdAt) : null);
+
+                if (cardActivityDate) {
+                    if (cardFilterFeatures.activityWeek && cardActivityDate >= sevenDaysAgo) {
+                        activityMatch = true;
+                    }
+                    if (cardFilterFeatures.activityTwoWeeks && cardActivityDate >= fourteenDaysAgo) {
+                        activityMatch = true;
+                    }
+                    if (cardFilterFeatures.activityFourWeeks && cardActivityDate >= twentyEightDaysAgo) {
+                        activityMatch = true;
+                    }
+                    if (cardFilterFeatures.noActivityFourWeeks && cardActivityDate < twentyEightDaysAgo) {
+                        activityMatch = true;
+                    }
+                } else if (cardFilterFeatures.noActivityFourWeeks) {
+                    activityMatch = true;
+                }
+
+                if (!activityMatch) return;
+            }
+
+            matchedIds.add(card.id);
+        });
+
+        return matchedIds;
+    }, [allCards, cardFilterFeatures, currentUser, hasActiveFilter]);
 
     const orderedListsToRender = React.useMemo(() => {
         if (cardFilterFeatures.listIds && cardFilterFeatures.listIds.length > 0) {
@@ -691,6 +875,7 @@ export const BoardDetailPage: React.FC = () => {
                                 list={list}
                                 allLists={orderedLists}
                                 filteredCardIds={filteredCardIds}
+                                cardFilterFeatures={cardFilterFeatures}
                                 handleDeleteColumn={canDeleteList ? handleDeleteColumn : undefined}
                                 handleUpdateTitleColumn={canEditList ? handleUpdateTitleColumn : undefined}
                                 canCreateCard={canCreateCard}

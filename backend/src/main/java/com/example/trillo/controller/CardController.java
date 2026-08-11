@@ -65,6 +65,21 @@ public class CardController {
         return ResponseEntity.ok(cardService.toggleCompleted(cardId, completed, user));
     }
 
+    @PatchMapping("/api/cards/{cardId}/archive")
+    public ResponseEntity<CardSummaryResponse> archiveCard(
+            @PathVariable String cardId,
+            @RequestParam(defaultValue = "true") boolean archived,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(cardService.archiveCard(cardId, archived, user));
+    }
+
+    @GetMapping("/api/boards/{boardId}/cards/archived")
+    public ResponseEntity<List<CardSummaryResponse>> getArchivedCards(
+            @PathVariable String boardId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(cardService.getArchivedCards(boardId, user));
+    }
+
     @DeleteMapping("/api/cards/{cardId}")
     public ResponseEntity<Void> deleteCard(
             @PathVariable String cardId,

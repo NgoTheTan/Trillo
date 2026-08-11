@@ -41,6 +41,9 @@ public class Card {
     @Builder.Default
     private boolean completed = false;
 
+    @Builder.Default
+    private boolean archived = false;
+
     @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CardMember> assignedMembers = new ArrayList<>();

@@ -8,7 +8,7 @@ import {
 } from "../ui/popover"
 import { Filter } from 'lucide-react'
 import { useBoardDetailQuery } from '../../services/boardServices'
-import { getInitials } from '../../auth/authStorage'
+import { getAvatarUrl, getInitials } from '../../auth/authStorage'
 import type { MemberItem } from '../card/EditCardModel'
 import type { FilterCardsPayload } from '../../services/cardService.ts'
 import { DateTimeInput } from '../common/DateTimeInput.tsx'
@@ -27,7 +27,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
         id: m.user.id,
         fullName: m.user.fullName,
         email: m.user.email,
-        avatarUrl: m.user.avatarUrl || '',
+        avatarUrl: getAvatarUrl(m.user.avatarUrl),
     }))
     const labels = board?.labels
     const columns = board?.lists
@@ -54,7 +54,6 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
         (cardfillterFeatures?.search ? 1 : 0) +
         (cardfillterFeatures?.status !== null && cardfillterFeatures?.status !== undefined ? 1 : 0) +
         (cardfillterFeatures?.noDeadline ? 1 : 0) +
-        (cardfillterFeatures?.deadlineFrom ? 1 : 0) +
         (cardfillterFeatures?.deadlineTo ? 1 : 0);
 
     return (
@@ -83,7 +82,6 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                             onChange={(e) => setCardFillterFeatures(prev => ({ ...prev, search: e.target.value }))}
                             className="w-full p-2 outline-none border border-slate-200 rounded"
                         />
-                        <small className='text-xs text-slate-500'>Lọc thẻ theo độ ưu tiên, hạn chót hoặc người thực hiện.</small>
                     </div>
                     <div>
                         <p className='text-sm font-medium'>Cột</p>
@@ -182,7 +180,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                                                 {getInitials(member.fullName)}
                                             </div>
                                         )}
-                                        <p className='font-medium line-clamp-1'>{member.fullName}</p>
+                                        <p className='font-medium line-clamp-1 text-xs text-slate-800'>{member.fullName}</p>
                                     </label>
                                 </div>
                             ))}
@@ -240,15 +238,7 @@ export const CardFilterPopover = (props: CardFilterPopoverProps) => {
                                 Không có hạn chót
                             </label>
                         </div>
-                        <div className={`grid grid-cols-2 gap-2 mt-2 transition-opacity ${cardfillterFeatures?.noDeadline ? 'opacity-40 pointer-events-none' : ''}`}>
-                            <div>
-                                <p className='text-xs font-medium mb-1 text-slate-600'>Ngày bắt đầu</p>
-                                <DateTimeInput
-                                    className='w-full'
-                                    value={cardfillterFeatures?.deadlineFrom}
-                                    onChange={(date) => setCardFillterFeatures(prev => ({ ...prev, deadlineFrom: date }))}
-                                />
-                            </div>
+                        <div className={`mt-2 transition-opacity ${cardfillterFeatures?.noDeadline ? 'opacity-40 pointer-events-none' : ''}`}>
                             <div>
                                 <p className='text-xs font-medium mb-1 text-slate-600'>Ngày kết thúc</p>
                                 <DateTimeInput

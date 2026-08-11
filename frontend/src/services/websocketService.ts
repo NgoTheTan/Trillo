@@ -30,9 +30,17 @@ class WebSocketService {
   private client: Client | null = null;
   private isConnected = false;
   private notificationCallbacks: Set<(n: NotificationResponse) => void> = new Set();
+  private boardUpdateCallbacks: Set<(event: string) => void> = new Set();
   private boardCallbacks: Map<string, Set<(e: string) => void>> = new Map();
   private activeSubscriptions: Map<string, StompSubscription> = new Map();
   private connectCallbacks: Set<() => void> = new Set();
+
+  public onBoardUpdate(callback: (event: string) => void): () => void {
+    this.boardUpdateCallbacks.add(callback);
+    return () => {
+      this.boardUpdateCallbacks.delete(callback);
+    };
+  }
 
   /** Send a message to /app/board/{boardId} — broadcast to all subscribers */
   public sendBoardMessage(boardId: string, payload: string) {
@@ -135,6 +143,24 @@ class WebSocketService {
       this.activeSubscriptions.set('notifications', sub);
     }
 
+    // Personal boards channel: /user/queue/boards
+    if (!this.activeSubscriptions.has('user_boards')) {
+      const sub = this.client.subscribe('/user/queue/boards', (message) => {
+        const event = message.body;
+        this.boardUpdateCallbacks.forEach((cb) => cb(event));
+      });
+      this.activeSubscriptions.set('user_boards', sub);
+    }
+
+    // Public boards topic: /topic/public-boards
+    if (!this.activeSubscriptions.has('public_boards')) {
+      const sub = this.client.subscribe('/topic/public-boards', (message) => {
+        const event = message.body;
+        this.boardUpdateCallbacks.forEach((cb) => cb(event));
+      });
+      this.activeSubscriptions.set('public_boards', sub);
+    }
+
     // Re-subscribe board channels if any registered callbacks exist
     this.boardCallbacks.forEach((_, boardId) => {
       this.subscribeBoardTopic(boardId);
@@ -201,7 +227,7 @@ export function useWebSocketNotifications() {
     if (isAuthenticated && token) {
       webSocketService.connect(token);
 
-      const unsubscribe = webSocketService.onNotification((notif) => {
+      const unsubNotif = webSocketService.onNotification((notif) => {
         // Determine icon based on notification type
         const iconMap: Record<string, string> = {
           DEADLINE_REMINDER: '⏰',
@@ -225,8 +251,13 @@ export function useWebSocketNotifications() {
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
       });
 
+      const unsubBoards = webSocketService.onBoardUpdate(() => {
+        queryClient.invalidateQueries({ queryKey: ['boards'] });
+      });
+
       return () => {
-        unsubscribe();
+        unsubNotif();
+        unsubBoards();
       };
     } else {
       webSocketService.disconnect();
@@ -253,31 +284,45 @@ export function useWebSocketBoard(boardId: string | undefined) {
         case 'CARD_MOVED':
         case 'CARD_UPDATED':
         case 'CARD_STATUS_UPDATED':
-          queryClient.refetchQueries({ queryKey: ['board-lists', boardId], type: 'active' });
-          queryClient.refetchQueries({ queryKey: ['list-cards'], type: 'active' });
-          queryClient.refetchQueries({ queryKey: ['filter-cards', boardId], type: 'active' });
+        case 'CARDS_ARCHIVED':
+        case 'CARDS_MOVED':
+        case 'COMMENT_ADDED':
+        case 'COMMENT_UPDATED':
+          queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+          queryClient.invalidateQueries({ queryKey: ['filter-cards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['archived-cards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['archived-board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['card-detail'] });
           break;
 
         case 'LIST_CREATED':
         case 'LIST_DELETED':
         case 'LISTS_REORDERED':
         case 'LIST_UPDATED':
-          queryClient.refetchQueries({ queryKey: ['board-lists', boardId], type: 'active' });
-          queryClient.refetchQueries({ queryKey: ['boards', boardId], type: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['boards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['archived-board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['archived-cards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['card-detail'] });
           break;
 
         case 'MEMBER_ADDED':
         case 'MEMBER_REMOVED':
         case 'BOARD_UPDATED':
-          queryClient.refetchQueries({ queryKey: ['boards', boardId], type: 'active' });
-          queryClient.refetchQueries({ queryKey: ['boards'], type: 'active' });
+          queryClient.invalidateQueries({ queryKey: ['boards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['boards'] });
+          queryClient.invalidateQueries({ queryKey: ['card-detail'] });
           break;
 
         default:
-          // Fallback: refetch active queries for this board
-          queryClient.refetchQueries({ queryKey: ['boards', boardId], type: 'active' });
-          queryClient.refetchQueries({ queryKey: ['board-lists', boardId], type: 'active' });
-          queryClient.refetchQueries({ queryKey: ['list-cards'], type: 'active' });
+          // Fallback: invalidate queries for this board
+          queryClient.invalidateQueries({ queryKey: ['boards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+          queryClient.invalidateQueries({ queryKey: ['archived-board-lists', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['archived-cards', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['card-detail'] });
           break;
       }
     });

@@ -8,6 +8,7 @@ public record ListResponse(
         String boardId,
         String title,
         int position,
+        boolean archived,
         List<String> cards,
         LocalDateTime createdAt
 ) {}

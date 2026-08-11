@@ -16,11 +16,15 @@ export type BoardPermission =
   | 'ADD_COMMENT'
   | 'MANAGE_CHECKLIST'
   | 'UPLOAD_ATTACHMENT'
+  | 'VIEW_ARCHIVE'
+  | 'ARCHIVE_ITEM'
+  | 'RESTORE_ARCHIVE'
 
 export const ALL_PERMISSIONS: BoardPermission[] = [
   'CREATE_CARD', 'EDIT_CARD', 'DELETE_CARD', 'MOVE_CARD',
   'CREATE_LIST', 'EDIT_LIST', 'DELETE_LIST',
   'MANAGE_LABELS', 'ADD_COMMENT', 'MANAGE_CHECKLIST', 'UPLOAD_ATTACHMENT',
+  'VIEW_ARCHIVE', 'ARCHIVE_ITEM', 'RESTORE_ARCHIVE',
 ]
 
 export const PERMISSION_LABELS: Record<BoardPermission, string> = {
@@ -35,6 +39,9 @@ export const PERMISSION_LABELS: Record<BoardPermission, string> = {
   ADD_COMMENT: 'Thêm bình luận',
   MANAGE_CHECKLIST: 'Quản lý checklist',
   UPLOAD_ATTACHMENT: 'Tải tệp đính kèm',
+  VIEW_ARCHIVE: 'Truy cập mục lưu trữ',
+  ARCHIVE_ITEM: 'Lưu trữ thẻ & danh sách',
+  RESTORE_ARCHIVE: 'Khôi phục từ lưu trữ',
 }
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -84,6 +91,7 @@ export interface BoardCard {
   deadline?: string
   position: number
   completed: boolean
+  archived?: boolean
   assignedMembers?: UserResponse[]
   labels?: BoardLabel[]
   checklistTotal: number
@@ -99,6 +107,7 @@ export interface BoardList {
   boardId: string
   title: string
   position: number
+  archived?: boolean
   cards: (string | BoardCard)[]
   createdAt?: string
 }
@@ -366,7 +375,7 @@ export const useToggleBoardStarMutation = () => {
 
       return { previousAll, previousStarred };
     },
-    onError: (_err, boardId, context: any) => {
+    onError: (_err, _boardId, context: any) => {
       // Rollback on error
       if (context?.previousAll) {
         queryClient.setQueryData(['boards', 'my', ''], context.previousAll);

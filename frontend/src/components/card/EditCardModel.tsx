@@ -59,6 +59,8 @@ import {
   useDeleteAttachmentMutation,
   useMoveCardMutation,
   useCreateCardMutation,
+  useArchiveCardMutation,
+  deleteCard,
 } from '../../services/cardService.ts'
 import { useBoardDetailQuery, useBoardsQuery, type BoardList } from '../../services/boardServices'
 import { getAvatarUrl, getCurrentUser } from '../../auth/authStorage'
@@ -382,6 +384,76 @@ const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
   )
 }
 
+interface ModernSelectOption<T extends string | number> {
+  value: T
+  label: string
+}
+
+interface ModernSelectProps<T extends string | number> {
+  value: T
+  onChange: (val: T) => void
+  options: ModernSelectOption<T>[]
+  placeholder?: string
+}
+
+function ModernSelect<T extends string | number>({
+  value,
+  onChange,
+  options,
+  placeholder = 'Chọn...'
+}: ModernSelectProps<T>) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const selectedOption = options.find(o => o.value === value)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(prev => !prev)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 transition-all cursor-pointer outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+      >
+        <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 ml-1 transition-transform duration-200 ${isOpen ? 'rotate-180 text-blue-600' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200/90 rounded-xl shadow-xl z-50 p-1 space-y-0.5 max-h-48 overflow-y-auto text-xs">
+          {options.map(option => {
+            const isSelected = option.value === value
+            return (
+              <div
+                key={String(option.value)}
+                onClick={() => {
+                  onChange(option.value)
+                  setIsOpen(false)
+                }}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                  isSelected ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700 hover:bg-slate-50 font-medium'
+                }`}
+              >
+                <span className="truncate">{option.label}</span>
+                {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 font-bold shrink-0 ml-1" />}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export const EditCardModel: React.FC<EditCardModelProps> = ({
   card,
   open,
@@ -400,6 +472,38 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   const toggleCompletedMutation = useToggleCardCompletedMutation()
   const moveCardMutation = useMoveCardMutation()
   const createCardMutation = useCreateCardMutation()
+  const archiveCardMutation = useArchiveCardMutation()
+
+  const isArchived = cardDetail?.archived || card?.archived || false
+
+  const handleArchiveCard = async () => {
+    if (!card?.id) return
+    try {
+      await archiveCardMutation.mutateAsync({ cardId: card.id, archived: true, boardId })
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Failed to archive card:', err)
+    }
+  }
+
+  const handleRestoreCard = async () => {
+    if (!card?.id) return
+    try {
+      await archiveCardMutation.mutateAsync({ cardId: card.id, archived: false, boardId })
+    } catch (err) {
+      console.error('Failed to restore card:', err)
+    }
+  }
+
+  const handleDeleteCardPermanently = async () => {
+    if (!card?.id) return
+    try {
+      await deleteCard(card.id)
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Failed to delete card permanently:', err)
+    }
+  }
 
   // Checklist mutations
   const createChecklistMutation = useCreateChecklistMutation()
@@ -424,6 +528,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   const [title, setTitle] = useState(card?.title || '')
   const [titleError, setTitleError] = useState('')
   const [description, setDescription] = useState(card?.description || '')
+  const [draftDescription, setDraftDescription] = useState(card?.description || '')
   const [isEditingDesc, setIsEditingDesc] = useState(false)
   const [deadline, setDeadline] = useState(card?.deadline ? formatToDatetimeLocal(card.deadline) : '')
   const [completed, setCompleted] = useState<boolean>(card?.completed || false)
@@ -438,6 +543,27 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     deadline: card?.deadline ? formatToDatetimeLocal(card.deadline) : '',
     completed: card?.completed || false,
   })
+
+  const handleSaveDescription = async () => {
+    const targetCardId = cardDetail?.id || card?.id
+    if (!targetCardId || !canEditCard) return
+    try {
+      await updateCardMutation.mutateAsync({
+        cardId: targetCardId,
+        cardData: { description: draftDescription },
+      })
+      setDescription(draftDescription)
+      lastSavedRef.current.description = draftDescription
+      setIsEditingDesc(false)
+    } catch (err) {
+      console.error('Failed to save description:', err)
+    }
+  }
+
+  const handleCancelEditDescription = () => {
+    setDraftDescription(description)
+    setIsEditingDesc(false)
+  }
 
   // Label management
   const [selectedLabels, setSelectedLabels] = useState<CardLabel[]>([])
@@ -529,6 +655,9 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       setDeadline(initDeadline)
       setCompleted(initCompleted)
       setDescription(initDesc)
+      if (!isEditingDesc) {
+        setDraftDescription(initDesc)
+      }
       setCopyCardTitle(`${initTitle} (Bản sao)`)
 
       setSelectedTargetBoardId(boardId || (activeCard as any).boardId || '')
@@ -567,7 +696,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       isInitializedRef.current = true
       setAutoSaveStatus('idle')
     }
-  }, [card, cardDetail, open, boardId, boardDetailQuery.data?.members])
+  }, [card, cardDetail, open, boardId, boardDetailQuery.data?.members, isEditingDesc])
 
   // Reset target list when target board changes
   useEffect(() => {
@@ -601,7 +730,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     }
   }, [activePopover])
 
-  // Auto-save effect for title, description, deadline, completed
+  // Auto-save effect for title, deadline, completed (Description is saved explicitly via Save button)
   useEffect(() => {
     if (!open || !card?.id || !isInitializedRef.current || !canEditCard) return
 
@@ -615,7 +744,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
     const hasChanged =
       title.trim() !== lastSavedRef.current.title ||
-      description !== lastSavedRef.current.description ||
       deadline !== lastSavedRef.current.deadline ||
       completed !== lastSavedRef.current.completed
 
@@ -631,7 +759,6 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       try {
         const payload = {
           title: title.trim(),
-          description,
           deadline: formatDeadlineForApi(deadline),
           completed,
         }
@@ -643,7 +770,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
         lastSavedRef.current = {
           title: title.trim(),
-          description,
+          description: lastSavedRef.current.description,
           deadline,
           completed,
         }
@@ -1078,6 +1205,34 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
         showCloseButton={false}
         className="w-full max-w-[95vw] lg:max-w-6xl lg:w-[1140px] h-[95vh] lg:h-[92vh] flex flex-col bg-white text-slate-800 p-4 sm:p-6 lg:p-7 rounded-xl sm:rounded-2xl shadow-2xl border border-slate-100 select-none overflow-hidden"
       >
+        {isArchived && (
+          <div className="mb-3 px-4 py-2 bg-amber-50 border border-amber-200/80 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs text-amber-900 font-semibold shadow-2xs shrink-0">
+            <div className="flex items-center gap-2">
+              <Archive className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Thẻ này đang ở trong Mục Lưu Trữ</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRestoreCard}
+                disabled={archiveCardMutation.isPending}
+                className="px-2.5 py-1 bg-white border border-amber-300 hover:border-emerald-500 text-slate-800 hover:text-emerald-700 font-bold rounded-lg transition-all cursor-pointer shadow-2xs"
+              >
+                Khôi phục
+              </button>
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={handleDeleteCardPermanently}
+                  className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all cursor-pointer shadow-2xs"
+                >
+                  Xóa vĩnh viễn
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Top Bar Header */}
         <DialogHeader className="p-0 space-y-0 shrink-0">
           <DialogTitle className="text-left font-normal">
@@ -1231,11 +1386,13 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
                             <button
                               type="button"
-                              className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer opacity-70"
-                              title="Lưu trữ thẻ"
+                              onClick={handleArchiveCard}
+                              disabled={archiveCardMutation.isPending}
+                              className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-amber-50 rounded-lg transition-colors text-amber-800 font-medium cursor-pointer"
+                              title="Lưu trữ thẻ này"
                             >
-                              <Archive className="w-4 h-4 text-slate-500" />
-                              <span>Lưu trữ</span>
+                              <Archive className="w-4 h-4 text-amber-600" />
+                              <span>Lưu trữ thẻ</span>
                             </button>
                           </div>
                         </>
@@ -1261,47 +1418,32 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                           <div className="space-y-3 text-xs">
                             <div>
                               <label className="block text-slate-500 font-semibold mb-1.5">Bảng làm việc</label>
-                              <select
+                              <ModernSelect
                                 value={selectedTargetBoardId}
-                                onChange={e => setSelectedTargetBoardId(e.target.value)}
-                                className="select-modern"
-                              >
-                                {userBoards.map(b => (
-                                  <option key={b.id} value={b.id}>
-                                    {b.title}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={val => setSelectedTargetBoardId(val)}
+                                options={userBoards.map(b => ({ value: b.id, label: b.title }))}
+                              />
                             </div>
 
                             <div>
                               <label className="block text-slate-500 font-semibold mb-1.5">Danh sách (Cột)</label>
-                              <select
+                              <ModernSelect
                                 value={selectedTargetListId}
-                                onChange={e => setSelectedTargetListId(e.target.value)}
-                                className="select-modern"
-                              >
-                                {targetBoardLists.map(l => (
-                                  <option key={l.id} value={l.id}>
-                                    {l.title}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={val => setSelectedTargetListId(val)}
+                                options={targetBoardLists.map(l => ({ value: l.id, label: l.title }))}
+                              />
                             </div>
 
                             <div>
                               <label className="block text-slate-500 font-semibold mb-1.5">Vị trí</label>
-                              <select
+                              <ModernSelect
                                 value={selectedTargetPosition}
-                                onChange={e => setSelectedTargetPosition(Number(e.target.value))}
-                                className="select-modern"
-                              >
-                                {Array.from({ length: targetListCardsCount + 1 }).map((_, idx) => (
-                                  <option key={idx + 1} value={idx + 1}>
-                                    {idx + 1}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={val => setSelectedTargetPosition(val)}
+                                options={Array.from({ length: targetListCardsCount + 1 }).map((_, idx) => ({
+                                  value: idx + 1,
+                                  label: String(idx + 1)
+                                }))}
+                              />
                             </div>
 
                             <button
@@ -1345,32 +1487,20 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
                             <div>
                               <label className="block text-slate-500 font-semibold mb-1.5">Bảng sao chép tới</label>
-                              <select
+                              <ModernSelect
                                 value={selectedTargetBoardId}
-                                onChange={e => setSelectedTargetBoardId(e.target.value)}
-                                className="select-modern"
-                              >
-                                {userBoards.map(b => (
-                                  <option key={b.id} value={b.id}>
-                                    {b.title}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={val => setSelectedTargetBoardId(val)}
+                                options={userBoards.map(b => ({ value: b.id, label: b.title }))}
+                              />
                             </div>
 
                             <div>
                               <label className="block text-slate-500 font-semibold mb-1.5">Danh sách (Cột)</label>
-                              <select
+                              <ModernSelect
                                 value={selectedTargetListId}
-                                onChange={e => setSelectedTargetListId(e.target.value)}
-                                className="select-modern"
-                              >
-                                {targetBoardLists.map(l => (
-                                  <option key={l.id} value={l.id}>
-                                    {l.title}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={val => setSelectedTargetListId(val)}
+                                options={targetBoardLists.map(l => ({ value: l.id, label: l.title }))}
+                              />
                             </div>
 
                             <button
@@ -2015,11 +2145,15 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                 <textarea
                   rows={isEditingDesc ? 4 : 2}
                   disabled={!canEditCard}
-                  value={description}
-                  onFocus={() => setIsEditingDesc(true)}
+                  value={isEditingDesc ? draftDescription : description}
+                  onFocus={() => {
+                    if (!canEditCard) return
+                    setDraftDescription(description)
+                    setIsEditingDesc(true)
+                  }}
                   onChange={e => {
                     if (!canEditCard) return
-                    setDescription(e.target.value)
+                    setDraftDescription(e.target.value)
                   }}
                   placeholder="Thêm mô tả chi tiết hơn..."
                   className="w-full px-3.5 py-2.5 text-sm text-slate-800 bg-slate-50/70 hover:bg-slate-100/50 focus:bg-white border border-slate-200/80 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none"
@@ -2028,17 +2162,15 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                   <div className="flex items-center gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => setIsEditingDesc(false)}
+                      onClick={handleSaveDescription}
+                      disabled={updateCardMutation.isPending}
                       className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs"
                     >
                       Lưu
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setDescription(lastSavedRef.current.description || card?.description || '')
-                        setIsEditingDesc(false)
-                      }}
+                      onClick={handleCancelEditDescription}
                       className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 cursor-pointer font-medium"
                     >
                       Hủy

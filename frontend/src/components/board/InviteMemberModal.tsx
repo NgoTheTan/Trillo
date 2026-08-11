@@ -52,6 +52,10 @@ const PERMISSION_GROUPS = [
     permissions: ['CREATE_LIST', 'EDIT_LIST', 'DELETE_LIST'] as BoardPermission[],
   },
   {
+    label: 'Lưu trữ (Archive)',
+    permissions: ['VIEW_ARCHIVE', 'ARCHIVE_ITEM', 'RESTORE_ARCHIVE'] as BoardPermission[],
+  },
+  {
     label: 'Khác',
     permissions: ['MANAGE_LABELS', 'ADD_COMMENT', 'MANAGE_CHECKLIST', 'UPLOAD_ATTACHMENT'] as BoardPermission[],
   },

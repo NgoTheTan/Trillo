@@ -38,6 +38,9 @@ public class BoardList {
     @Builder.Default
     private List<Card> cards = new ArrayList<>();
 
+    @Builder.Default
+    private boolean archived = false;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

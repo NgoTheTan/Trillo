@@ -221,8 +221,32 @@ public class CardService {
     public List<CardSummaryResponse> getCardsByList(String listId, User currentUser) {
         BoardList list = findListOrThrow(listId);
         boardService.checkAccess(list.getBoard(), currentUser);
-        return cardRepository.findByListIdOrderByPositionAsc(listId)
+        return cardRepository.findByListIdAndArchivedFalseOrderByPositionAsc(listId)
                 .stream().map(this::toCardSummaryResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CardSummaryResponse> getArchivedCards(String boardId, User currentUser) {
+        Board board = boardService.findBoardOrThrow(boardId);
+        boardService.requirePermission(board, currentUser, BoardPermission.VIEW_ARCHIVE);
+        return cardRepository.findByBoardIdAndArchivedTrue(boardId)
+                .stream().map(this::toCardSummaryResponse).toList();
+    }
+
+    @Transactional
+    public CardSummaryResponse archiveCard(String cardId, boolean archived, User currentUser) {
+        Card card = findCardOrThrow(cardId);
+        BoardPermission required = archived ? BoardPermission.ARCHIVE_ITEM : BoardPermission.RESTORE_ARCHIVE;
+        boardService.requirePermission(card.getList().getBoard(), currentUser, required);
+
+        card.setArchived(archived);
+        Card saved = cardRepository.save(card);
+
+        logActivity(saved, currentUser, archived ? "archived" : "unarchived",
+                archived ? "Card archived" : "Card restored from archive");
+        broadcastBoardEvent(card.getList().getBoard().getId(), "CARD_UPDATED");
+
+        return toCardSummaryResponse(saved);
     }
 
     // Calendar view: cards with deadline in a date range
@@ -231,7 +255,7 @@ public class CardService {
         Board board = boardService.findBoardOrThrow(boardId);
         boardService.checkAccess(board, currentUser);
         return cardRepository.findByBoardAndDeadlineBetween(boardId, from, to)
-                .stream().map(this::toCardSummaryResponse).toList();
+                .stream().filter(c -> !c.isArchived()).map(this::toCardSummaryResponse).toList();
     }
 
     // Filter & Search
@@ -248,7 +272,7 @@ public class CardService {
         );
 
         List<Card> cards = cardRepository.findAll(spec);
-        return cards.stream().map(this::toCardSummaryResponse).toList();
+        return cards.stream().filter(c -> !c.isArchived()).map(this::toCardSummaryResponse).toList();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -293,7 +317,7 @@ public class CardService {
         return new CardSummaryResponse(
                 card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
                 card.getDeadline(), card.getPosition(),
-                card.isCompleted(), members, labels,
+                card.isCompleted(), card.isArchived(), members, labels,
                 totalItems, completedItems, card.getComments().size(), card.getAttachments().size(), checklists, card.getCreatedAt()
         );
     }
@@ -323,7 +347,7 @@ public class CardService {
         return new CardResponse(
                 card.getId(), card.getList().getId(), card.getList().getTitle(),
                 card.getList().getBoard().getId(), card.getTitle(), card.getDescription(),
-                card.getDeadline(), card.getPosition(), card.isCompleted(),
+                card.getDeadline(), card.getPosition(), card.isCompleted(), card.isArchived(),
                 members, labels, checklists, comments, attachments, logs,
                 card.getCreatedAt(), card.getUpdatedAt()
         );

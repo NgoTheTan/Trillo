@@ -14,6 +14,10 @@ public interface BoardListRepository extends JpaRepository<BoardList, String> {
 
     List<BoardList> findByBoardIdOrderByPositionAsc(String boardId);
 
+    List<BoardList> findByBoardIdAndArchivedFalseOrderByPositionAsc(String boardId);
+
+    List<BoardList> findByBoardIdAndArchivedTrueOrderByPositionAsc(String boardId);
+
     @Query("SELECT COALESCE(MAX(l.position), -1) FROM BoardList l WHERE l.board.id = :boardId")
     int findMaxPositionByBoardId(@Param("boardId") String boardId);
 

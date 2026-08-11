@@ -13,6 +13,7 @@ public record CardResponse(
         LocalDateTime deadline,
         int position,
         boolean completed,
+        boolean archived,
         List<UserResponse> assignedMembers,
         List<LabelResponse> labels,
         List<ChecklistResponse> checklists,

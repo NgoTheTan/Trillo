@@ -16,6 +16,11 @@ public interface CardRepository extends JpaRepository<Card, String>, JpaSpecific
 
     List<Card> findByListIdOrderByPositionAsc(String listId);
 
+    List<Card> findByListIdAndArchivedFalseOrderByPositionAsc(String listId);
+
+    @Query("SELECT c FROM Card c WHERE c.list.board.id = :boardId AND c.archived = true ORDER BY c.updatedAt DESC")
+    List<Card> findByBoardIdAndArchivedTrue(@Param("boardId") String boardId);
+
     @Query("SELECT COALESCE(MAX(c.position), -1) FROM Card c WHERE c.list.id = :listId")
     int findMaxPositionByListId(@Param("listId") String listId);
 

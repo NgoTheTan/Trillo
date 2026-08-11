@@ -74,6 +74,7 @@ export interface CardDetailResponse {
     deadline?: string | null;
     position: number;
     completed: boolean;
+    archived?: boolean;
     assignedMembers: CardMember[];
     labels: CardLabel[];
     checklists: ChecklistResponse[];
@@ -92,6 +93,7 @@ export interface ListCardResponse {
     deadline?: string | null;
     position: number;
     completed: boolean;
+    archived?: boolean;
     assignedMembers: CardMember[];
     labels: CardLabel[];
     checklistTotal: number;
@@ -703,6 +705,40 @@ export const useDeleteAttachmentMutation = () => {
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
         },
+    });
+};
+
+// ── Archiving APIs & Hooks ───────────────────────────────────────────────────
+
+export const archiveCard = async (cardId: string, archived: boolean = true): Promise<ListCardResponse> => {
+    return Api.patch<ListCardResponse>(`/cards/${cardId}/archive?archived=${archived}`);
+};
+
+export const getArchivedCards = async (boardId: string): Promise<ListCardResponse[]> => {
+    return Api.get<ListCardResponse[]>(`/boards/${boardId}/cards/archived`);
+};
+
+export const useArchiveCardMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, archived }: { cardId: string; archived?: boolean; boardId?: string }) =>
+            archiveCard(cardId, archived ?? true),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+            queryClient.invalidateQueries({ queryKey: ['board-lists'] });
+            if (variables.boardId) {
+                queryClient.invalidateQueries({ queryKey: ['archived-cards', variables.boardId] });
+            }
+        },
+    });
+};
+
+export const useArchivedCardsQuery = (boardId: string | undefined) => {
+    return useQuery({
+        queryKey: ['archived-cards', boardId],
+        queryFn: () => getArchivedCards(boardId!),
+        enabled: !!boardId,
     });
 };
 

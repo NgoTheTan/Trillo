@@ -55,6 +55,59 @@ public class ListController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/archived")
+    public ResponseEntity<List<ListResponse>> getArchivedLists(
+            @PathVariable String boardId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(listService.getArchivedLists(boardId, user));
+    }
+
+    @PatchMapping("/{listId}/archive")
+    public ResponseEntity<ListResponse> archiveList(
+            @PathVariable String boardId,
+            @PathVariable String listId,
+            @RequestParam(defaultValue = "true") boolean archived,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(listService.archiveList(boardId, listId, archived, user));
+    }
+
+    @PostMapping("/{listId}/copy")
+    public ResponseEntity<ListResponse> copyList(
+            @PathVariable String boardId,
+            @PathVariable String listId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(listService.copyList(boardId, listId, user));
+    }
+
+    @PostMapping("/{listId}/move-all-cards")
+    public ResponseEntity<Void> moveAllCards(
+            @PathVariable String boardId,
+            @PathVariable String listId,
+            @RequestParam String targetListId,
+            @AuthenticationPrincipal User user) {
+        listService.moveAllCards(boardId, listId, targetListId, user);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{listId}/archive-all-cards")
+    public ResponseEntity<Void> archiveAllCards(
+            @PathVariable String boardId,
+            @PathVariable String listId,
+            @AuthenticationPrincipal User user) {
+        listService.archiveAllCards(boardId, listId, user);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{listId}/sort")
+    public ResponseEntity<Void> sortCardsInList(
+            @PathVariable String boardId,
+            @PathVariable String listId,
+            @RequestParam String sortBy,
+            @AuthenticationPrincipal User user) {
+        listService.sortCardsInList(boardId, listId, sortBy, user);
+        return ResponseEntity.ok().build();
+    }
+
     @PatchMapping("/reorder")
     public ResponseEntity<Void> reorderLists(
             @PathVariable String boardId,

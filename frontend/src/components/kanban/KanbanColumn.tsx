@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Loader2, Plus, Trash2 } from 'lucide-react'
+import React, { useState, useRef } from 'react'
+import { Loader2, Plus } from 'lucide-react'
 import type { BoardList } from '../../services/boardServices'
 import { KanbanCard } from './KanbanCard'
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal'
@@ -7,10 +7,11 @@ import { useCreateCardMutation, useListCardsQuery, type ListCardResponse } from 
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CardDragEvent, ColumnDragEvent } from '../../services/websocketService';
-
+import { ListMenuPopover } from './ListMenuPopover';
 
 interface KanbanColumnProps {
   list: BoardList
+  allLists?: BoardList[]
   handleDeleteColumn?: (boardId: string, listId: string) => void
   handleUpdateTitleColumn?: (boardId: string, listId: string, title: string) => void
   isOverlay?: boolean
@@ -21,10 +22,13 @@ interface KanbanColumnProps {
   canMoveCard?: boolean
   draggingMap?: Map<string, CardDragEvent>
   columnDragger?: ColumnDragEvent  // người đang kéo column này
+  canCreateList?: boolean
+  canArchiveItem?: boolean
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   list,
+  allLists = [],
   handleUpdateTitleColumn,
   handleDeleteColumn,
   isOverlay = false,
@@ -34,6 +38,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   canMoveCard = true,
   draggingMap,
   columnDragger,
+  canCreateList = true,
+  canArchiveItem = true,
 }) => {
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(list.title);
@@ -41,6 +47,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const [openDelete, setOpenDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAddingCard, setIsAddingCard] = useState(false);
+
+  const cardInputRef = useRef<HTMLInputElement>(null);
   // Fetch full card details from DB
   const { data: fetchedCards = [] } = useListCardsQuery(list.id);
 
@@ -199,22 +207,22 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               {list.title}
             </span>
           )}
-          <div className='flex items-center gap-1'>
+          <div className='flex items-center gap-1.5'>
             <span className="w-6 h-6 flex items-center justify-center font-bold text-xs text-slate-600 bg-white rounded-lg border border-slate-200/80 shadow-2xs">
               {cardsToRender.length}
             </span>
-            {/* Delete column button — only if handler is provided (i.e. user has DELETE_LIST permission) */}
-            {handleDeleteColumn && (
-              <div className='invisible group-hover/column:visible'>
-                <button
-                  onClick={() => setOpenDelete(true)}
-                  className='bg-transparent hover:bg-red-100 cursor-pointer p-1 rounded-lg text-slate-400 hover:text-red-600 transition-colors'
-                  title="Xóa cột"
-                >
-                  <Trash2 className='h-4 w-4' />
-                </button>
-              </div>
-            )}
+            <ListMenuPopover
+              boardId={list.boardId}
+              list={list}
+              allLists={allLists}
+              onAddCardClick={() => {
+                cardInputRef.current?.focus();
+              }}
+              canCreateCard={canCreateCard}
+              canCreateList={canCreateList}
+              canMoveCard={canMoveCard}
+              canArchiveItem={canArchiveItem}
+            />
           </div>
         </div>
 
@@ -261,6 +269,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           {canCreateCard && (
             <div className="mt-4 pt-3 border-t border-slate-200/50">
               <input
+                ref={cardInputRef}
                 type="text"
                 placeholder="Tên thẻ mới..."
                 className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:outline-hidden focus:border-blue-500 transition-all mb-2 shadow-xs"

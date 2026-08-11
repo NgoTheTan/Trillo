@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
     Globe,
     Lock,
@@ -7,9 +7,18 @@ import {
     UserPlus,
     Star
 } from 'lucide-react'
-import { useBoardDetailQuery, useUpdateBoardTitleMutation, useToggleBoardStarMutation, type BoardList } from '../services/boardServices'
+import {
+    useBoardDetailQuery,
+    useUpdateBoardTitleMutation,
+    useToggleBoardStarMutation,
+    useUpdateBoardMutation,
+    useDeleteBoardMutation,
+    type BoardList,
+    type BoardFormPayload
+} from '../services/boardServices'
 import { KanbanColumn } from '../components/kanban/KanbanColumn'
 import { BoardListFormModal } from '../components/boardList/BoardListFormModal'
+import { BoardMenuPopover } from '../components/board/BoardMenuPopover'
 import {
     useBoardListsQuery,
     useCreateBoardListMutation,
@@ -107,6 +116,10 @@ export const BoardDetailPage: React.FC = () => {
     const updateBoardListMutation = useUpdateBoardListMutation()
     const deleteBoardListMutation = useDeleteBoardListMutation()
 
+    const navigate = useNavigate()
+    const updateBoardMutation = useUpdateBoardMutation()
+    const deleteBoardMutation = useDeleteBoardMutation()
+
     const board = boardQuery.data
 
     // Derived permission flags
@@ -118,6 +131,28 @@ export const BoardDetailPage: React.FC = () => {
     const canEditCard = isOwner || (board?.currentUserPermissions?.includes('EDIT_CARD') ?? false)
     const canDeleteCard = isOwner || (board?.currentUserPermissions?.includes('DELETE_CARD') ?? false)
     const canMoveCard = isOwner || (board?.currentUserPermissions?.includes('MOVE_CARD') ?? false)
+    const canViewArchive = isOwner || (board?.currentUserPermissions?.includes('VIEW_ARCHIVE') ?? false)
+    const canArchiveItem = isOwner || (board?.currentUserPermissions?.includes('ARCHIVE_ITEM') ?? false)
+    const canRestoreArchive = isOwner || (board?.currentUserPermissions?.includes('RESTORE_ARCHIVE') ?? false)
+
+    const handleUpdateBoard = async (payload: BoardFormPayload) => {
+        if (!boardId) return
+        try {
+            await updateBoardMutation.mutateAsync({ id: boardId, payload })
+        } catch (err) {
+            console.error('Failed to update board:', err)
+        }
+    }
+
+    const handleDeleteBoard = async () => {
+        if (!boardId) return
+        try {
+            await deleteBoardMutation.mutateAsync(boardId)
+            navigate('/boards')
+        } catch (err) {
+            console.error('Failed to delete board:', err)
+        }
+    }
 
     const handleSaveTitle = async () => {
         setIsEditingTitle(false)
@@ -625,6 +660,14 @@ export const BoardDetailPage: React.FC = () => {
                         </button>
                     )}
                     <CardFilterPopover boardId={boardId || ''} cardfillterFeatures={cardFilterFeatures} setCardFillterFeatures={setCardFilterFeatures} />
+                    <BoardMenuPopover
+                        board={board}
+                        isOwner={isOwner}
+                        canViewArchive={canViewArchive}
+                        canRestoreArchive={canRestoreArchive}
+                        onUpdateBoard={handleUpdateBoard}
+                        onDeleteBoard={handleDeleteBoard}
+                    />
                 </div>
             </div>
 
@@ -646,6 +689,7 @@ export const BoardDetailPage: React.FC = () => {
                             <KanbanColumn
                                 key={list.id}
                                 list={list}
+                                allLists={orderedLists}
                                 filteredCardIds={filteredCardIds}
                                 handleDeleteColumn={canDeleteList ? handleDeleteColumn : undefined}
                                 handleUpdateTitleColumn={canEditList ? handleUpdateTitleColumn : undefined}
@@ -655,6 +699,8 @@ export const BoardDetailPage: React.FC = () => {
                                 canMoveCard={canMoveCard}
                                 draggingMap={cardDraggingMap}
                                 columnDragger={columnDraggingMap.get(list.id)}
+                                canCreateList={canCreateList}
+                                canArchiveItem={canArchiveItem}
                             />
                         ))}
                     </SortableContext>

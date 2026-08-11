@@ -10,6 +10,7 @@ import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.ChecklistItemRepository;
 import com.example.trillo.repository.ChecklistRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,11 @@ public class ChecklistService {
     private final CardService cardService;
     private final BoardService boardService;
     private final ActivityLogService activityLogService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    private void broadcastBoardEvent(String boardId) {
+        messagingTemplate.convertAndSend("/topic/board/" + boardId, "CARD_UPDATED");
+    }
 
     @Transactional
     public ChecklistResponse createChecklist(String cardId, CreateChecklistRequest request, User currentUser) {
@@ -39,6 +45,7 @@ public class ChecklistService {
         activityLogService.logActivity(card, currentUser, "checklist_created",
                 currentUser.getFullName() + " added checklist '" + saved.getTitle() + "' to this card");
 
+        broadcastBoardEvent(card.getList().getBoard().getId());
         return toResponse(saved);
     }
 
@@ -51,16 +58,20 @@ public class ChecklistService {
             checklist.setTitle(request.title().trim());
         }
 
-        return toResponse(checklistRepository.save(checklist));
+        Checklist saved = checklistRepository.save(checklist);
+        broadcastBoardEvent(saved.getCard().getList().getBoard().getId());
+        return toResponse(saved);
     }
 
     @Transactional
     public void deleteChecklist(String checklistId, User currentUser) {
         Checklist checklist = findOrThrow(checklistId);
+        String boardId = checklist.getCard().getList().getBoard().getId();
         boardService.requirePermission(checklist.getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
         activityLogService.logActivity(checklist.getCard(), currentUser, "checklist_deleted",
                 currentUser.getFullName() + " removed checklist '" + checklist.getTitle() + "'");
         checklistRepository.delete(checklist);
+        broadcastBoardEvent(boardId);
     }
 
     @Transactional
@@ -79,6 +90,7 @@ public class ChecklistService {
         activityLogService.logActivity(checklist.getCard(), currentUser, "checklist_item_added",
                 currentUser.getFullName() + " added '" + saved.getContent() + "' to " + checklist.getTitle());
 
+        broadcastBoardEvent(checklist.getCard().getList().getBoard().getId());
         return toItemResponse(saved);
     }
 
@@ -92,7 +104,9 @@ public class ChecklistService {
             item.setContent(request.content().trim());
         }
 
-        return toItemResponse(checklistItemRepository.save(item));
+        ChecklistItem saved = checklistItemRepository.save(item);
+        broadcastBoardEvent(saved.getChecklist().getCard().getList().getBoard().getId());
+        return toItemResponse(saved);
     }
 
     @Transactional
@@ -106,6 +120,7 @@ public class ChecklistService {
         activityLogService.logActivity(item.getChecklist().getCard(), currentUser, "checklist_toggled",
                 currentUser.getFullName() + (saved.isCompleted() ? " completed " : " marked incomplete ") + "'" + saved.getContent() + "' on " + item.getChecklist().getTitle());
 
+        broadcastBoardEvent(saved.getChecklist().getCard().getList().getBoard().getId());
         return toItemResponse(saved);
     }
 
@@ -113,8 +128,10 @@ public class ChecklistService {
     public void deleteItem(String itemId, User currentUser) {
         ChecklistItem item = checklistItemRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("ChecklistItem", itemId));
+        String boardId = item.getChecklist().getCard().getList().getBoard().getId();
         boardService.requirePermission(item.getChecklist().getCard().getList().getBoard(), currentUser, BoardPermission.MANAGE_CHECKLIST);
         checklistItemRepository.delete(item);
+        broadcastBoardEvent(boardId);
     }
 
     private Checklist findOrThrow(String id) {

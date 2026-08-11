@@ -49,6 +49,29 @@ public class BoardService {
     @Value("${app.invite.expiry-hours}")
     private long inviteExpiryHours;
 
+    private void broadcastBoardUpdate(Board board) {
+        if (board == null) return;
+        String boardId = board.getId();
+
+        // 1. Broadcast update to board topic (for anyone viewing BoardDetailPage)
+        messagingTemplate.convertAndSend("/topic/board/" + boardId, "BOARD_UPDATED");
+
+        // 2. Broadcast to owner and members' personal queues for real-time boards list updates
+        if (board.getOwner() != null) {
+            messagingTemplate.convertAndSendToUser(board.getOwner().getId(), "/queue/boards", "BOARD_UPDATED");
+        }
+        if (board.getMembers() != null) {
+            for (BoardMember m : board.getMembers()) {
+                if (m.getUser() != null) {
+                    messagingTemplate.convertAndSendToUser(m.getUser().getId(), "/queue/boards", "BOARD_UPDATED");
+                }
+            }
+        }
+
+        // 3. Broadcast to public boards topic
+        messagingTemplate.convertAndSend("/topic/public-boards", "BOARD_UPDATED");
+    }
+
     // ── Create Board ──────────────────────────────────────────────────────────
     @Transactional
     public BoardResponse createBoard(CreateBoardRequest request, User currentUser) {
@@ -70,6 +93,7 @@ public class BoardService {
                 .build();
         boardMemberRepository.save(ownerMembership);
 
+        broadcastBoardUpdate(saved);
         return toBoardResponse(saved, currentUser);
     }
 
@@ -94,8 +118,8 @@ public class BoardService {
 
         Board saved = boardRepository.save(board);
 
-        // Broadcast update to all board subscribers
-        messagingTemplate.convertAndSend("/topic/board/" + boardId, "BOARD_UPDATED");
+        // Broadcast update to board topic and members' personal queues
+        broadcastBoardUpdate(saved);
 
         return toBoardResponse(saved, currentUser);
     }
@@ -108,8 +132,8 @@ public class BoardService {
         board.setTitle(request.title());
         Board saved = boardRepository.save(board);
 
-        // Broadcast update to all board subscribers
-        messagingTemplate.convertAndSend("/topic/board/" + boardId, "BOARD_UPDATED");
+        // Broadcast update to board topic and members' personal queues
+        broadcastBoardUpdate(saved);
 
         return toBoardResponse(saved, currentUser);
     }
@@ -119,6 +143,7 @@ public class BoardService {
     public void deleteBoard(String boardId, User currentUser) {
         Board board = findBoardOrThrow(boardId);
         requireOwner(board, currentUser);
+        broadcastBoardUpdate(board);
         boardRepository.delete(board);
     }
 
@@ -202,6 +227,7 @@ public class BoardService {
 
             // Push WebSocket event
             messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_ADDED");
+            broadcastBoardUpdate(board);
 
             return new InviteResponse(true, "User added to board successfully", null);
         } else {
@@ -286,6 +312,7 @@ public class BoardService {
         }
 
         messagingTemplate.convertAndSend("/topic/board/" + invite.getBoardId(), "MEMBER_ADDED");
+        broadcastBoardUpdate(board);
 
         return toBoardSummaryResponse(board, currentUser);
     }
@@ -307,6 +334,7 @@ public class BoardService {
 
         boardMemberRepository.deleteByBoardIdAndUserId(boardId, userId);
         messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_REMOVED");
+        broadcastBoardUpdate(board);
     }
 
     // ── Update Member Permissions ─────────────────────────────────────────────
@@ -333,6 +361,7 @@ public class BoardService {
         BoardMember saved = boardMemberRepository.save(member);
 
         messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_PERMISSIONS_UPDATED");
+        broadcastBoardUpdate(board);
 
         return new BoardResponse.MemberResponse(
                 saved.getId(),
@@ -496,7 +525,7 @@ public class BoardService {
 
         return new ListResponse(
                 list.getId(), list.getBoard().getId(), list.getTitle(),
-                list.getPosition(), cardIds, list.getCreatedAt()
+                list.getPosition(), list.isArchived(), cardIds, list.getCreatedAt()
         );
     }
 
@@ -522,7 +551,7 @@ public class BoardService {
         return new CardSummaryResponse(
                 card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
                 card.getDeadline(), card.getPosition(),
-                card.isCompleted(), members, labels,
+                card.isCompleted(), card.isArchived(), members, labels,
                 totalItems, completedItems, card.getComments().size(), card.getAttachments().size(), checklists, card.getCreatedAt()
         );
     }

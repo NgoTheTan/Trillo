@@ -67,7 +67,9 @@ public class CommentService {
         }
 
         comment.setContent(request.content());
-        return toResponse(commentRepository.save(comment));
+        Comment saved = commentRepository.save(comment);
+        messagingTemplate.convertAndSend("/topic/board/" + comment.getCard().getList().getBoard().getId(), "COMMENT_UPDATED");
+        return toResponse(saved);
     }
 
     @Transactional
@@ -75,8 +77,9 @@ public class CommentService {
         Comment comment = findOrThrow(commentId);
 
         boolean isAuthor = comment.getAuthor().getId().equals(currentUser.getId());
+        String boardId = comment.getCard().getList().getBoard().getId();
         boolean isOwner = boardService
-                .findBoardOrThrow(comment.getCard().getList().getBoard().getId())
+                .findBoardOrThrow(boardId)
                 .getOwner().getId().equals(currentUser.getId());
 
         if (!isAuthor && !isOwner) {
@@ -87,6 +90,7 @@ public class CommentService {
                 currentUser.getFullName() + " deleted a comment");
 
         commentRepository.delete(comment);
+        messagingTemplate.convertAndSend("/topic/board/" + boardId, "COMMENT_UPDATED");
     }
 
     @Transactional(readOnly = true)

@@ -10,6 +10,7 @@ import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.CardLabelRepository;
 import com.example.trillo.repository.LabelRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,11 @@ public class LabelService {
     private final CardLabelRepository cardLabelRepository;
     private final BoardService boardService;
     private final CardService cardService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    private void broadcastBoardEvent(String boardId) {
+        messagingTemplate.convertAndSend("/topic/board/" + boardId, "CARD_UPDATED");
+    }
 
     @Transactional
     public LabelResponse createLabel(String boardId, CreateLabelRequest request, User currentUser) {
@@ -35,7 +41,9 @@ public class LabelService {
                 .color(request.color())
                 .build();
 
-        return toResponse(labelRepository.save(label));
+        Label saved = labelRepository.save(label);
+        broadcastBoardEvent(boardId);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -51,16 +59,20 @@ public class LabelService {
             label.setColor(request.color());
         }
 
-        return toResponse(labelRepository.save(label));
+        Label saved = labelRepository.save(label);
+        broadcastBoardEvent(saved.getBoard().getId());
+        return toResponse(saved);
     }
 
     @Transactional
     public void deleteLabel(String labelId, User currentUser) {
         Label label = labelRepository.findById(labelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Label", labelId));
+        String boardId = label.getBoard().getId();
         boardService.requirePermission(label.getBoard(), currentUser, BoardPermission.MANAGE_LABELS);
         cardLabelRepository.deleteByLabelId(labelId);
         labelRepository.delete(label);
+        broadcastBoardEvent(boardId);
     }
 
     @Transactional(readOnly = true)
@@ -87,6 +99,7 @@ public class LabelService {
                 .label(label)
                 .build();
         cardLabelRepository.save(cardLabel);
+        broadcastBoardEvent(card.getList().getBoard().getId());
     }
 
     @Transactional
@@ -94,6 +107,7 @@ public class LabelService {
         Card card = cardService.findCardOrThrow(cardId);
         boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.MANAGE_LABELS);
         cardLabelRepository.deleteByCardIdAndLabelId(cardId, labelId);
+        broadcastBoardEvent(card.getList().getBoard().getId());
     }
 
     private LabelResponse toResponse(Label l) {

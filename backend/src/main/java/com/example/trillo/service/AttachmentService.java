@@ -8,6 +8,7 @@ import com.example.trillo.exception.AccessDeniedException;
 import com.example.trillo.exception.ResourceNotFoundException;
 import com.example.trillo.repository.AttachmentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,11 @@ public class AttachmentService {
     private final BoardService boardService;
     private final AuthService authService;
     private final ActivityLogService activityLogService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    private void broadcastBoardEvent(String boardId) {
+        messagingTemplate.convertAndSend("/topic/board/" + boardId, "CARD_UPDATED");
+    }
 
     @Transactional
     public AttachmentResponse addAttachment(String cardId, AddAttachmentRequest request, User currentUser) {
@@ -41,6 +47,7 @@ public class AttachmentService {
         activityLogService.logActivity(card, currentUser, "attached_link",
                 currentUser.getFullName() + " attached link '" + saved.getFileName() + "'");
 
+        broadcastBoardEvent(card.getList().getBoard().getId());
         return toResponse(saved);
     }
 
@@ -81,6 +88,7 @@ public class AttachmentService {
             activityLogService.logActivity(card, currentUser, "attached_file",
                     currentUser.getFullName() + " attached file '" + originalFilename + "'");
 
+            broadcastBoardEvent(card.getList().getBoard().getId());
             return toResponse(saved);
         } catch (Exception e) {
             throw new RuntimeException("Failed to upload attachment file: " + e.getMessage(), e);
@@ -99,10 +107,12 @@ public class AttachmentService {
             throw new AccessDeniedException("Not authorized to delete this attachment");
         }
 
+        String boardId = attachment.getCard().getList().getBoard().getId();
         activityLogService.logActivity(attachment.getCard(), currentUser, "deleted_attachment",
                 currentUser.getFullName() + " removed attachment '" + attachment.getFileName() + "'");
 
         attachmentRepository.delete(attachment);
+        broadcastBoardEvent(boardId);
     }
 
     @Transactional(readOnly = true)

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
     Globe,
     Lock,
     Loader2,
     UserPlus,
-    Star
+    Star,
+    ArrowLeft
 } from 'lucide-react'
 import {
     useBoardDetailQuery,
@@ -13,6 +14,7 @@ import {
     useToggleBoardStarMutation,
     useUpdateBoardMutation,
     useDeleteBoardMutation,
+    useCreateJoinRequestMutation,
     type BoardList,
     type BoardFormPayload
 } from '../services/boardServices'
@@ -41,13 +43,17 @@ import {
     type DragOverEvent,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { moveCard, reorderCards, type FilterCardsPayload, type ListCardResponse } from '../services/cardService.ts'
+import { moveCard, reorderCards, type FilterCardsPayload, type ListCardResponse, useCardDetailQuery } from '../services/cardService.ts'
 import { KanbanCard } from '../components/kanban/KanbanCard'
+import { EditCardModel } from '../components/card/EditCardModel'
 import { InviteMemberModal } from '../components/board/InviteMemberModal'
 import { CardFilterPopover } from '../components/kanban/CardFilterPopover.tsx'
 import { useWebSocketBoard, useBoardPresence, useDraggingPresence } from '../services/websocketService'
 import { getAvatarUrl, getInitials } from '../auth/authStorage'
 import { useAuth } from '../auth/authContext'
+
+import toast from 'react-hot-toast'
+import { webSocketService } from '../services/websocketService'
 
 class SmartPointerSensor extends PointerSensor {
     static activators = [
@@ -88,11 +94,49 @@ export const BoardDetailPage: React.FC = () => {
     const onlineViewers = useBoardPresence(boardId)
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isInviteOpen, setIsInviteOpen] = useState(false)
+    const [inviteModalTab, setInviteModalTab] = useState<'members' | 'requests'>('members')
     const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
     const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false)
     const [editTitle, setEditTitle] = useState<string>('')
     const updateBoardTitleMutation = useUpdateBoardTitleMutation()
     const toggleStarMutation = useToggleBoardStarMutation()
+    const createJoinRequestMutation = useCreateJoinRequestMutation()
+    const [searchParams, setSearchParams] = useSearchParams()
+    const targetCardIdParam = searchParams.get('cardId') || undefined
+    const requestsTabParam = searchParams.get('requestsTab')
+    const { data: directCardDetail } = useCardDetailQuery(targetCardIdParam)
+    const [isDirectCardOpen, setIsDirectCardOpen] = useState(false)
+
+    useEffect(() => {
+        if (targetCardIdParam && directCardDetail) {
+            setIsDirectCardOpen(true)
+        } else if (!targetCardIdParam) {
+            setIsDirectCardOpen(false)
+        }
+    }, [targetCardIdParam, directCardDetail])
+
+    useEffect(() => {
+        if (requestsTabParam === 'true') {
+            setInviteModalTab('requests')
+            setIsInviteOpen(true)
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev)
+                next.delete('requestsTab')
+                return next
+            })
+        }
+    }, [requestsTabParam, setSearchParams])
+
+    const handleCloseDirectCard = (open: boolean) => {
+        setIsDirectCardOpen(open)
+        if (!open && targetCardIdParam) {
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev)
+                next.delete('cardId')
+                return next
+            })
+        }
+    }
 
     const [cardFilterFeatures, setCardFilterFeatures] = useState<FilterCardsPayload>({
         search: '',
@@ -131,8 +175,42 @@ export const BoardDetailPage: React.FC = () => {
 
     const board = boardQuery.data
 
+    // Handle WebSocket event for member removal
+    useEffect(() => {
+        if (!boardId || !currentUser) return
+        const unsub = webSocketService.onBoardUpdate((event) => {
+            if (event === `MEMBER_REMOVED:${currentUser.id}` || event === `MEMBER_REMOVED:${boardId}`) {
+                toast.error('Bạn đã bị xóa khỏi bảng này!')
+                navigate('/app')
+            }
+        })
+        return () => unsub()
+    }, [boardId, currentUser, navigate])
+
+    // Redirect to /app if board fetch fails with permission error (e.g., user removed)
+    useEffect(() => {
+        if (boardQuery.isError) {
+            const err = boardQuery.error as any
+            if (err?.response?.status === 403 || err?.response?.status === 404) {
+                toast.error('Bạn không có quyền truy cập bảng này hoặc đã bị xóa!')
+                navigate('/app')
+            }
+        }
+    }, [boardQuery.isError, boardQuery.error, navigate])
+
     // Derived permission flags
     const isOwner = board?.currentUserRole === 'OWNER'
+    const isMember = isOwner || !!board?.members?.some(m => m.user.id === currentUser?.id)
+
+    const handleRequestToJoin = async () => {
+        if (!boardId) return
+        try {
+            await createJoinRequestMutation.mutateAsync(boardId)
+            toast.success('Đã gửi yêu cầu tham gia bảng!')
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Không thể gửi yêu cầu tham gia!')
+        }
+    }
     const canCreateList = isOwner || (board?.currentUserPermissions?.includes('CREATE_LIST') ?? false)
     const canEditList = isOwner || (board?.currentUserPermissions?.includes('EDIT_LIST') ?? false)
     const canDeleteList = isOwner || (board?.currentUserPermissions?.includes('DELETE_LIST') ?? false)
@@ -698,7 +776,16 @@ export const BoardDetailPage: React.FC = () => {
             {/* ── Top Header Navigation Bar ────────────────────────────────────────── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
                 {/* Left Section: Title & Visibility */}
-                <div className="flex items-center gap-3 flex-wrap min-w-0">
+                <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap min-w-0">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/app/boards')}
+                        className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shrink-0"
+                        title="Quay lại danh sách bảng"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+
                     <div className="flex items-center gap-2 min-w-0">
                         {isEditingTitle && isOwner ? (
                             <input
@@ -824,23 +911,34 @@ export const BoardDetailPage: React.FC = () => {
                             </span>
                         )}
                     </div>
-                    {/* Invite button — only for Owner */}
+                    {/* Invite button — for Owner */}
                     {isOwner && (
                         <button
-                            onClick={() => setIsInviteOpen(true)}
+                            onClick={() => { setInviteModalTab('members'); setIsInviteOpen(true); }}
                             className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
                         >
                             <UserPlus className="w-3.5 h-3.5" />
                             <span>Mời</span>
                         </button>
                     )}
-                    {/* Members button for non-owners to see the list */}
-                    {!isOwner && (
+                    {/* Members button for non-owner members */}
+                    {!isOwner && isMember && (
                         <button
-                            onClick={() => setIsInviteOpen(true)}
+                            onClick={() => { setInviteModalTab('members'); setIsInviteOpen(true); }}
                             className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
                         >
                             <span>Thành viên</span>
+                        </button>
+                    )}
+                    {/* Request to Join button for non-members on public board */}
+                    {!isMember && (
+                        <button
+                            onClick={handleRequestToJoin}
+                            disabled={createJoinRequestMutation.isPending}
+                            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                        >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Yêu cầu tham gia</span>
                         </button>
                     )}
                     <CardFilterPopover boardId={boardId || ''} cardfillterFeatures={cardFilterFeatures} setCardFillterFeatures={setCardFilterFeatures} />
@@ -921,8 +1019,10 @@ export const BoardDetailPage: React.FC = () => {
                 onOpenChange={setIsInviteOpen}
                 projectName={board?.title}
                 currentUserRole={board?.currentUserRole}
+                initialTab={inviteModalTab}
                 initialMembers={board?.members?.map(m => ({
                     id: m.id,
+                    userId: m.user.id,
                     fullName: m.user.fullName,
                     email: m.user.email || '',
                     avatarUrl: getAvatarUrl(m.user.avatarUrl),
@@ -932,6 +1032,15 @@ export const BoardDetailPage: React.FC = () => {
                     isYou: currentUser?.id === m.user.id,
                 }))}
             />
+
+            {/* ── DIRECT CARD DETAIL MODAL (WHEN ACCESSED VIA LINK OR NOTIFICATION) ── */}
+            {isDirectCardOpen && directCardDetail && (
+                <EditCardModel
+                    card={directCardDetail as any}
+                    open={isDirectCardOpen}
+                    onOpenChange={handleCloseDirectCard}
+                />
+            )}
         </div>
     )
 }

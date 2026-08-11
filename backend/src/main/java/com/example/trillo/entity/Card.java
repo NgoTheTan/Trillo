@@ -35,6 +35,14 @@ public class Card {
 
     private LocalDateTime deadline;
 
+    @Builder.Default
+    @Column(name = "reminder", columnDefinition = "VARCHAR(50) DEFAULT '1_day_before'")
+    private String reminder = "1_day_before";
+
+    @Builder.Default
+    @Column(name = "reminder_sent", nullable = false, columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
+    private boolean reminderSent = false;
+
     @Column(nullable = false)
     private Integer position;
 

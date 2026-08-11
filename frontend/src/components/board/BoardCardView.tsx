@@ -1,5 +1,5 @@
 import React from 'react'
-import { Plus, Globe, Lock, Star } from 'lucide-react'
+import { Plus, Globe, Lock, Star, Shield, UserCheck } from 'lucide-react'
 import type { BoardSummaryResponse } from '../../services/boardServices'
 import { BoardActionMenu } from './BoardActionMenu'
 import { useNavigate } from 'react-router-dom'
@@ -64,17 +64,32 @@ export const BoardCardView: React.FC<BoardCardViewProps> = ({
                 {board.description && (
                   <p className="text-xs text-white/80 line-clamp-1 mt-1 font-normal">{board.description}</p>
                 )}
-                {board.visibility === 'PRIVATE' ? (
-                  <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 text-xs font-semibold bg-amber-400/30 text-amber-100 border border-amber-300/40 backdrop-blur-md rounded-full">
-                    <Lock className="w-3 h-3 text-amber-300" />
-                    Riêng tư
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 text-xs font-semibold bg-emerald-400/25 text-emerald-100 border border-emerald-300/30 backdrop-blur-md rounded-full">
-                    <Globe className="w-3 h-3 text-emerald-300" />
-                    Công khai
-                  </span>
-                )}
+                
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  {board.visibility === 'PRIVATE' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-semibold bg-amber-400/30 text-amber-100 border border-amber-300/40 backdrop-blur-md rounded-full">
+                      <Lock className="w-3 h-3 text-amber-300" />
+                      Riêng tư
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-semibold bg-emerald-400/25 text-emerald-100 border border-emerald-300/30 backdrop-blur-md rounded-full">
+                      <Globe className="w-3 h-3 text-emerald-300" />
+                      Công khai
+                    </span>
+                  )}
+
+                  {board.currentUserRole === 'OWNER' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold bg-purple-400/30 text-purple-100 border border-purple-300/40 backdrop-blur-md rounded-full">
+                      <Shield className="w-3 h-3 text-purple-300" />
+                      Đã tham gia (Chủ bảng)
+                    </span>
+                  ) : board.currentUserRole ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-bold bg-blue-400/30 text-blue-100 border border-blue-300/40 backdrop-blur-md rounded-full">
+                      <UserCheck className="w-3 h-3 text-blue-300" />
+                      Đã tham gia
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               <div onClick={e => e.stopPropagation()}>

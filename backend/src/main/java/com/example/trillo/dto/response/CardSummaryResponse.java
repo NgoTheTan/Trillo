@@ -9,6 +9,7 @@ public record CardSummaryResponse(
         String title,
         String description,
         LocalDateTime deadline,
+        String reminder,
         int position,
         boolean completed,
         boolean archived,

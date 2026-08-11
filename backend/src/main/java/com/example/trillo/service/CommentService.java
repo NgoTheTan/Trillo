@@ -44,13 +44,15 @@ public class CommentService {
                 currentUser.getFullName() + " commented on this card");
 
         // Notify card assignees (except commenter)
+        String boardId = card.getList().getBoard().getId();
         card.getAssignedMembers().stream()
                 .map(CardMember::getUser)
                 .filter(u -> !u.getId().equals(currentUser.getId()))
                 .forEach(u -> notificationService.createNotification(
                         u, NotificationType.COMMENT_ADDED,
-                        currentUser.getFullName() + " commented on '" + card.getTitle() + "'",
-                        cardId, "CARD"
+                        currentUser.getFullName() + " đã bình luận trong thẻ '" + card.getTitle() + "'",
+                        cardId, "CARD",
+                        boardId, cardId
                 ));
 
         messagingTemplate.convertAndSend("/topic/board/" + card.getList().getBoard().getId(), "COMMENT_ADDED");

@@ -1,11 +1,15 @@
 package com.example.trillo.service;
 
 import com.example.trillo.dto.response.NotificationResponse;
+import com.example.trillo.entity.BoardInvitation;
+import com.example.trillo.entity.JoinRequest;
 import com.example.trillo.entity.Notification;
 import com.example.trillo.entity.NotificationSetting;
 import com.example.trillo.entity.User;
 import com.example.trillo.enums.NotificationType;
 import com.example.trillo.exception.ResourceNotFoundException;
+import com.example.trillo.repository.BoardInvitationRepository;
+import com.example.trillo.repository.JoinRequestRepository;
 import com.example.trillo.repository.NotificationRepository;
 import com.example.trillo.repository.NotificationSettingRepository;
 
@@ -25,6 +29,8 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationSettingRepository settingRepository;
+    private final BoardInvitationRepository boardInvitationRepository;
+    private final JoinRequestRepository joinRequestRepository;
     
     public NotificationSetting getSettings(String userId) {
         return settingRepository.findById(userId)
@@ -40,18 +46,25 @@ public class NotificationService {
     @Transactional
     public void createNotification(User recipient, NotificationType type,
                                    String message, String referenceId, String referenceType) {
+        createNotification(recipient, type, message, referenceId, referenceType, null, null);
+    }
+
+    @Transactional
+    public void createNotification(User recipient, NotificationType type,
+                                   String message, String referenceId, String referenceType,
+                                   String relatedBoardId, String relatedTaskId) {
         
         NotificationSetting settings = getSettings(recipient.getId());
         
         boolean shouldSend = true;
         if (type != null) {
             switch (type) {
-                case TASK_ASSIGNED -> shouldSend = settings.isTaskAssigned();
-                case TASK_DUE_SOON -> shouldSend = settings.isTaskDueSoon();
+                case TASK_ASSIGNED, CARD_ASSIGNED -> shouldSend = settings.isTaskAssigned();
+                case TASK_DUE_SOON, DEADLINE_REMINDER -> shouldSend = settings.isTaskDueSoon();
                 case TASK_OVERDUE -> shouldSend = settings.isTaskOverdue();
-                case COMMENT -> shouldSend = settings.isComments();
+                case COMMENT, COMMENT_ADDED -> shouldSend = settings.isComments();
                 case MENTION -> shouldSend = settings.isMentions();
-                case BOARD_INVITE -> shouldSend = settings.isBoardInvites();
+                case BOARD_INVITE, BOARD_INVITATION, INVITATION_ACCEPTED, INVITATION_DECLINED, JOIN_REQUEST, MEMBER_JOINED, MEMBER_REMOVED -> shouldSend = settings.isBoardInvites();
                 default -> shouldSend = true;
             }
         }
@@ -60,12 +73,23 @@ public class NotificationService {
             return;
         }
 
+        String boardId = relatedBoardId;
+        String taskId = relatedTaskId;
+        if (boardId == null && "BOARD".equalsIgnoreCase(referenceType)) {
+            boardId = referenceId;
+        }
+        if (taskId == null && "CARD".equalsIgnoreCase(referenceType)) {
+            taskId = referenceId;
+        }
+
         Notification notification = Notification.builder()
                 .recipient(recipient)
                 .type(type)
                 .message(message)
                 .referenceId(referenceId)
                 .referenceType(referenceType)
+                .relatedBoardId(boardId)
+                .relatedTaskId(taskId)
                 .build();
 
         Notification saved = notificationRepository.save(notification);
@@ -130,10 +154,31 @@ public class NotificationService {
     }
 
     private NotificationResponse toResponse(Notification n) {
+        String boardId = n.getRelatedBoardId();
+        String taskId = n.getRelatedTaskId();
+        if (boardId == null && "BOARD".equalsIgnoreCase(n.getReferenceType())) {
+            boardId = n.getReferenceId();
+        }
+        if (taskId == null && "CARD".equalsIgnoreCase(n.getReferenceType())) {
+            taskId = n.getReferenceId();
+        }
+
+        String status = null;
+        if (n.getType() == NotificationType.BOARD_INVITATION && n.getReferenceId() != null) {
+            status = boardInvitationRepository.findById(n.getReferenceId())
+                    .map(BoardInvitation::getStatus)
+                    .orElse(null);
+        } else if (n.getType() == NotificationType.JOIN_REQUEST && n.getReferenceId() != null) {
+            status = joinRequestRepository.findById(n.getReferenceId())
+                    .map(JoinRequest::getStatus)
+                    .orElse(null);
+        }
+
         return new NotificationResponse(
                 n.getId(), n.getType(), n.getMessage(),
                 n.getReferenceId(), n.getReferenceType(),
-                n.isRead(), n.getCreatedAt()
+                boardId, taskId,
+                n.isRead(), n.getCreatedAt(), status
         );
     }
 }

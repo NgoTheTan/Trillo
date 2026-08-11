@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import type { StompSubscription } from '@stomp/stompjs';
 import { useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
 import type { NotificationResponse } from './notificationService';
 import { useAuth } from '../auth/authContext';
 import { getAvatarUrl } from '../auth/authStorage';
@@ -32,6 +31,7 @@ class WebSocketService {
   private notificationCallbacks: Set<(n: NotificationResponse) => void> = new Set();
   private boardUpdateCallbacks: Set<(event: string) => void> = new Set();
   private boardCallbacks: Map<string, Set<(e: string) => void>> = new Map();
+  private joinRequestCallbacks: Map<string, Set<(e: string) => void>> = new Map();
   private activeSubscriptions: Map<string, StompSubscription> = new Map();
   private connectCallbacks: Set<() => void> = new Set();
 
@@ -211,6 +211,39 @@ class WebSocketService {
       }
     };
   }
+
+  public subscribeJoinRequests(boardId: string, callback: (event: string) => void): () => void {
+    const key = `join_requests_${boardId}`;
+    if (!this.joinRequestCallbacks.has(boardId)) {
+      this.joinRequestCallbacks.set(boardId, new Set());
+    }
+    this.joinRequestCallbacks.get(boardId)!.add(callback);
+
+    // Subscribe to topic if connected and not already subscribed
+    if (this.client && this.isConnected && !this.activeSubscriptions.has(key)) {
+      const sub = this.client.subscribe(`/topic/board/${boardId}/join-requests`, (message) => {
+        const event = message.body;
+        const callbacks = this.joinRequestCallbacks.get(boardId);
+        if (callbacks) callbacks.forEach((cb) => cb(event));
+      });
+      this.activeSubscriptions.set(key, sub);
+    }
+
+    return () => {
+      const callbacks = this.joinRequestCallbacks.get(boardId);
+      if (callbacks) {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) {
+          this.joinRequestCallbacks.delete(boardId);
+          const sub = this.activeSubscriptions.get(key);
+          if (sub) {
+            sub.unsubscribe();
+            this.activeSubscriptions.delete(key);
+          }
+        }
+      }
+    };
+  }
 }
 
 export const webSocketService = new WebSocketService();
@@ -227,27 +260,9 @@ export function useWebSocketNotifications() {
     if (isAuthenticated && token) {
       webSocketService.connect(token);
 
-      const unsubNotif = webSocketService.onNotification((notif) => {
-        // Determine icon based on notification type
-        const iconMap: Record<string, string> = {
-          DEADLINE_REMINDER: '⏰',
-          BOARD_INVITE: '🎉',
-          CARD_ASSIGNED: '✅',
-          COMMENT_ADDED: '💬',
-          MEMBER_JOINED: '👥',
-        };
-        const icon = iconMap[notif.type] ?? '🔔';
-
-        // Show real-time toast with title (if available) and message
-        const toastMessage = notif.title
-          ? `${notif.title}\n${notif.message}`
-          : notif.message;
-
-        toast(toastMessage, { icon, duration: 5000 });
-
-        // Immediately refetch so notification bell updates in real-time
+      const unsubNotif = webSocketService.onNotification((_notif) => {
+        // Quietly update notification queries without floating corner toast popups
         queryClient.refetchQueries({ queryKey: ['notifications'], type: 'active' });
-        // Also invalidate so any mounted component re-fetches
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
       });
 
@@ -570,3 +585,23 @@ export function useDraggingPresence(boardId: string | undefined) {
     notifyColumnDragEnd,
   };
 }
+
+export function useJoinRequestUpdates(boardId: string | undefined, callback?: (event: string) => void) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!boardId) return;
+
+    const unsubscribe = webSocketService.subscribeJoinRequests(boardId, (event) => {
+      queryClient.invalidateQueries({ queryKey: ['join-requests', boardId] });
+      if (callback) {
+        callback(event);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [boardId, queryClient, callback]);
+}
+

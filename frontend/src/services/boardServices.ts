@@ -205,8 +205,56 @@ export const inviteMember = async (boardId: string, email: string): Promise<Invi
   return await Api.post<InviteResponse>(`/boards/${boardId}/invite`, { email });
 }
 
-export const acceptInvite = async (token: string): Promise<BoardSummaryResponse> => {
-  return await Api.post<BoardSummaryResponse>(`/boards/accept-invite/${token}`);
+export const acceptInvite = async (token: string): Promise<{ id: string; boardId: string; boardTitle: string; status: string }> => {
+  return await Api.post(`/boards/accept-invite/${token}`)
+}
+
+// ── Invitation types ──────────────────────────────────────────────────────────
+
+export interface BoardInvitation {
+  id: string
+  boardId: string
+  boardTitle: string
+  inviter: UserResponse
+  invitee: UserResponse
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED'
+  createdAt: string
+}
+
+export interface JoinRequest {
+  id: string
+  boardId: string
+  boardTitle: string
+  requester: UserResponse
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  source: 'LINK' | 'PUBLIC'
+  createdAt: string
+}
+
+// ── New Invitation & Join Request API Functions ───────────────────────────────
+
+export const getPendingInvitations = async (): Promise<BoardInvitation[]> => {
+  return await Api.get<BoardInvitation[]>('/boards/invitations/pending')
+}
+
+export const respondToInvitation = async (invitationId: string, accept: boolean): Promise<void> => {
+  await Api.post<void>(`/boards/invitations/${invitationId}/respond?accept=${accept}`)
+}
+
+export const getJoinRequests = async (boardId: string): Promise<JoinRequest[]> => {
+  return await Api.get<JoinRequest[]>(`/boards/${boardId}/join-requests`)
+}
+
+export const createJoinRequest = async (boardId: string): Promise<JoinRequest> => {
+  return await Api.post<JoinRequest>(`/boards/${boardId}/join-requests`)
+}
+
+export const approveJoinRequest = async (boardId: string, requestId: string): Promise<void> => {
+  await Api.post<void>(`/boards/${boardId}/join-requests/${requestId}/approve`)
+}
+
+export const rejectJoinRequest = async (boardId: string, requestId: string): Promise<void> => {
+  await Api.post<void>(`/boards/${boardId}/join-requests/${requestId}/reject`)
 }
 
 export const updateMemberPermissions = async (
@@ -393,3 +441,66 @@ export const useToggleBoardStarMutation = () => {
   });
 };
 
+// ── Invitation & Join Request Hooks ───────────────────────────────────────────
+
+export const usePendingInvitationsQuery = () => {
+  return useQuery({
+    queryKey: ['invitations', 'pending'],
+    queryFn: getPendingInvitations,
+    staleTime: 0,
+  });
+};
+
+export const useRespondToInvitationMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ invitationId, accept }: { invitationId: string; accept: boolean }) =>
+      respondToInvitation(invitationId, accept),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['boards'] });
+    },
+  });
+};
+
+export const useJoinRequestsQuery = (boardId: string | undefined) => {
+  return useQuery({
+    queryKey: ['join-requests', boardId],
+    queryFn: () => getJoinRequests(boardId!),
+    enabled: !!boardId,
+    staleTime: 0,
+  });
+};
+
+export const useCreateJoinRequestMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (boardId: string) => createJoinRequest(boardId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['boards'] });
+    },
+  });
+};
+
+export const useApproveJoinRequestMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ boardId, requestId }: { boardId: string; requestId: string }) =>
+      approveJoinRequest(boardId, requestId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['join-requests', variables.boardId] });
+      queryClient.invalidateQueries({ queryKey: ['boards', variables.boardId] });
+    },
+  });
+};
+
+export const useRejectJoinRequestMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ boardId, requestId }: { boardId: string; requestId: string }) =>
+      rejectJoinRequest(boardId, requestId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['join-requests', variables.boardId] });
+    },
+  });
+};

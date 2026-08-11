@@ -36,6 +36,9 @@ public interface CardRepository extends JpaRepository<Card, String>, JpaSpecific
     @Query("SELECT c FROM Card c WHERE c.deadline BETWEEN :from AND :to AND c.completed = false")
     List<Card> findCardsWithDeadlineBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
+    @Query("SELECT c FROM Card c WHERE c.deadline IS NOT NULL AND c.completed = false AND c.archived = false AND c.reminderSent = false AND (c.reminder IS NULL OR LOWER(c.reminder) <> 'none')")
+    List<Card> findPendingReminderCards();
+
     // Cards by board (across all lists)
     @Query("SELECT c FROM Card c WHERE c.list.board.id = :boardId")
     List<Card> findAllByBoardId(@Param("boardId") String boardId);

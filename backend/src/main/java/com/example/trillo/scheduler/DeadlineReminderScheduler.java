@@ -25,41 +25,79 @@ public class DeadlineReminderScheduler {
     private final InviteTokenRepository inviteTokenRepository;
 
     /**
-     * Every hour: notify card assignees whose uncompleted cards are due within the next 24 hours.
+     * Every minute: check cards with deadline reminders due according to card reminder setting.
      */
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(cron = "0 * * * * *")
     @Transactional
     public void sendDeadlineReminders() {
-        log.info("Running deadline reminder scheduler...");
-
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime next24h = now.plusHours(24);
 
-        List<Card> cards = cardRepository.findCardsWithDeadlineBetween(now, next24h);
-        log.info("Found {} cards with deadlines in the next 24 hours", cards.size());
+        List<Card> cards = cardRepository.findPendingReminderCards();
 
         for (Card card : cards) {
-            if (card.isCompleted()) continue;
+            if (card.isCompleted() || card.isArchived() || card.getDeadline() == null) continue;
 
-            String message = "⏰ Card '" + card.getTitle() + "' is due soon (deadline: " + card.getDeadline() + ")!";
+            long minutesBefore = getReminderMinutesBefore(card.getReminder());
+            if (minutesBefore < 0) continue;
 
-            // Notify all assigned members
-            for (CardMember member : card.getAssignedMembers()) {
-                try {
-                    notificationService.createNotification(
-                            member.getUser(),
-                            NotificationType.DEADLINE_REMINDER,
-                            message,
-                            card.getId(),
-                            "CARD"
-                    );
-                } catch (Exception e) {
-                    log.error("Failed to send deadline notification to user {}", member.getUser().getId(), e);
+            LocalDateTime reminderTime = card.getDeadline().minusMinutes(minutesBefore);
+            if (!now.isBefore(reminderTime)) {
+                String deadlineFormatted = card.getDeadline()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy 'lúc' HH:mm"));
+                String message = "Thẻ '" + card.getTitle() + "' sắp đến hạn (Hạn chót: " + deadlineFormatted + ")";
+                String boardId = card.getList().getBoard().getId();
+
+                if (card.getAssignedMembers() != null && !card.getAssignedMembers().isEmpty()) {
+                    for (CardMember member : card.getAssignedMembers()) {
+                        try {
+                            notificationService.createNotification(
+                                    member.getUser(),
+                                    NotificationType.DEADLINE_REMINDER,
+                                    message,
+                                    card.getId(),
+                                    "CARD",
+                                    boardId,
+                                    card.getId()
+                            );
+                        } catch (Exception e) {
+                            log.error("Failed to send deadline notification to user {}", member.getUser().getId(), e);
+                        }
+                    }
+                } else if (card.getList().getBoard().getOwner() != null) {
+                    try {
+                        notificationService.createNotification(
+                                card.getList().getBoard().getOwner(),
+                                NotificationType.DEADLINE_REMINDER,
+                                message,
+                                card.getId(),
+                                "CARD",
+                                boardId,
+                                card.getId()
+                        );
+                    } catch (Exception e) {
+                        log.error("Failed to send deadline notification to owner", e);
+                    }
                 }
+
+                card.setReminderSent(true);
+                cardRepository.save(card);
             }
         }
+    }
 
-        log.info("Deadline reminder scheduler completed");
+    private long getReminderMinutesBefore(String reminder) {
+        if (reminder == null) return 1440;
+        return switch (reminder.toLowerCase()) {
+            case "at_due" -> 0;
+            case "5_min_before" -> 5;
+            case "15_min_before" -> 15;
+            case "1_hour_before" -> 60;
+            case "2_hours_before" -> 120;
+            case "1_day_before" -> 1440;
+            case "2_days_before" -> 2880;
+            case "none" -> -1;
+            default -> 1440;
+        };
     }
 
     /**

@@ -166,7 +166,8 @@ const formatExternalUrl = (url: string) => {
 
 interface DirectDatePickerPopoverProps {
   value?: string
-  onChange: (isoString: string) => void
+  reminderValue?: string | null
+  onChange: (isoString: string, reminder?: string) => void
   onRemove: () => void
   onClose: () => void
   disabled?: boolean
@@ -174,6 +175,7 @@ interface DirectDatePickerPopoverProps {
 
 const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
   value,
+  reminderValue,
   onChange,
   onRemove,
   onClose,
@@ -196,7 +198,7 @@ const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
   })
 
   const [hasDueDate, setHasDueDate] = useState(true)
-  const [reminderOption, setReminderOption] = useState('1_day_before')
+  const [reminderOption, setReminderOption] = useState(() => reminderValue || '1_day_before')
 
   const year = viewMonth.getFullYear()
   const month = viewMonth.getMonth()
@@ -236,7 +238,7 @@ const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
     const finalDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), h, m)
     const tzOffset = finalDate.getTimezoneOffset() * 60000
     const localIso = new Date(finalDate.getTime() - tzOffset).toISOString().slice(0, 16)
-    onChange(localIso)
+    onChange(localIso, reminderOption)
     onClose()
   }
 
@@ -531,6 +533,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   const [draftDescription, setDraftDescription] = useState(card?.description || '')
   const [isEditingDesc, setIsEditingDesc] = useState(false)
   const [deadline, setDeadline] = useState(card?.deadline ? formatToDatetimeLocal(card.deadline) : '')
+  const [reminder, setReminder] = useState<string>(card?.reminder || '1_day_before')
   const [completed, setCompleted] = useState<boolean>(card?.completed || false)
 
   // Auto-save state
@@ -648,11 +651,13 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     if (activeCard) {
       const initTitle = activeCard.title || ''
       const initDeadline = activeCard.deadline ? formatToDatetimeLocal(activeCard.deadline) : ''
+      const initReminder = activeCard.reminder || '1_day_before'
       const initCompleted = activeCard.completed || false
       const initDesc = activeCard.description || ''
 
       setTitle(initTitle)
       setDeadline(initDeadline)
+      setReminder(initReminder)
       setCompleted(initCompleted)
       setDescription(initDesc)
       if (!isEditingDesc) {
@@ -2103,13 +2108,16 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                         {activePopover === 'date' && (
                           <DirectDatePickerPopover
                             value={deadline}
+                            reminderValue={reminder}
                             disabled={!canEditCard}
-                            onChange={async iso => {
+                            onChange={async (iso, reminderVal) => {
                               setDeadline(iso)
+                              const finalReminder = reminderVal || reminder
+                              setReminder(finalReminder)
                               if (card?.id && canEditCard) {
                                 await updateCardMutation.mutateAsync({
                                   cardId: card.id,
-                                  cardData: { deadline: iso },
+                                  cardData: { deadline: iso, reminder: finalReminder },
                                 })
                                 lastSavedRef.current.deadline = iso
                               }

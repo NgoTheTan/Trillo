@@ -39,6 +39,8 @@ public class BoardService {
     private final BoardMemberRepository boardMemberRepository;
     private final UserRepository userRepository;
     private final InviteTokenRepository inviteTokenRepository;
+    private final BoardInvitationRepository boardInvitationRepository;
+    private final JoinRequestRepository joinRequestRepository;
     private final NotificationService notificationService;
     private final AuthService authService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -191,53 +193,50 @@ public class BoardService {
         if (existingUser.isPresent()) {
             User invitee = existingUser.get();
 
+            // Cannot invite yourself
+            if (invitee.getId().equals(currentUser.getId())) {
+                throw new DuplicateResourceException("You cannot invite yourself");
+            }
+
             // Check already member
             if (boardMemberRepository.existsByBoardIdAndUserId(boardId, invitee.getId())) {
                 throw new DuplicateResourceException("User is already a member of this board");
             }
 
-            // Add directly as MEMBER with no permissions (view-only by default)
-            BoardMember member = BoardMember.builder()
-                    .board(board)
-                    .user(invitee)
-                    .role(BoardRole.MEMBER)
-                    .permissions("[]")
-                    .build();
-            boardMemberRepository.save(member);
-
-            // Create notification for invitee
-            notificationService.createNotification(
-                    invitee,
-                    NotificationType.BOARD_INVITE,
-                    currentUser.getFullName() + " added you to board: " + board.getTitle(),
-                    boardId,
-                    "BOARD"
-            );
-
-            // Create notification for PM / Board owner (if different from currentUser and invitee)
-            if (board.getOwner() != null && !board.getOwner().getId().equals(invitee.getId()) && !board.getOwner().getId().equals(currentUser.getId())) {
-                notificationService.createNotification(
-                        board.getOwner(),
-                        NotificationType.MEMBER_JOINED,
-                        invitee.getFullName() + " has joined your board: " + board.getTitle(),
-                        boardId,
-                        "BOARD"
-                );
+            // Check for existing pending invitation
+            if (boardInvitationRepository.existsByBoardIdAndInviteeIdAndStatus(boardId, invitee.getId(), "PENDING")) {
+                throw new DuplicateResourceException("An invitation is already pending for this user");
             }
 
-            // Push WebSocket event
-            messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_ADDED");
-            broadcastBoardUpdate(board);
+            // Create invitation (PENDING — user must accept)
+            BoardInvitation invitation = BoardInvitation.builder()
+                    .board(board)
+                    .inviter(currentUser)
+                    .invitee(invitee)
+                    .status("PENDING")
+                    .build();
+            boardInvitationRepository.save(invitation);
 
-            return new InviteResponse(true, "User added to board successfully", null);
+            // Notify invitee
+            notificationService.createNotification(
+                    invitee,
+                    NotificationType.BOARD_INVITATION,
+                    currentUser.getFullName() + " đã mời bạn tham gia bảng: " + board.getTitle(),
+                    invitation.getId(),
+                    "INVITATION",
+                    boardId,
+                    null
+            );
+
+            return new InviteResponse(true, "Lời mời đã được gửi, đang chờ người dùng xác nhận", null);
         } else {
-            // Check for existing pending invite
+            // Check for existing pending invite token
             if (inviteTokenRepository.existsByEmailAndBoardIdAndUsedFalseAndExpiresAtAfter(
                     email, boardId, LocalDateTime.now())) {
                 throw new DuplicateResourceException("An active invite already exists for this email");
             }
 
-            // Create invite token
+            // Create invite token (link-based)
             String token = UUID.randomUUID().toString();
             InviteToken inviteToken = InviteToken.builder()
                     .token(token)
@@ -252,15 +251,15 @@ public class BoardService {
 
             return new InviteResponse(
                     false,
-                    "User not found. Share this invite link with them:",
+                    "Người dùng chưa có tài khoản. Chia sẻ link mời này với họ:",
                     inviteUrl
             );
         }
     }
 
-    // ── Accept Invite (called after user registers/logs in) ───────────────────
+    // ── Accept Invite via Link — creates JoinRequest for owner approval ────────
     @Transactional
-    public BoardSummaryResponse acceptInvite(String token, User currentUser) {
+    public JoinRequestResponse acceptInvite(String token, User currentUser) {
         InviteToken invite = inviteTokenRepository.findByTokenAndUsedFalse(token)
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid or expired invite token"));
 
@@ -268,7 +267,6 @@ public class BoardService {
             throw new IllegalArgumentException("Invite token has expired");
         }
 
-        // Verify email matches if user has same email
         if (!currentUser.getEmail().equalsIgnoreCase(invite.getEmail())) {
             throw new AccessDeniedException("This invite was sent to " + invite.getEmail());
         }
@@ -279,42 +277,41 @@ public class BoardService {
             throw new DuplicateResourceException("You are already a member of this board");
         }
 
-        BoardMember member = BoardMember.builder()
-                .board(board)
-                .user(currentUser)
-                .role(BoardRole.MEMBER)
-                .permissions("[]")
-                .build();
-        boardMemberRepository.save(member);
+        // Check for existing pending join request
+        if (joinRequestRepository.existsByBoardIdAndRequesterIdAndStatus(board.getId(), currentUser.getId(), "PENDING")) {
+            throw new DuplicateResourceException("You already have a pending join request for this board");
+        }
 
         // Mark token as used
         invite.setUsed(true);
         inviteTokenRepository.save(invite);
 
-        // Create notification for joining user
-        notificationService.createNotification(
-                currentUser,
-                NotificationType.BOARD_INVITE,
-                "You have joined board: " + board.getTitle(),
-                board.getId(),
-                "BOARD"
-        );
+        // Create JoinRequest (PENDING — owner must approve)
+        JoinRequest joinRequest = JoinRequest.builder()
+                .board(board)
+                .requester(currentUser)
+                .status("PENDING")
+                .source("LINK")
+                .build();
+        joinRequestRepository.save(joinRequest);
 
-        // Create notification for PM / Board Owner
-        if (board.getOwner() != null && !board.getOwner().getId().equals(currentUser.getId())) {
+        // Notify board owner
+        if (board.getOwner() != null) {
             notificationService.createNotification(
                     board.getOwner(),
-                    NotificationType.MEMBER_JOINED,
-                    currentUser.getFullName() + " joined your board: " + board.getTitle(),
+                    NotificationType.JOIN_REQUEST,
+                    currentUser.getFullName() + " đã yêu cầu tham gia bảng: " + board.getTitle(),
+                    joinRequest.getId(),
+                    "JOIN_REQUEST",
                     board.getId(),
-                    "BOARD"
+                    null
             );
         }
 
-        messagingTemplate.convertAndSend("/topic/board/" + invite.getBoardId(), "MEMBER_ADDED");
-        broadcastBoardUpdate(board);
+        // Broadcast so InviteMemberModal updates join-requests tab in real-time
+        messagingTemplate.convertAndSend("/topic/board/" + board.getId() + "/join-requests", "JOIN_REQUEST_CREATED");
 
-        return toBoardSummaryResponse(board, currentUser);
+        return JoinRequestResponse.from(joinRequest, authService.toUserResponse(currentUser));
     }
 
     // ── Remove Member ─────────────────────────────────────────────────────────
@@ -323,18 +320,223 @@ public class BoardService {
         Board board = findBoardOrThrow(boardId);
         requireOwner(board, currentUser);
 
-        if (!boardMemberRepository.existsByBoardIdAndUserId(boardId, userId)) {
-            throw new ResourceNotFoundException("Member not found in this board");
-        }
+        BoardMember targetMembership = boardMemberRepository.findByBoardIdAndUserId(boardId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found in this board"));
 
         // Cannot remove owner
         if (board.getOwner().getId().equals(userId)) {
             throw new AccessDeniedException("Cannot remove the board owner");
         }
 
-        boardMemberRepository.deleteByBoardIdAndUserId(boardId, userId);
-        messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_REMOVED");
+        User removedUser = targetMembership.getUser();
+        board.getMembers().remove(targetMembership);
+        boardMemberRepository.delete(targetMembership);
+
+        // Notify the removed user
+        notificationService.createNotification(
+                removedUser,
+                NotificationType.MEMBER_REMOVED,
+                "Bạn đã bị xóa khỏi bảng: " + board.getTitle(),
+                boardId,
+                "BOARD",
+                boardId,
+                null
+        );
+
+        // Push MEMBER_REMOVED to board topic and removed user's personal queue
+        messagingTemplate.convertAndSend("/topic/board/" + boardId, "MEMBER_REMOVED:" + userId);
+        messagingTemplate.convertAndSendToUser(userId, "/queue/boards", "MEMBER_REMOVED:" + boardId);
         broadcastBoardUpdate(board);
+    }
+
+    // ── Respond to Invitation (invitee accepts or declines) ──────────────────
+    @Transactional
+    public void respondToInvitation(String invitationId, boolean accept, User currentUser) {
+        BoardInvitation invitation = boardInvitationRepository.findById(invitationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
+
+        if (!invitation.getInvitee().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("This invitation is not for you");
+        }
+
+        if (!"PENDING".equals(invitation.getStatus())) {
+            throw new IllegalArgumentException("This invitation has already been responded to");
+        }
+
+        Board board = invitation.getBoard();
+        invitation.setStatus(accept ? "ACCEPTED" : "DECLINED");
+        invitation.setRespondedAt(LocalDateTime.now());
+        boardInvitationRepository.save(invitation);
+
+        if (accept) {
+            // Add to board as member
+            if (!boardMemberRepository.existsByBoardIdAndUserId(board.getId(), currentUser.getId())) {
+                BoardMember member = BoardMember.builder()
+                        .board(board)
+                        .user(currentUser)
+                        .role(BoardRole.MEMBER)
+                        .permissions("[]")
+                        .build();
+                boardMemberRepository.save(member);
+            }
+
+            // Notify inviter
+            notificationService.createNotification(
+                    invitation.getInviter(),
+                    NotificationType.INVITATION_ACCEPTED,
+                    currentUser.getFullName() + " đã chấp nhận lời mời tham gia bảng: " + board.getTitle(),
+                    board.getId(),
+                    "BOARD",
+                    board.getId(),
+                    null
+            );
+
+            messagingTemplate.convertAndSend("/topic/board/" + board.getId(), "MEMBER_ADDED");
+            broadcastBoardUpdate(board);
+        } else {
+            // Notify inviter of decline
+            notificationService.createNotification(
+                    invitation.getInviter(),
+                    NotificationType.INVITATION_DECLINED,
+                    currentUser.getFullName() + " đã từ chối lời mời tham gia bảng: " + board.getTitle(),
+                    board.getId(),
+                    "BOARD",
+                    board.getId(),
+                    null
+            );
+        }
+    }
+
+    // ── Get pending invitations for current user ───────────────────────────────
+    @Transactional(readOnly = true)
+    public List<BoardInvitationResponse> getPendingInvitations(User currentUser) {
+        return boardInvitationRepository.findByInviteeIdAndStatus(currentUser.getId(), "PENDING")
+                .stream()
+                .map(inv -> BoardInvitationResponse.from(
+                        inv,
+                        authService.toUserResponse(inv.getInviter()),
+                        authService.toUserResponse(inv.getInvitee())
+                ))
+                .toList();
+    }
+
+    // ── Get join requests for a board (owner view) ────────────────────────────
+    @Transactional(readOnly = true)
+    public List<JoinRequestResponse> getJoinRequests(String boardId, User currentUser) {
+        Board board = findBoardOrThrow(boardId);
+        requireOwner(board, currentUser);
+        return joinRequestRepository.findByBoardIdAndStatus(boardId, "PENDING")
+                .stream()
+                .map(req -> JoinRequestResponse.from(req, authService.toUserResponse(req.getRequester())))
+                .toList();
+    }
+
+    // ── Approve Join Request ──────────────────────────────────────────────────
+    @Transactional
+    public void approveJoinRequest(String requestId, User currentUser) {
+        JoinRequest req = joinRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Join request not found"));
+
+        Board board = req.getBoard();
+        requireOwner(board, currentUser);
+
+        req.setStatus("APPROVED");
+        req.setRespondedAt(LocalDateTime.now());
+        joinRequestRepository.save(req);
+
+        User requester = req.getRequester();
+        if (!boardMemberRepository.existsByBoardIdAndUserId(board.getId(), requester.getId())) {
+            BoardMember member = BoardMember.builder()
+                    .board(board)
+                    .user(requester)
+                    .role(BoardRole.MEMBER)
+                    .permissions("[]")
+                    .build();
+            boardMemberRepository.save(member);
+        }
+
+        notificationService.createNotification(
+                requester,
+                NotificationType.INVITATION_ACCEPTED,
+                "Yêu cầu tham gia bảng " + board.getTitle() + " đã được chấp nhận",
+                board.getId(),
+                "BOARD",
+                board.getId(),
+                null
+        );
+
+        messagingTemplate.convertAndSend("/topic/board/" + board.getId(), "MEMBER_ADDED");
+        messagingTemplate.convertAndSend("/topic/board/" + board.getId() + "/join-requests", "JOIN_REQUEST_UPDATED");
+        broadcastBoardUpdate(board);
+    }
+
+    // ── Reject Join Request ──────────────────────────────────────────────────
+    @Transactional
+    public void rejectJoinRequest(String requestId, User currentUser) {
+        JoinRequest req = joinRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Join request not found"));
+
+        Board board = req.getBoard();
+        requireOwner(board, currentUser);
+
+        req.setStatus("REJECTED");
+        req.setRespondedAt(LocalDateTime.now());
+        joinRequestRepository.save(req);
+
+        notificationService.createNotification(
+                req.getRequester(),
+                NotificationType.INVITATION_DECLINED,
+                "Yêu cầu tham gia bảng " + board.getTitle() + " đã bị từ chối",
+                board.getId(),
+                "BOARD",
+                board.getId(),
+                null
+        );
+
+        messagingTemplate.convertAndSend("/topic/board/" + board.getId() + "/join-requests", "JOIN_REQUEST_UPDATED");
+    }
+
+    // ── Create Join Request (public board) ────────────────────────────────────
+    @Transactional
+    public JoinRequestResponse createJoinRequest(String boardId, User currentUser) {
+        Board board = findBoardOrThrow(boardId);
+
+        if (board.getVisibility() != Visibility.PUBLIC) {
+            throw new AccessDeniedException("You can only request to join public boards this way");
+        }
+
+        if (boardMemberRepository.existsByBoardIdAndUserId(boardId, currentUser.getId())) {
+            throw new DuplicateResourceException("You are already a member of this board");
+        }
+
+        if (joinRequestRepository.existsByBoardIdAndRequesterIdAndStatus(boardId, currentUser.getId(), "PENDING")) {
+            throw new DuplicateResourceException("You already have a pending join request");
+        }
+
+        JoinRequest joinRequest = JoinRequest.builder()
+                .board(board)
+                .requester(currentUser)
+                .status("PENDING")
+                .source("PUBLIC")
+                .build();
+        joinRequestRepository.save(joinRequest);
+
+        // Notify board owner
+        if (board.getOwner() != null) {
+            notificationService.createNotification(
+                    board.getOwner(),
+                    NotificationType.JOIN_REQUEST,
+                    currentUser.getFullName() + " đã yêu cầu tham gia bảng: " + board.getTitle(),
+                    joinRequest.getId(),
+                    "JOIN_REQUEST",
+                    boardId,
+                    null
+            );
+        }
+
+        messagingTemplate.convertAndSend("/topic/board/" + boardId + "/join-requests", "JOIN_REQUEST_CREATED");
+
+        return JoinRequestResponse.from(joinRequest, authService.toUserResponse(currentUser));
     }
 
     // ── Update Member Permissions ─────────────────────────────────────────────
@@ -550,7 +752,7 @@ public class BoardService {
 
         return new CardSummaryResponse(
                 card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
-                card.getDeadline(), card.getPosition(),
+                card.getDeadline(), card.getReminder(), card.getPosition(),
                 card.isCompleted(), card.isArchived(), members, labels,
                 totalItems, completedItems, card.getComments().size(), card.getAttachments().size(), checklists,
                 card.getCreatedAt(), card.getUpdatedAt()

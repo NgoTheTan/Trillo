@@ -22,6 +22,9 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             log.info("Checking & ensuring archived columns exist in database tables...");
             jdbcTemplate.execute("ALTER TABLE board_lists ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;");
             jdbcTemplate.execute("ALTER TABLE cards ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;");
+            jdbcTemplate.execute("ALTER TABLE cards ADD COLUMN IF NOT EXISTS reminder VARCHAR(50) DEFAULT '1_day_before';");
+            jdbcTemplate.execute("ALTER TABLE cards ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT FALSE;");
+            jdbcTemplate.execute("ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;");
             log.info("Database migration check completed successfully.");
         } catch (Exception e) {
             log.error("Failed to run database migration: ", e);

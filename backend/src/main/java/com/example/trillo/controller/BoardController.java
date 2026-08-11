@@ -4,9 +4,11 @@ import com.example.trillo.dto.request.CreateBoardRequest;
 import com.example.trillo.dto.request.InviteMemberRequest;
 import com.example.trillo.dto.request.UpdateBoardRequest;
 import com.example.trillo.dto.request.UpdateMemberPermissionsRequest;
+import com.example.trillo.dto.response.BoardInvitationResponse;
 import com.example.trillo.dto.response.BoardResponse;
 import com.example.trillo.dto.response.BoardSummaryResponse;
 import com.example.trillo.dto.response.InviteResponse;
+import com.example.trillo.dto.response.JoinRequestResponse;
 import com.example.trillo.entity.User;
 import com.example.trillo.service.BoardService;
 import jakarta.validation.Valid;
@@ -78,7 +80,6 @@ public class BoardController {
 
     /**
      * Toggle the starred state of a board for the authenticated user.
-     * Returns { "starred": true/false } reflecting the new state.
      */
     @RequestMapping(value = "/{boardId}/star", method = {RequestMethod.PATCH, RequestMethod.POST})
     public ResponseEntity<Map<String, Boolean>> toggleStar(
@@ -96,6 +97,7 @@ public class BoardController {
         return ResponseEntity.noContent().build();
     }
 
+    // ── Invite Member (sends invitation notification) ─────────────────────────
     @PostMapping("/{boardId}/invite")
     public ResponseEntity<InviteResponse> inviteMember(
             @PathVariable String boardId,
@@ -104,13 +106,65 @@ public class BoardController {
         return ResponseEntity.ok(boardService.inviteMember(boardId, request, user));
     }
 
+    // ── Accept invite via link → creates JoinRequest ──────────────────────────
     @PostMapping("/accept-invite/{token}")
-    public ResponseEntity<BoardSummaryResponse> acceptInvite(
+    public ResponseEntity<JoinRequestResponse> acceptInvite(
             @PathVariable String token,
             @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(boardService.acceptInvite(token, user));
     }
 
+    // ── Respond to a board invitation (accept/decline) ─────────────────────────
+    @PostMapping("/invitations/{invitationId}/respond")
+    public ResponseEntity<Void> respondToInvitation(
+            @PathVariable String invitationId,
+            @RequestParam boolean accept,
+            @AuthenticationPrincipal User user) {
+        boardService.respondToInvitation(invitationId, accept, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Get pending invitations for current user ───────────────────────────────
+    @GetMapping("/invitations/pending")
+    public ResponseEntity<List<BoardInvitationResponse>> getPendingInvitations(
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(boardService.getPendingInvitations(user));
+    }
+
+    // ── Join requests (for public boards or link-accept) ──────────────────────
+    @GetMapping("/{boardId}/join-requests")
+    public ResponseEntity<List<JoinRequestResponse>> getJoinRequests(
+            @PathVariable String boardId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(boardService.getJoinRequests(boardId, user));
+    }
+
+    @PostMapping("/{boardId}/join-requests")
+    public ResponseEntity<JoinRequestResponse> createJoinRequest(
+            @PathVariable String boardId,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(boardService.createJoinRequest(boardId, user));
+    }
+
+    @PostMapping("/{boardId}/join-requests/{requestId}/approve")
+    public ResponseEntity<Void> approveJoinRequest(
+            @PathVariable String boardId,
+            @PathVariable String requestId,
+            @AuthenticationPrincipal User user) {
+        boardService.approveJoinRequest(requestId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{boardId}/join-requests/{requestId}/reject")
+    public ResponseEntity<Void> rejectJoinRequest(
+            @PathVariable String boardId,
+            @PathVariable String requestId,
+            @AuthenticationPrincipal User user) {
+        boardService.rejectJoinRequest(requestId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Remove Member ─────────────────────────────────────────────────────────
     @DeleteMapping("/{boardId}/members/{userId}")
     public ResponseEntity<Void> removeMember(
             @PathVariable String boardId,
@@ -122,7 +176,6 @@ public class BoardController {
 
     /**
      * Owner grants or revokes specific permissions for a board member.
-     * Sending an empty list makes the member view-only again.
      */
     @PutMapping("/{boardId}/members/{memberId}/permissions")
     public ResponseEntity<BoardResponse.MemberResponse> updateMemberPermissions(

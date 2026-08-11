@@ -66,7 +66,24 @@ public class CardService {
         StringBuilder changes = new StringBuilder("Card updated: ");
         if (request.title() != null && !request.title().isBlank()) { changes.append("title, "); card.setTitle(request.title()); }
         card.setDescription(request.description());
-        card.setDeadline(request.deadline());
+
+        boolean deadlineOrReminderChanged = false;
+        if (request.deadline() != null || card.getDeadline() != null) {
+            if (request.deadline() == null ? card.getDeadline() != null : !request.deadline().equals(card.getDeadline())) {
+                deadlineOrReminderChanged = true;
+            }
+            card.setDeadline(request.deadline());
+        }
+        if (request.reminder() != null) {
+            if (!request.reminder().equalsIgnoreCase(card.getReminder())) {
+                deadlineOrReminderChanged = true;
+            }
+            card.setReminder(request.reminder());
+        }
+        if (deadlineOrReminderChanged) {
+            card.setReminderSent(false);
+        }
+
         if (request.completed() != null) { card.setCompleted(request.completed()); changes.append(request.completed() ? "marked complete" : "marked incomplete"); }
 
         Card saved = cardRepository.save(card);
@@ -186,9 +203,11 @@ public class CardService {
             notificationService.createNotification(
                     assignee,
                     NotificationType.CARD_ASSIGNED,
-                    currentUser.getFullName() + " assigned you to card: " + card.getTitle(),
+                    currentUser.getFullName() + " đã thêm bạn vào thẻ: " + card.getTitle(),
                     cardId,
-                    "CARD"
+                    "CARD",
+                    card.getList().getBoard().getId(),
+                    cardId
             );
         }
 
@@ -316,7 +335,7 @@ public class CardService {
 
         return new CardSummaryResponse(
                 card.getId(), card.getList().getId(), card.getTitle(), card.getDescription(),
-                card.getDeadline(), card.getPosition(),
+                card.getDeadline(), card.getReminder(), card.getPosition(),
                 card.isCompleted(), card.isArchived(), members, labels,
                 totalItems, completedItems, card.getComments().size(), card.getAttachments().size(), checklists,
                 card.getCreatedAt(), card.getUpdatedAt()
@@ -348,7 +367,7 @@ public class CardService {
         return new CardResponse(
                 card.getId(), card.getList().getId(), card.getList().getTitle(),
                 card.getList().getBoard().getId(), card.getTitle(), card.getDescription(),
-                card.getDeadline(), card.getPosition(), card.isCompleted(), card.isArchived(),
+                card.getDeadline(), card.getReminder(), card.getPosition(), card.isCompleted(), card.isArchived(),
                 members, labels, checklists, comments, attachments, logs,
                 card.getCreatedAt(), card.getUpdatedAt()
         );

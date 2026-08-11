@@ -1,5 +1,5 @@
 import React from 'react'
-import { Plus, Globe, Lock, Star } from 'lucide-react'
+import { Plus, Globe, Lock, Star, Shield, UserCheck } from 'lucide-react'
 import type { BoardSummaryResponse } from '../../services/boardServices'
 import { BoardActionMenu } from './BoardActionMenu'
 import { useNavigate } from 'react-router-dom'
@@ -29,7 +29,7 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
             <tr className="border-b border-slate-100 text-slate-400 text-xs font-semibold uppercase tracking-wider bg-slate-50/50">
               <th className="py-3 px-4 w-10"></th>
               <th className="py-3 px-6">Tên bảng</th>
-              <th className="py-3 px-6">Quyền riêng tư</th>
+              <th className="py-3 px-6">Quyền riêng tư &amp; Trạng thái</th>
               <th className="py-3 px-6">Thành viên</th>
               <th className="py-3 px-6">Thẻ</th>
               <th className="py-3 px-6 text-right">Thao tác</th>
@@ -80,17 +80,31 @@ export const BoardListView: React.FC<BoardListViewProps> = ({
                   </td>
 
                   <td className="py-4 px-6">
-                    {board.visibility === 'PRIVATE' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80 rounded-full">
-                        <Lock className="w-3 h-3 text-amber-600" />
-                        Riêng tư
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full">
-                        <Globe className="w-3 h-3 text-emerald-600" />
-                        Công khai
-                      </span>
-                    )}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
+                      {board.visibility === 'PRIVATE' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80 rounded-full">
+                          <Lock className="w-3 h-3 text-amber-600" />
+                          Riêng tư
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full">
+                          <Globe className="w-3 h-3 text-emerald-600" />
+                          Công khai
+                        </span>
+                      )}
+
+                      {board.currentUserRole === 'OWNER' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200/80 rounded-full">
+                          <Shield className="w-3 h-3 text-purple-600" />
+                          Đã tham gia (Chủ bảng)
+                        </span>
+                      ) : board.currentUserRole ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/80 rounded-full">
+                          <UserCheck className="w-3 h-3 text-blue-600" />
+                          Đã tham gia
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
 
                   <td className="py-4 px-6 text-slate-600 font-medium text-xs">

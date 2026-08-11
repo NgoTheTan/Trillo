@@ -3,6 +3,11 @@ import { Api } from "../api/api";
 
 export type NotificationType =
   | 'BOARD_INVITE'
+  | 'BOARD_INVITATION'
+  | 'INVITATION_ACCEPTED'
+  | 'INVITATION_DECLINED'
+  | 'JOIN_REQUEST'
+  | 'MEMBER_REMOVED'
   | 'CARD_ASSIGNED'
   | 'DEADLINE_REMINDER'
   | 'CARD_UPDATED'
@@ -16,8 +21,11 @@ export interface NotificationResponse {
   message: string;
   referenceId?: string;
   referenceType?: 'BOARD' | 'CARD' | string;
+  relatedBoardId?: string;
+  relatedTaskId?: string;
   read: boolean;
   createdAt: string;
+  status?: string;
 }
 
 // ── API Functions ────────────────────────────────────────────────────────────

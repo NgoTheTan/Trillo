@@ -72,6 +72,7 @@ export interface CardDetailResponse {
     title: string;
     description?: string | null;
     deadline?: string | null;
+    reminder?: string | null;
     position: number;
     completed: boolean;
     archived?: boolean;
@@ -91,6 +92,7 @@ export interface ListCardResponse {
     title: string;
     description?: string | null;
     deadline?: string | null;
+    reminder?: string | null;
     position: number;
     completed: boolean;
     archived?: boolean;
@@ -109,6 +111,7 @@ export interface UpdateCardPayload {
     title?: string;
     description?: string;
     deadline?: string | null;
+    reminder?: string | null;
     completed?: boolean;
 }
 

@@ -10,6 +10,9 @@ public record NotificationResponse(
         String message,
         String referenceId,
         String referenceType,
+        String relatedBoardId,
+        String relatedTaskId,
         boolean read,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        String status
 ) {}

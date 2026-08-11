@@ -1,19 +1,25 @@
 import React, { useEffect, useState } from 'react'
-import { Link as LinkIcon, Trash2, X, Check, Shield, Loader2, ChevronDown, ChevronUp, Settings2, Star } from 'lucide-react'
+import { Link as LinkIcon, Trash2, X, Check, Shield, Loader2, ChevronDown, ChevronUp, Settings2, Star, Users, UserPlus, Clock } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader } from '../ui/dialog'
 import {
   useInviteMemberMutation,
   useRemoveMemberMutation,
   useUpdateMemberPermissionsMutation,
+  useJoinRequestsQuery,
+  useApproveJoinRequestMutation,
+  useRejectJoinRequestMutation,
   type BoardPermission,
   ALL_PERMISSIONS,
   PERMISSION_LABELS,
 } from '../../services/boardServices'
+import { useJoinRequestUpdates } from '../../services/websocketService'
 import { useQueryClient } from '@tanstack/react-query'
 import { getAvatarUrl } from '../../auth/authStorage'
+import toast from 'react-hot-toast'
 
 export interface Member {
-  id: string
+  id: string       // BoardMember ID
+  userId: string   // User ID (for remove API)
   fullName: string
   email: string
   avatarUrl?: string
@@ -30,6 +36,7 @@ interface InviteMemberModalProps {
   projectName?: string
   initialMembers?: Member[]
   currentUserRole?: string
+  initialTab?: 'members' | 'requests'
   onInviteSubmit?: (emailOrUser: string) => void
   onRemoveMember?: (id: string) => void
 }
@@ -99,6 +106,9 @@ const PermissionsPanel: React.FC<PermissionsPanelProps> = ({
       await mutation.mutateAsync({ boardId, memberId, permissions: Array.from(selected) })
       queryClient.invalidateQueries({ queryKey: ['boards', boardId] })
       onClose()
+      toast.success('Đã cập nhật quyền thành công')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật quyền')
     } finally {
       setIsSaving(false)
     }
@@ -167,9 +177,10 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
   boardId,
   open,
   onOpenChange,
-  projectName = 'Board Project',
+  projectName = 'Dự án',
   initialMembers = [],
   currentUserRole,
+  initialTab = 'members',
   onInviteSubmit,
   onRemoveMember,
 }) => {
@@ -177,18 +188,33 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
   const [members, setMembers] = useState<Member[]>(initialMembers)
   const [copiedLink, setCopiedLink] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null)
   const [expandedPermissionId, setExpandedPermissionId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'members' | 'requests'>(initialTab)
 
   const queryClient = useQueryClient()
   const inviteMemberMutation = useInviteMemberMutation()
   const removeMemberMutation = useRemoveMemberMutation()
+  const approveMutation = useApproveJoinRequestMutation()
+  const rejectMutation = useRejectJoinRequestMutation()
 
   const isOwner = currentUserRole === 'OWNER'
+
+  // Fetch join requests for owner
+  const { data: joinRequests = [] } = useJoinRequestsQuery(isOwner && open ? boardId : undefined)
+
+  // Subscribe to real-time join request updates via WebSocket
+  useJoinRequestUpdates(isOwner ? boardId : undefined)
 
   useEffect(() => {
     setMembers(initialMembers)
   }, [initialMembers, open])
+
+  useEffect(() => {
+    if (open && initialTab) {
+      setActiveTab(initialTab)
+    }
+  }, [open, initialTab])
 
   if (!open) return null
 
@@ -205,48 +231,39 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
       try {
         setIsSubmitting(true)
         const res = await inviteMemberMutation.mutateAsync({ boardId, email: trimmed })
+        toast.success(res.message || 'Đã gửi lời mời thành công!')
         if (res.inviteUrl) {
           navigator.clipboard.writeText(res.inviteUrl)
           setCopiedLink(true)
-          setTimeout(() => setCopiedLink(false), 2000)
+          setTimeout(() => setCopiedLink(false), 3000)
         }
         queryClient.invalidateQueries({ queryKey: ['boards', boardId] })
-      } catch (err) {
-        console.error('Failed to invite member via API:', err)
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || 'Không thể gửi lời mời!')
       } finally {
         setIsSubmitting(false)
       }
     }
-
-    const newMember: Member = {
-      id: Date.now().toString(),
-      fullName: trimmed.includes('@') ? trimmed.split('@')[0] : trimmed,
-      email: trimmed.includes('@') ? trimmed : `${trimmed}@example.com`,
-      role: 'MEMBER',
-      permissions: [],
-      status: 'pending',
-    }
-
-    setMembers(prev => [...prev, newMember])
     setEmailOrUser('')
   }
 
-  const handleConfirmRemove = async (id: string) => {
+  const handleConfirmRemove = async (userId: string) => {
     if (onRemoveMember) {
-      onRemoveMember(id)
+      onRemoveMember(userId)
     }
 
     if (boardId) {
       try {
-        await removeMemberMutation.mutateAsync({ boardId, userId: id })
+        await removeMemberMutation.mutateAsync({ boardId, userId })
+        toast.success('Đã xóa thành viên khỏi bảng')
         queryClient.invalidateQueries({ queryKey: ['boards', boardId] })
-      } catch (err) {
-        console.error('Failed to remove member via API:', err)
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || 'Không thể xóa thành viên!')
       }
     }
 
-    setMembers(prev => prev.filter(m => m.id !== id))
-    setConfirmRemoveId(null)
+    setMembers(prev => prev.filter(m => m.userId !== userId))
+    setConfirmRemoveUserId(null)
   }
 
   const handleCopyLink = () => {
@@ -255,20 +272,45 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2000)
   }
 
+  const handleApproveRequest = async (requestId: string) => {
+    if (!boardId) return
+    try {
+      await approveMutation.mutateAsync({ boardId, requestId })
+      toast.success('Đã chấp nhận yêu cầu tham gia')
+      queryClient.invalidateQueries({ queryKey: ['boards', boardId] })
+      queryClient.invalidateQueries({ queryKey: ['join-requests', boardId] })
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra!')
+    }
+  }
+
+  const handleRejectRequest = async (requestId: string) => {
+    if (!boardId) return
+    try {
+      await rejectMutation.mutateAsync({ boardId, requestId })
+      toast.success('Đã từ chối yêu cầu tham gia')
+      queryClient.invalidateQueries({ queryKey: ['join-requests', boardId] })
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra!')
+    }
+  }
+
   const togglePermissionsPanel = (memberId: string) => {
     setExpandedPermissionId(prev => prev === memberId ? null : memberId)
   }
 
+  const pendingRequestsCount = joinRequests.length
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-2xl max-w-2xl w-[640px] max-h-[92vh] overflow-y-auto bg-white p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100">
-        {/* Header */}
+      <DialogContent showCloseButton={false} className="sm:max-w-2xl max-w-2xl w-[640px] max-h-[90vh] overflow-y-auto bg-white p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100">
+        {/* Header with X close button */}
         <DialogHeader>
-          <div className="flex items-start justify-between pb-4 border-b border-slate-100 sticky top-0 bg-white z-20">
+          <div className="flex items-start justify-between pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">Quản lý thành viên</h2>
               <p className="text-xs text-slate-500 mt-1">
-                Mời thành viên tham gia dự án <span className="font-semibold text-slate-700">{projectName}</span>
+                Dự án <span className="font-semibold text-slate-700">{projectName}</span>
               </p>
             </div>
             <button
@@ -280,11 +322,11 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
           </div>
         </DialogHeader>
 
-        {/* Invite Input Section — only owners can invite */}
+        {/* 1. Invite Input Section — only owners can invite */}
         {isOwner && (
-          <form onSubmit={handleInvite} className="py-5 space-y-2 border-b border-slate-100">
+          <form onSubmit={handleInvite} className="pt-4 space-y-2">
             <label className="block text-xs font-semibold text-slate-700">
-              Email hoặc tên người dùng
+              Email hoặc tên người dùng để mời
             </label>
             <div className="flex items-center gap-2.5">
               <input
@@ -306,182 +348,29 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
                     <span>Đang mời...</span>
                   </>
                 ) : (
-                  <span>Mời</span>
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Mời</span>
+                  </>
                 )}
               </button>
             </div>
           </form>
         )}
 
-        {/* Members Section */}
-        <div className="py-5 space-y-3">
-          <h3 className="text-xs font-bold text-slate-800 tracking-wide uppercase">
-            Thành viên ({members.length})
-          </h3>
-
-          {members.length === 0 ? (
-            <div className="p-8 text-center border border-dashed border-slate-200 rounded-2xl text-xs text-slate-400 font-medium">
-              Chưa có thành viên nào. Nhập email ở trên để gửi lời mời.
-            </div>
-          ) : (
-            <div className="border border-slate-200/80 rounded-2xl divide-y divide-slate-100 bg-white">
-              {members.map(member => {
-                const memberIsOwner = (member.role || '').toUpperCase() === 'OWNER'
-                const grantedCount = member.permissions?.length ?? 0
-                const isExpanded = expandedPermissionId === member.id
-
-                return (
-                  <div key={member.id}>
-                    <div className="flex items-center justify-between p-3.5 hover:bg-slate-50/50 transition-colors relative">
-                      {/* Member Info */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative shrink-0">
-                          {member.avatarUrl ? (
-                            <img
-                              src={getAvatarUrl(member.avatarUrl)}
-                              alt={member.fullName}
-                              className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-xs"
-                            />
-                          ) : (
-                            <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs tracking-wider uppercase">
-                              {getInitials(member.fullName)}
-                            </div>
-                          )}
-                          {memberIsOwner && (
-                            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-amber-400 text-amber-950 rounded-full flex items-center justify-center shadow-xs border border-white z-10" title="Chủ sở hữu">
-                              <Star className="w-2.5 h-2.5 fill-amber-950 stroke-none" />
-                            </span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-slate-800 truncate">
-                              {member.fullName}
-                            </span>
-                            {member.isYou && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold">
-                                Bạn
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-slate-400 truncate">{member.email}</p>
-                        </div>
-                      </div>
-
-                      {/* Role, Permissions summary & Actions */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        {/* Role Pill */}
-                        {memberIsOwner ? (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200/80 rounded-full text-xs font-bold uppercase tracking-wider">
-                            <Shield className="w-3 h-3 text-purple-600" />
-                            Chủ sở hữu
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold uppercase tracking-wider">
-                            Thành viên
-                          </span>
-                        )}
-
-                        {/* Status Badge */}
-                        <div className="w-20 text-right hidden sm:block">
-                          {member.status === 'joined' && (
-                            <span className="text-xs font-semibold text-emerald-600">Đã tham gia</span>
-                          )}
-                          {member.status === 'pending' && (
-                            <span className="text-xs font-semibold text-amber-600">Đang chờ</span>
-                          )}
-                          {member.status === 'unsent' && (
-                            <span className="text-xs font-semibold text-slate-400">Chưa gửi</span>
-                          )}
-                        </div>
-
-                        {/* Permission button (owner-only, for non-owner members) */}
-                        {isOwner && !memberIsOwner && (
-                          <button
-                            type="button"
-                            onClick={() => togglePermissionsPanel(member.id)}
-                            title="Quản lý quyền"
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
-                              isExpanded
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : grantedCount > 0
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                                  : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
-                            }`}
-                          >
-                            <Settings2 className="w-3 h-3" />
-                            <span>{grantedCount}/{ALL_PERMISSIONS.length}</span>
-                            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </button>
-                        )}
-
-                        {/* Delete Button */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isOwner && !member.isYou && !memberIsOwner && (
-                            confirmRemoveId === member.id ? (
-                              <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmRemoveId(null)}
-                                  className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  Hủy
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleConfirmRemove(member.id)}
-                                  disabled={removeMemberMutation.isPending}
-                                  className="px-2.5 py-1 text-[11px] font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                                >
-                                  {removeMemberMutation.isPending ? 'Đang xóa…' : 'Xóa'}
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setConfirmRemoveId(member.id)}
-                                className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-                                title="Xóa thành viên"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Permissions Panel (expandable) */}
-                    {isExpanded && boardId && (
-                      <div className="px-4 pb-4">
-                        <PermissionsPanel
-                          memberId={member.id}
-                          boardId={boardId}
-                          currentPermissions={member.permissions ?? []}
-                          onClose={() => setExpandedPermissionId(null)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Share Link Footer Section */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+        {/* 2. Share Link Section — moved up right below input */}
+        <div className="flex items-center justify-between p-3.5 my-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
           <div>
             <h4 className="text-xs font-bold text-slate-800">Chia sẻ bằng liên kết</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Bất kỳ ai có liên kết này đều có thể yêu cầu tham gia dự án.
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Bất kỳ ai có liên kết đều có thể gửi yêu cầu tham gia bảng.
             </p>
           </div>
 
           <button
             type="button"
             onClick={handleCopyLink}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded-xl border border-blue-200 transition-all cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-100 text-blue-600 text-xs font-semibold rounded-xl border border-slate-200 shadow-xs transition-all cursor-pointer whitespace-nowrap"
           >
             {copiedLink ? (
               <>
@@ -497,16 +386,246 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
           </button>
         </div>
 
-        {/* Bottom Close Button */}
-        <div className="flex justify-end pt-4">
+        {/* 3. Navigation Tabs */}
+        <div className="flex items-center border-b border-slate-200 mt-2 mb-4">
           <button
             type="button"
-            onClick={() => onOpenChange(false)}
-            className="px-6 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all cursor-pointer"
+            onClick={() => setActiveTab('members')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+              activeTab === 'members'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
           >
-            Đóng
+            <Users className="w-4 h-4" />
+            <span>Thành viên</span>
+            <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-600 font-semibold">
+              {members.length}
+            </span>
           </button>
+
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('requests')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                activeTab === 'requests'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span>Yêu cầu tham gia</span>
+              {pendingRequestsCount > 0 && (
+                <span className="px-2 py-0.5 text-[10px] rounded-full bg-amber-500 text-white font-bold animate-pulse">
+                  {pendingRequestsCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
+
+        {/* Tab 1: Members */}
+        {activeTab === 'members' && (
+          <div className="space-y-3">
+            {members.length === 0 ? (
+              <div className="p-8 text-center border border-dashed border-slate-200 rounded-2xl text-xs text-slate-400 font-medium">
+                Chưa có thành viên nào. Nhập email ở trên để gửi lời mời.
+              </div>
+            ) : (
+              <div className="border border-slate-200/80 rounded-2xl divide-y divide-slate-100 bg-white">
+                {members.map(member => {
+                  const memberIsOwner = (member.role || '').toUpperCase() === 'OWNER'
+                  const grantedCount = member.permissions?.length ?? 0
+                  const isExpanded = expandedPermissionId === member.id
+
+                  return (
+                    <div key={member.id}>
+                      <div className="flex items-center justify-between p-3.5 hover:bg-slate-50/50 transition-colors relative">
+                        {/* Member Info */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative shrink-0">
+                            {member.avatarUrl ? (
+                              <img
+                                src={getAvatarUrl(member.avatarUrl)}
+                                alt={member.fullName}
+                                className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-xs"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs tracking-wider uppercase">
+                                {getInitials(member.fullName)}
+                              </div>
+                            )}
+                            {memberIsOwner && (
+                              <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-amber-400 text-amber-950 rounded-full flex items-center justify-center shadow-xs border border-white z-10" title="Chủ sở hữu">
+                                <Star className="w-2.5 h-2.5 fill-amber-950 stroke-none" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-800 truncate">
+                                {member.fullName}
+                              </span>
+                              {member.isYou && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold">
+                                  Bạn
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400 truncate">{member.email}</p>
+                          </div>
+                        </div>
+
+                        {/* Role, Permissions summary & Actions */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          {/* Role Pill */}
+                          {memberIsOwner ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200/80 rounded-full text-xs font-bold uppercase tracking-wider">
+                              <Shield className="w-3 h-3 text-purple-600" />
+                              Chủ sở hữu
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-semibold uppercase tracking-wider">
+                              Thành viên
+                            </span>
+                          )}
+
+                          {/* Permission button (owner-only, for non-owner members) */}
+                          {isOwner && !memberIsOwner && (
+                            <button
+                              type="button"
+                              onClick={() => togglePermissionsPanel(member.id)}
+                              title="Quản lý quyền"
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
+                                isExpanded
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : grantedCount > 0
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                    : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Settings2 className="w-3 h-3" />
+                              <span>{grantedCount}/{ALL_PERMISSIONS.length}</span>
+                              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            </button>
+                          )}
+
+                          {/* Delete Button (Passes userId to handleConfirmRemove!) */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isOwner && !member.isYou && !memberIsOwner && (
+                              confirmRemoveUserId === member.userId ? (
+                                <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmRemoveUserId(null)}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    Hủy
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleConfirmRemove(member.userId)}
+                                    disabled={removeMemberMutation.isPending}
+                                    className="px-2.5 py-1 text-[11px] font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {removeMemberMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Xóa'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmRemoveUserId(member.userId)}
+                                  className="p-1 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                                  title="Xóa thành viên"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Permissions Panel (expandable) */}
+                      {isExpanded && boardId && (
+                        <div className="px-4 pb-4">
+                          <PermissionsPanel
+                            memberId={member.id}
+                            boardId={boardId}
+                            currentPermissions={member.permissions ?? []}
+                            onClose={() => setExpandedPermissionId(null)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Join Requests (Owner only) */}
+        {activeTab === 'requests' && isOwner && (
+          <div className="space-y-3">
+            {joinRequests.length === 0 ? (
+              <div className="p-8 text-center border border-dashed border-slate-200 rounded-2xl text-xs text-slate-400 font-medium">
+                Không có yêu cầu tham gia nào đang chờ duyệt.
+              </div>
+            ) : (
+              <div className="border border-slate-200/80 rounded-2xl divide-y divide-slate-100 bg-white">
+                {joinRequests.map(req => (
+                  <div key={req.id} className="flex items-center justify-between p-3.5 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {req.requester?.avatarUrl ? (
+                        <img
+                          src={getAvatarUrl(req.requester.avatarUrl)}
+                          alt={req.requester.fullName}
+                          className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-xs shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-slate-700 text-white font-bold text-xs flex items-center justify-center shrink-0 uppercase">
+                          {getInitials(req.requester?.fullName)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-800 truncate">
+                            {req.requester?.fullName}
+                          </span>
+                          <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-slate-100 text-slate-500 uppercase">
+                            {req.source === 'LINK' ? 'Từ liên kết' : 'Công khai'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 truncate">{req.requester?.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleRejectRequest(req.id)}
+                        disabled={rejectMutation.isPending}
+                        className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Từ chối
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApproveRequest(req.id)}
+                        disabled={approveMutation.isPending}
+                        className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {approveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Chấp nhận'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

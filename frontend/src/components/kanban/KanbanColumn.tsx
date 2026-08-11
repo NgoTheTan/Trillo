@@ -6,6 +6,7 @@ import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal'
 import { useCreateCardMutation, useListCardsQuery, type ListCardResponse } from '../../services/cardService.ts'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { CardDragEvent, ColumnDragEvent } from '../../services/websocketService';
 
 
 interface KanbanColumnProps {
@@ -18,6 +19,8 @@ interface KanbanColumnProps {
   canEditCard?: boolean
   canDeleteCard?: boolean
   canMoveCard?: boolean
+  draggingMap?: Map<string, CardDragEvent>
+  columnDragger?: ColumnDragEvent  // người đang kéo column này
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -29,6 +32,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   canCreateCard = true,
   canEditCard = true,
   canMoveCard = true,
+  draggingMap,
+  columnDragger,
 }) => {
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(list.title);
@@ -133,10 +138,30 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       className="h-full shrink-0"
     >
       <div
-        {...(isOverlay ? {} : (canMoveCard ? listeners : {}))}
-        className={`flex flex-col gap-3 w-[280px] sm:w-72 bg-[#f4f5f9] group/column rounded-xl p-4 border border-slate-200/60 transition-all ${isOverlay ? 'shadow-2xl ring-2 ring-blue-500/40 rotate-1 scale-[1.02] cursor-grabbing' : 'hover:shadow-md'
+        {...(isOverlay ? {} : (canMoveCard && !columnDragger ? listeners : {}))}
+        className={`flex flex-col gap-3 w-[280px] sm:w-72 bg-[#f4f5f9] group/column rounded-xl p-4 border transition-all ${
+          columnDragger
+            ? 'border-orange-300 ring-2 ring-orange-300/40 shadow-md'
+            : 'border-slate-200/60'
+        } ${isOverlay ? 'shadow-2xl ring-2 ring-blue-500/40 rotate-1 scale-[1.02] cursor-grabbing' : 'hover:shadow-md'
           }`}
       >
+        {/* Column Drag Presence Indicator — ai đang kéo column này */}
+        {columnDragger && !isOverlay && (
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-50 border border-orange-200/60 rounded-md -mt-1 mb-0">
+            {columnDragger.avatarUrl ? (
+              <img src={columnDragger.avatarUrl} alt={columnDragger.fullName} className="w-4 h-4 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-4 h-4 rounded-full bg-orange-400 text-white text-[8px] font-bold flex items-center justify-center shrink-0">
+                {columnDragger.fullName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="text-[10px] font-semibold text-orange-700 truncate">
+              {columnDragger.fullName} đang kéo...
+            </span>
+            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse shrink-0" />
+          </div>
+        )}
         {/* Column Header - Drag Handle */}
         <div
           className={`flex items-center justify-between px-1 py-1 select-none ${
@@ -221,6 +246,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   card={card}
                   canEditCard={canEditCard}
                   canMoveCard={canMoveCard}
+                  dragger={draggingMap?.get(card.id)}
                 />
               ))}
               {cardsToRender.length === 0 && (

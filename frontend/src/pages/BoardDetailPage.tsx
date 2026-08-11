@@ -36,7 +36,7 @@ import { moveCard, reorderCards, useFilterCardsQuery, type FilterCardsPayload, t
 import { KanbanCard } from '../components/kanban/KanbanCard'
 import { InviteMemberModal } from '../components/board/InviteMemberModal'
 import { CardFilterPopover } from '../components/kanban/CardFilterPopover.tsx'
-import { useWebSocketBoard, useBoardPresence } from '../services/websocketService'
+import { useWebSocketBoard, useBoardPresence, useDraggingPresence } from '../services/websocketService'
 import { getAvatarUrl, getInitials } from '../auth/authStorage'
 import { useAuth } from '../auth/authContext'
 
@@ -122,7 +122,7 @@ export const BoardDetailPage: React.FC = () => {
     const handleSaveTitle = async () => {
         setIsEditingTitle(false)
         const trimmed = editTitle.trim()
-        
+
         // Nếu tiêu đề bị xóa sạch hoặc giống hệt tiêu đề ban đầu, reset về ban đầu và không gọi API
         if (!trimmed || trimmed === board?.title) {
             return
@@ -163,6 +163,15 @@ export const BoardDetailPage: React.FC = () => {
     const [activeDraggingId, setActiveDraggingId] = useState<string | null>(null);
     const [activeDraggingData, setActiveDraggingData] = useState<BoardList | ListCardResponse | null>(null)
 
+    const {
+        cardDraggingMap,
+        columnDraggingMap,
+        notifyCardDragStart,
+        notifyCardDragEnd,
+        notifyColumnDragStart,
+        notifyColumnDragEnd,
+    } = useDraggingPresence(boardId!);
+
     const handleDragStart = (event: DragStartEvent) => {
         if (document.querySelector('[data-slot="dialog-content"]')) {
             return;
@@ -173,12 +182,14 @@ export const BoardDetailPage: React.FC = () => {
             setActiveDraggingId(active.id as string)
             setActiveDraggingItemType(ACTIVE_DRAG_ITEM_TYPE.LIST);
             setActiveDraggingData(current as BoardList);
+            notifyColumnDragStart(active.id as string); // Thông báo đang kéo column
             return;
         }
         if (current?.listId || findListByCardId(active.id as string)) {
             setActiveDraggingId(active.id as string)
             setActiveDraggingItemType(ACTIVE_DRAG_ITEM_TYPE.CARD);
-            
+            notifyCardDragStart(active.id as string); // Thông báo đang kéo card
+
             let cardData = current as ListCardResponse;
             const list = findListByCardId(active.id as string);
             let startIndex = -1;
@@ -190,7 +201,7 @@ export const BoardDetailPage: React.FC = () => {
                 }
                 startIndex = cachedCards.findIndex(c => c.id === active.id);
             }
-            
+
             setActiveDraggingData({
                 ...cardData,
                 position: startIndex !== -1 ? startIndex : (cardData?.position ?? 0)
@@ -337,6 +348,7 @@ export const BoardDetailPage: React.FC = () => {
 
         // Dragging Column
         if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST) {
+            notifyColumnDragEnd(active.id as string); // Thông báo đã thả column
             if (active.id !== over.id) {
                 setOrderedLists(prev => {
                     const oldIndex = prev.findIndex(list => list.id === active.id);
@@ -354,6 +366,7 @@ export const BoardDetailPage: React.FC = () => {
             const activeCardId = active.id as string;
             const originalCardData = activeDraggingData as ListCardResponse;
             const originalListId = originalCardData?.listId;
+            notifyCardDragEnd(activeCardId); // Thông báo đã thả card
 
             const currentList = findListByCardId(activeCardId);
             if (currentList) {
@@ -492,9 +505,8 @@ export const BoardDetailPage: React.FC = () => {
                                         setIsEditingTitle(true)
                                     }
                                 }}
-                                className={`text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate ${
-                                    isOwner ? 'cursor-pointer hover:bg-slate-100 rounded px-1' : ''
-                                }`}
+                                className={`text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate ${isOwner ? 'cursor-pointer hover:bg-slate-100 rounded px-1' : ''
+                                    }`}
                                 title={isOwner ? 'Nhấp đúp chuột để sửa tiêu đề bảng' : undefined}
                             >
                                 {board?.title}
@@ -519,16 +531,14 @@ export const BoardDetailPage: React.FC = () => {
                         disabled={toggleStarMutation.isPending}
                         title={board?.starred ? 'Bỏ đánh dấu sao' : 'Đánh dấu sao board này'}
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all duration-200 cursor-pointer text-xs font-semibold shrink-0
-                            ${
-                                board?.starred
-                                    ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
-                                    : 'bg-white border-slate-200 text-slate-500 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50'
+                            ${board?.starred
+                                ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                                : 'bg-white border-slate-200 text-slate-500 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50'
                             } ${toggleStarMutation.isPending ? 'opacity-60' : ''}`}
                     >
                         <Star
-                            className={`w-3.5 h-3.5 transition-all ${
-                                board?.starred ? 'fill-amber-400 text-amber-400' : 'fill-transparent'
-                            } ${toggleStarMutation.isPending ? 'animate-pulse' : ''}`}
+                            className={`w-3.5 h-3.5 transition-all ${board?.starred ? 'fill-amber-400 text-amber-400' : 'fill-transparent'
+                                } ${toggleStarMutation.isPending ? 'animate-pulse' : ''}`}
                         />
                         {board?.starred ? 'Đã đánh dấu' : 'Đánh dấu'}
                     </button>
@@ -548,26 +558,23 @@ export const BoardDetailPage: React.FC = () => {
                             return (
                                 <div
                                     key={m.id}
-                                    className={`relative group shrink-0 transition-all ${
-                                        isOnline ? 'opacity-100' : 'opacity-40 hover:opacity-90 grayscale-[25%]'
-                                    }`}
+                                    className={`relative group shrink-0 transition-all ${isOnline ? 'opacity-100' : 'opacity-40 hover:opacity-90 grayscale-[25%]'
+                                        }`}
                                 >
                                     {avatarSrc ? (
                                         <img
                                             src={avatarSrc}
                                             alt={m.user.fullName}
-                                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 shadow-xs cursor-pointer hover:scale-105 transition-transform ${
-                                                isMe ? 'ring-blue-500' : isOnline ? 'ring-emerald-400' : 'ring-slate-200'
-                                            }`}
+                                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 shadow-xs cursor-pointer hover:scale-105 transition-transform ${isMe ? 'ring-blue-500' : isOnline ? 'ring-emerald-400' : 'ring-slate-200'
+                                                }`}
                                         />
                                     ) : (
-                                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-white text-[10px] font-bold flex items-center justify-center ring-2 shadow-xs cursor-pointer hover:scale-105 transition-transform ${
-                                            isMe
+                                        <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full text-white text-[10px] font-bold flex items-center justify-center ring-2 shadow-xs cursor-pointer hover:scale-105 transition-transform ${isMe
                                                 ? 'bg-blue-600 ring-blue-500'
                                                 : isOnline
-                                                ? 'bg-gradient-to-br from-emerald-500 to-teal-600 ring-emerald-400'
-                                                : 'bg-gradient-to-br from-slate-400 to-slate-500 ring-slate-200'
-                                        }`}>
+                                                    ? 'bg-gradient-to-br from-emerald-500 to-teal-600 ring-emerald-400'
+                                                    : 'bg-gradient-to-br from-slate-400 to-slate-500 ring-slate-200'
+                                            }`}>
                                             {getInitials(m.user.fullName)}
                                         </div>
                                     )}
@@ -646,6 +653,8 @@ export const BoardDetailPage: React.FC = () => {
                                 canEditCard={canEditCard}
                                 canDeleteCard={canDeleteCard}
                                 canMoveCard={canMoveCard}
+                                draggingMap={cardDraggingMap}
+                                columnDragger={columnDraggingMap.get(list.id)}
                             />
                         ))}
                     </SortableContext>

@@ -13,6 +13,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { formatDeadlineDisplay } from '../../utils/dateUtils'
 import { getAvatarUrl } from '../../auth/authStorage'
 import { Button } from '@base-ui/react'
+import type { CardDragEvent } from '../../services/websocketService'
 
 interface KanbanCardProps {
   isOpenEditCardRef?: React.MutableRefObject<boolean>
@@ -20,9 +21,10 @@ interface KanbanCardProps {
   isOverlay?: boolean
   canEditCard?: boolean
   canMoveCard?: boolean
+  dragger?: CardDragEvent  // người đang kéo card này (từ người dùng khác)
 }
 
-export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false, canEditCard = true, canMoveCard = true }) => {
+export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false, canEditCard = true, canMoveCard = true, dragger }) => {
   const [openEditCardModal, setOpenEditCardModal] = useState<boolean>(false)
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false)
   const [isShowCheckList, setIsShowCheckList] = useState<boolean>(false)
@@ -76,9 +78,13 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
         ref={isOverlay ? undefined : setNodeRef}
         style={dndKitCardStyle}
         {...(isOverlay ? {} : attributes)}
-        {...(isOverlay ? {} : (canMoveCard ? listeners : {}))}
+        {...(isOverlay ? {} : (canMoveCard && !dragger ? listeners : {}))}
         onClick={() => setOpenEditCardModal(true)}
-        className={`bg-white rounded-lg p-3.5 border border-slate-100 transition-all space-y-2.5 group/card relative touch-none select-none ${
+        className={`bg-white rounded-lg p-3.5 border transition-all space-y-2.5 group/card relative touch-none select-none ${
+          dragger
+            ? 'border-orange-300 ring-2 ring-orange-300/40 shadow-md'
+            : 'border-slate-100'
+        } ${
           isOverlay
             ? 'shadow-xl rotate-1 scale-[1.02] ring-2 ring-blue-500/30 cursor-grabbing'
             : canMoveCard
@@ -86,6 +92,22 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
             : 'cursor-pointer shadow-xs hover:shadow-md'
         }`}
       >
+        {/* Drag Presence Indicator — ai đang kéo card này */}
+        {dragger && !isOverlay && (
+          <div className="flex items-center gap-1.5 mb-1 px-2 py-1 bg-orange-50 border border-orange-200/60 rounded-md">
+            {dragger.avatarUrl ? (
+              <img src={dragger.avatarUrl} alt={dragger.fullName} className="w-4 h-4 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-4 h-4 rounded-full bg-orange-400 text-white text-[8px] font-bold flex items-center justify-center shrink-0">
+                {dragger.fullName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="text-[10px] font-semibold text-orange-700 truncate">
+              {dragger.fullName} đang kéo...
+            </span>
+            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse shrink-0" />
+          </div>
+        )}
         {card.labels && card.labels.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {card.labels.slice(0, 4).map(label => (

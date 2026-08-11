@@ -411,8 +411,117 @@ export function useBoardPresence(boardId: string | undefined): PresenceUser[] {
       viewersRef.current = new Map();
       setViewers(new Map());
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId, currentUser?.id]);
 
   return Array.from(viewers.values());
+}
+
+// ── Dragging Presence (Cards & Columns) ───────────────────────────────────────
+const CARD_DRAGGING_PREFIX = 'CARD_DRAGGING:';
+const CARD_DRAG_END_PREFIX = 'CARD_DRAG_END:';
+const COLUMN_DRAGGING_PREFIX = 'COLUMN_DRAGGING:';
+const COLUMN_DRAG_END_PREFIX = 'COLUMN_DRAG_END:';
+
+export interface CardDragEvent {
+  cardId: string;
+  userId: string;
+  fullName: string;
+  avatarUrl?: string;
+}
+
+export interface ColumnDragEvent {
+  columnId: string;
+  userId: string;
+  fullName: string;
+  avatarUrl?: string;
+}
+
+/**
+ * Theo dõi ai đang kéo card hoặc column trên board này.
+ * - cardDraggingMap  : Map<cardId,   người đang kéo>
+ * - columnDraggingMap: Map<columnId, người đang kéo>
+ */
+export function useDraggingPresence(boardId: string | undefined) {
+  const { user: currentUser } = useAuth();
+  const [cardDraggingMap,   setCardDraggingMap]   = useState<Map<string, CardDragEvent>>(new Map());
+  const [columnDraggingMap, setColumnDraggingMap] = useState<Map<string, ColumnDragEvent>>(new Map());
+
+  useEffect(() => {
+    if (!boardId) return;
+
+    const unsub = webSocketService.subscribeBoard(boardId, (event: string) => {
+      // ── Card events ──
+      if (event.startsWith(CARD_DRAGGING_PREFIX)) {
+        const data: CardDragEvent = JSON.parse(event.slice(CARD_DRAGGING_PREFIX.length));
+        if (data.userId === currentUser?.id) return; // bỏ qua chính mình
+        setCardDraggingMap(prev => new Map(prev).set(data.cardId, data));
+
+      } else if (event.startsWith(CARD_DRAG_END_PREFIX)) {
+        const data: { cardId: string } = JSON.parse(event.slice(CARD_DRAG_END_PREFIX.length));
+        setCardDraggingMap(prev => { const n = new Map(prev); n.delete(data.cardId); return n; });
+
+      // ── Column events ──
+      } else if (event.startsWith(COLUMN_DRAGGING_PREFIX)) {
+        const data: ColumnDragEvent = JSON.parse(event.slice(COLUMN_DRAGGING_PREFIX.length));
+        if (data.userId === currentUser?.id) return; // bỏ qua chính mình
+        setColumnDraggingMap(prev => new Map(prev).set(data.columnId, data));
+
+      } else if (event.startsWith(COLUMN_DRAG_END_PREFIX)) {
+        const data: { columnId: string } = JSON.parse(event.slice(COLUMN_DRAG_END_PREFIX.length));
+        setColumnDraggingMap(prev => { const n = new Map(prev); n.delete(data.columnId); return n; });
+      }
+    });
+
+    return () => unsub();
+  }, [boardId, currentUser?.id]);
+
+  // ── Notify helpers ────────────────────────────────────────────────────────
+
+  const notifyCardDragStart = (cardId: string) => {
+    if (!boardId || !currentUser) return;
+    webSocketService.sendBoardMessage(boardId,
+      CARD_DRAGGING_PREFIX + JSON.stringify({
+        cardId,
+        userId: currentUser.id,
+        fullName: currentUser.fullName,
+        avatarUrl: currentUser.avatarUrl ?? '',
+      })
+    );
+  };
+
+  const notifyCardDragEnd = (cardId: string) => {
+    if (!boardId) return;
+    webSocketService.sendBoardMessage(boardId,
+      CARD_DRAG_END_PREFIX + JSON.stringify({ cardId })
+    );
+  };
+
+  const notifyColumnDragStart = (columnId: string) => {
+    if (!boardId || !currentUser) return;
+    webSocketService.sendBoardMessage(boardId,
+      COLUMN_DRAGGING_PREFIX + JSON.stringify({
+        columnId,
+        userId: currentUser.id,
+        fullName: currentUser.fullName,
+        avatarUrl: currentUser.avatarUrl ?? '',
+      })
+    );
+  };
+
+  const notifyColumnDragEnd = (columnId: string) => {
+    if (!boardId) return;
+    webSocketService.sendBoardMessage(boardId,
+      COLUMN_DRAG_END_PREFIX + JSON.stringify({ columnId })
+    );
+  };
+
+  return {
+    cardDraggingMap,
+    columnDraggingMap,
+    notifyCardDragStart,
+    notifyCardDragEnd,
+    notifyColumnDragStart,
+    notifyColumnDragEnd,
+  };
 }

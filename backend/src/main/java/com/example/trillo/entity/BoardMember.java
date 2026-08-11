@@ -43,6 +43,14 @@ public class BoardMember {
     @Column(columnDefinition = "TEXT")
     private String permissions = "[]";
 
+    /**
+     * Whether the current user has starred (bookmarked) this board.
+     * This is per-user — each BoardMember row tracks the star independently.
+     */
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean starred = false;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime joinedAt;

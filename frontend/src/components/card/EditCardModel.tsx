@@ -344,7 +344,7 @@ const DirectDatePickerPopover: React.FC<DirectDatePickerPopoverProps> = ({
             <select
               value={reminderOption}
               onChange={e => setReminderOption(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
+              className="select-modern"
             >
               <option value="none">Không có</option>
               <option value="at_due">Tại thời điểm đến hạn</option>
@@ -1095,21 +1095,21 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
                 {/* Move Card Dropdown Popover */}
                 {activePopover === 'move' && (
-                  <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-4 space-y-3.5 text-slate-800">
+                  <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-4 space-y-3.5 text-slate-800 animate-in fade-in-0 zoom-in-95 duration-150">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                       <span className="text-xs font-bold text-slate-800">Di chuyển thẻ</span>
-                      <button type="button" onClick={() => setActivePopover(null)}>
-                        <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                      <button type="button" onClick={() => setActivePopover(null)} className="p-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 cursor-pointer">
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
                     <div className="space-y-3 text-xs">
                       <div>
-                        <label className="block text-slate-500 font-semibold mb-1">Bảng làm việc</label>
+                        <label className="block text-slate-500 font-semibold mb-1.5">Bảng làm việc</label>
                         <select
                           value={selectedTargetBoardId}
                           onChange={e => setSelectedTargetBoardId(e.target.value)}
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                          className="select-modern"
                         >
                           {userBoards.map(b => (
                             <option key={b.id} value={b.id}>
@@ -1120,11 +1120,11 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-slate-500 font-semibold mb-1">Danh sách (Cột)</label>
+                        <label className="block text-slate-500 font-semibold mb-1.5">Danh sách (Cột)</label>
                         <select
                           value={selectedTargetListId}
                           onChange={e => setSelectedTargetListId(e.target.value)}
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                          className="select-modern"
                         >
                           {targetBoardLists.map(l => (
                             <option key={l.id} value={l.id}>
@@ -1135,11 +1135,11 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-slate-500 font-semibold mb-1">Vị trí</label>
+                        <label className="block text-slate-500 font-semibold mb-1.5">Vị trí</label>
                         <select
                           value={selectedTargetPosition}
                           onChange={e => setSelectedTargetPosition(Number(e.target.value))}
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                          className="select-modern"
                         >
                           {Array.from({ length: targetListCardsCount + 1 }).map((_, idx) => (
                             <option key={idx + 1} value={idx + 1}>
@@ -1152,7 +1152,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                       <button
                         type="button"
                         onClick={handleExecuteMoveCard}
-                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors cursor-pointer"
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors cursor-pointer"
                       >
                         Di chuyển
                       </button>
@@ -1248,23 +1248,23 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             <button
                               type="button"
                               onClick={() => setOptionsSubView('main')}
-                              className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800"
+                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                             >
                               <ArrowLeft className="w-4 h-4" />
                             </button>
                             <span className="text-xs font-bold text-slate-800">Di chuyển thẻ</span>
-                            <button type="button" onClick={() => setActivePopover(null)}>
-                              <X className="w-3.5 h-3.5 text-slate-400" />
+                            <button type="button" onClick={() => setActivePopover(null)} className="p-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 cursor-pointer">
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
 
                           <div className="space-y-3 text-xs">
                             <div>
-                              <label className="block text-slate-500 font-semibold mb-1">Bảng làm việc</label>
+                              <label className="block text-slate-500 font-semibold mb-1.5">Bảng làm việc</label>
                               <select
                                 value={selectedTargetBoardId}
                                 onChange={e => setSelectedTargetBoardId(e.target.value)}
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                                className="select-modern"
                               >
                                 {userBoards.map(b => (
                                   <option key={b.id} value={b.id}>
@@ -1275,11 +1275,11 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             </div>
 
                             <div>
-                              <label className="block text-slate-500 font-semibold mb-1">Danh sách (Cột)</label>
+                              <label className="block text-slate-500 font-semibold mb-1.5">Danh sách (Cột)</label>
                               <select
                                 value={selectedTargetListId}
                                 onChange={e => setSelectedTargetListId(e.target.value)}
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                                className="select-modern"
                               >
                                 {targetBoardLists.map(l => (
                                   <option key={l.id} value={l.id}>
@@ -1290,11 +1290,11 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             </div>
 
                             <div>
-                              <label className="block text-slate-500 font-semibold mb-1">Vị trí</label>
+                              <label className="block text-slate-500 font-semibold mb-1.5">Vị trí</label>
                               <select
                                 value={selectedTargetPosition}
                                 onChange={e => setSelectedTargetPosition(Number(e.target.value))}
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                                className="select-modern"
                               >
                                 {Array.from({ length: targetListCardsCount + 1 }).map((_, idx) => (
                                   <option key={idx + 1} value={idx + 1}>
@@ -1307,7 +1307,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             <button
                               type="button"
                               onClick={handleExecuteMoveCard}
-                              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors cursor-pointer"
+                              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors cursor-pointer"
                             >
                               Di chuyển
                             </button>
@@ -1322,33 +1322,33 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             <button
                               type="button"
                               onClick={() => setOptionsSubView('main')}
-                              className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800"
+                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                             >
                               <ArrowLeft className="w-4 h-4" />
                             </button>
                             <span className="text-xs font-bold text-slate-800">Tạo bản sao thẻ</span>
-                            <button type="button" onClick={() => setActivePopover(null)}>
-                              <X className="w-3.5 h-3.5 text-slate-400" />
+                            <button type="button" onClick={() => setActivePopover(null)} className="p-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 cursor-pointer">
+                              <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
 
                           <div className="space-y-3 text-xs">
                             <div>
-                              <label className="block text-slate-500 font-semibold mb-1">Tên bản sao</label>
+                              <label className="block text-slate-500 font-semibold mb-1.5">Tên bản sao</label>
                               <input
                                 type="text"
                                 value={copyCardTitle}
                                 onChange={e => setCopyCardTitle(e.target.value)}
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-slate-500 font-semibold mb-1">Bảng sao chép tới</label>
+                              <label className="block text-slate-500 font-semibold mb-1.5">Bảng sao chép tới</label>
                               <select
                                 value={selectedTargetBoardId}
                                 onChange={e => setSelectedTargetBoardId(e.target.value)}
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                                className="select-modern"
                               >
                                 {userBoards.map(b => (
                                   <option key={b.id} value={b.id}>
@@ -1359,11 +1359,11 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             </div>
 
                             <div>
-                              <label className="block text-slate-500 font-semibold mb-1">Danh sách (Cột)</label>
+                              <label className="block text-slate-500 font-semibold mb-1.5">Danh sách (Cột)</label>
                               <select
                                 value={selectedTargetListId}
                                 onChange={e => setSelectedTargetListId(e.target.value)}
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-blue-500"
+                                className="select-modern"
                               >
                                 {targetBoardLists.map(l => (
                                   <option key={l.id} value={l.id}>

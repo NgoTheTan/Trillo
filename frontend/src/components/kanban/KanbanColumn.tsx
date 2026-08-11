@@ -235,13 +235,19 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 value={cardTitle}
                 onChange={(e) => setCardTitle(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddCardClick(list.id, cardTitle);
+                  if (e.key === 'Enter' && cardTitle.trim()) handleAddCardClick(list.id, cardTitle);
                   if (e.key === 'Escape') setCardTitle('');
                 }}
               />
               <button
                 onClick={() => handleAddCardClick(list.id, cardTitle)}
-                className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-500/30 text-slate-400 hover:text-blue-500 text-[11px] font-bold transition-all duration-200 cursor-pointer shadow-xs"
+                disabled={!cardTitle.trim() || isAddingCard}
+                className={`flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg border text-[11px] font-bold transition-all duration-200 shadow-xs
+                  ${
+                    !cardTitle.trim() || isAddingCard
+                      ? 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed'
+                      : 'bg-white border-slate-200 hover:border-blue-500/30 text-slate-400 hover:text-blue-500 cursor-pointer'
+                  }`}
               >
                 {isAddingCard ? <Loader2 className='h-4 w-4 animate-spin' /> : <Plus size={12} />}
                 Thêm thẻ

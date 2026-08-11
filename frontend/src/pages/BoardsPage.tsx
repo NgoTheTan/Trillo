@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, Star } from 'lucide-react'
 import { BoardCardView } from '../components/board/BoardCardView'
 import { BoardListView } from '../components/board/BoardListView'
 import { BoardFormModal } from '../components/board/BoardFormModal'
 import {
     useBoardsQuery,
     usePublicBoardsQuery,
+    useStarredBoardsQuery,
     useCreateBoardMutation,
     useUpdateBoardMutation,
     useDeleteBoardMutation,
+    useToggleBoardStarMutation,
     type BoardSummaryResponse,
     type BoardFormPayload,
 } from '../services/boardServices'
 
+type TabKey = 'All' | 'Public' | 'Starred'
+
 export const BoardsPage = () => {
-    const [activeTab, setActiveTab] = useState<'All' | 'Public'>('All')
+    const [activeTab, setActiveTab] = useState<TabKey>('All')
     const [searchInput, setSearchInput] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -32,18 +36,31 @@ export const BoardsPage = () => {
 
     const allBoardsQuery = useBoardsQuery(activeTab === 'All' ? debouncedSearch : undefined)
     const publicBoardsQuery = usePublicBoardsQuery(activeTab === 'Public' ? debouncedSearch : undefined)
+    const starredBoardsQuery = useStarredBoardsQuery()
 
     const createBoardMutation = useCreateBoardMutation()
     const updateBoardMutation = useUpdateBoardMutation()
     const deleteBoardMutation = useDeleteBoardMutation()
+    const toggleStarMutation = useToggleBoardStarMutation()
 
-    const boards = activeTab === 'Public'
-        ? (publicBoardsQuery.data || [])
-        : (allBoardsQuery.data || [])
+    const boards =
+        activeTab === 'Public' ? (publicBoardsQuery.data || []) :
+        activeTab === 'Starred' ? (starredBoardsQuery.data || []) :
+        (allBoardsQuery.data || [])
 
-    const isLoading = activeTab === 'Public' ? publicBoardsQuery.isLoading : allBoardsQuery.isLoading
+    // Client-side search for starred tab
+    const filteredBoards = activeTab === 'Starred' && debouncedSearch
+        ? boards.filter(b => b.title.toLowerCase().includes(debouncedSearch.toLowerCase()))
+        : boards
 
-    const toggleStar = (_id: string) => {}
+    const isLoading =
+        activeTab === 'Public' ? publicBoardsQuery.isLoading :
+        activeTab === 'Starred' ? starredBoardsQuery.isLoading :
+        allBoardsQuery.isLoading
+
+    const handleToggleStar = (boardId: string) => {
+        toggleStarMutation.mutate(boardId)
+    }
 
     const handleCreateBoard = async (newBoardData: BoardFormPayload) => {
         try {
@@ -78,7 +95,17 @@ export const BoardsPage = () => {
         }
     }
 
-    const tabLabels = { All: 'Tất cả', Public: 'Công khai' }
+    const tabConfig: { key: TabKey; label: string; icon?: React.ReactNode }[] = [
+        { key: 'All', label: 'Tất cả' },
+        { key: 'Public', label: 'Công khai' },
+        {
+            key: 'Starred',
+            label: 'Đã đánh dấu',
+            icon: <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />,
+        },
+    ]
+
+    const starredCount = starredBoardsQuery.data?.length ?? 0
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 text-slate-800">
@@ -95,17 +122,23 @@ export const BoardsPage = () => {
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-6 font-medium text-sm">
-                    {(['All', 'Public'] as const).map(tab => (
+                    {tabConfig.map(tab => (
                         <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`relative pb-3 transition-colors cursor-pointer ${activeTab === tab
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`relative pb-3 transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === tab.key
                                 ? 'text-blue-600 font-semibold'
                                 : 'text-slate-500 hover:text-slate-800'
                                 }`}
                         >
-                            {tabLabels[tab]}
-                            {activeTab === tab && (
+                            {tab.icon}
+                            {tab.label}
+                            {tab.key === 'Starred' && starredCount > 0 && (
+                                <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full">
+                                    {starredCount}
+                                </span>
+                            )}
+                            {activeTab === tab.key && (
                                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
                             )}
                         </button>
@@ -153,22 +186,37 @@ export const BoardsPage = () => {
                 </div>
             </div>
 
-            {viewMode === 'grid' ? (
-                <BoardCardView
-                    boards={boards}
-                    onToggleStar={toggleStar}
-                    onCreateClick={() => setIsCreateOpen(true)}
-                    onEditBoard={handleEditBoard}
-                    onDeleteBoard={handleDeleteBoard}
-                />
-            ) : (
-                <BoardListView
-                    boards={boards}
-                    onToggleStar={toggleStar}
-                    onCreateClick={() => setIsCreateOpen(true)}
-                    onEditBoard={handleEditBoard}
-                    onDeleteBoard={handleDeleteBoard}
-                />
+            {/* Empty state for starred tab */}
+            {activeTab === 'Starred' && filteredBoards.length === 0 && !isLoading && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-500">
+                    <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center">
+                        <Star className="w-8 h-8 text-amber-300" />
+                    </div>
+                    <div className="text-center">
+                        <p className="font-semibold text-slate-700 text-lg">Chưa có bảng nào được đánh dấu</p>
+                        <p className="text-sm mt-1">Nhấn vào biểu tượng ⭐ trên bảng để đánh dấu nhanh.</p>
+                    </div>
+                </div>
+            )}
+
+            {(filteredBoards.length > 0 || activeTab !== 'Starred') && (
+                viewMode === 'grid' ? (
+                    <BoardCardView
+                        boards={filteredBoards}
+                        onToggleStar={handleToggleStar}
+                        onCreateClick={() => setIsCreateOpen(true)}
+                        onEditBoard={handleEditBoard}
+                        onDeleteBoard={handleDeleteBoard}
+                    />
+                ) : (
+                    <BoardListView
+                        boards={filteredBoards}
+                        onToggleStar={handleToggleStar}
+                        onCreateClick={() => setIsCreateOpen(true)}
+                        onEditBoard={handleEditBoard}
+                        onDeleteBoard={handleDeleteBoard}
+                    />
+                )
             )}
 
             <BoardFormModal

@@ -396,6 +396,7 @@ public class BoardService {
     public BoardResponse toBoardResponse(Board board, User currentUser) {
         BoardRole role = null;
         List<BoardPermission> currentUserPermissions = Collections.emptyList();
+        boolean starred = false;
 
         if (currentUser != null) {
             Optional<BoardMember> membershipOpt = boardMemberRepository
@@ -403,6 +404,7 @@ public class BoardService {
             if (membershipOpt.isPresent()) {
                 BoardMember bm = membershipOpt.get();
                 role = bm.getRole();
+                starred = bm.isStarred();
                 if (bm.getRole() == BoardRole.OWNER) {
                     // Owner has all permissions implicitly
                     currentUserPermissions = List.of(BoardPermission.values());
@@ -435,20 +437,21 @@ public class BoardService {
                 board.getId(), board.getTitle(), board.getDescription(),
                 board.getVisibility(), board.getCoverColor(),
                 authService.toUserResponse(board.getOwner()),
-                role, currentUserPermissions, members, lists, labels,
+                role, currentUserPermissions, starred, members, lists, labels,
                 board.getCreatedAt(), board.getUpdatedAt()
         );
     }
 
     public BoardSummaryResponse toBoardSummaryResponse(Board board, User currentUser) {
         BoardRole role = null;
+        boolean starred = false;
         if (currentUser != null) {
-            if (board.getOwner() != null && board.getOwner().getId().equals(currentUser.getId())) {
-                role = BoardRole.OWNER;
-            } else {
-                role = boardMemberRepository.findByBoardIdAndUserId(board.getId(), currentUser.getId())
-                        .map(BoardMember::getRole)
-                        .orElse(null);
+            Optional<BoardMember> membershipOpt = boardMemberRepository
+                    .findByBoardIdAndUserId(board.getId(), currentUser.getId());
+            if (membershipOpt.isPresent()) {
+                BoardMember bm = membershipOpt.get();
+                role = bm.getRole();
+                starred = bm.isStarred();
             }
         }
 
@@ -461,8 +464,29 @@ public class BoardService {
                 board.getId(), board.getTitle(), board.getDescription(),
                 board.getVisibility(), board.getCoverColor(),
                 authService.toUserResponse(board.getOwner()),
-                role, memberCount, cardCount, board.getCreatedAt()
+                role, memberCount, cardCount, starred, board.getCreatedAt()
         );
+    }
+
+    // ── Toggle Star ───────────────────────────────────────────────────────────
+    @Transactional
+    public boolean toggleStar(String boardId, User currentUser) {
+        BoardMember membership = boardMemberRepository
+                .findByBoardIdAndUserId(boardId, currentUser.getId())
+                .orElseThrow(() -> new AccessDeniedException("You are not a member of this board"));
+        boolean newStarred = !membership.isStarred();
+        membership.setStarred(newStarred);
+        boardMemberRepository.save(membership);
+        return newStarred;
+    }
+
+    // ── Get Starred Boards ────────────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public List<BoardSummaryResponse> getStarredBoards(User currentUser) {
+        return boardMemberRepository.findByUserIdAndStarredTrue(currentUser.getId())
+                .stream()
+                .map(bm -> toBoardSummaryResponse(bm.getBoard(), currentUser))
+                .toList();
     }
 
     private ListResponse toListResponse(BoardList list) {

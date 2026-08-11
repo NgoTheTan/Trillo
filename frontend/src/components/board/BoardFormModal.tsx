@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
-import { Check, Palette } from 'lucide-react'
+import { Check, Palette, Globe, Lock } from 'lucide-react'
 import type { BoardFormPayload, BoardSummaryResponse } from '../../services/boardServices'
 
 export interface BoardFormModalProps {
@@ -191,7 +191,7 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
               <div
                 onClick={() => setVisibility('PUBLIC')}
                 className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${visibility === 'PUBLIC'
-                  ? 'border-blue-600 bg-blue-50/40 ring-1 ring-blue-600'
+                  ? 'border-emerald-500 bg-emerald-50/40 ring-1 ring-emerald-500'
                   : 'border-slate-200 hover:bg-slate-50'
                   }`}
               >
@@ -200,10 +200,13 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
                   name="visibility"
                   checked={visibility === 'PUBLIC'}
                   onChange={() => setVisibility('PUBLIC')}
-                  className="mt-0.5 w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                  className="mt-0.5 w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500"
                 />
+                <Globe className={`w-4 h-4 mt-0.5 shrink-0 ${visibility === 'PUBLIC' ? 'text-emerald-600' : 'text-slate-400'}`} />
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Công khai</div>
+                  <div className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                    Công khai
+                  </div>
                   <div className="text-xs text-slate-500 mt-0.5">
                     Bất kỳ ai có liên kết đều có thể xem
                   </div>
@@ -213,7 +216,7 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
               <div
                 onClick={() => setVisibility('PRIVATE')}
                 className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${visibility === 'PRIVATE'
-                  ? 'border-blue-600 bg-blue-50/40 ring-1 ring-blue-600'
+                  ? 'border-amber-500 bg-amber-50/40 ring-1 ring-amber-500'
                   : 'border-slate-200 hover:bg-slate-50'
                   }`}
               >
@@ -222,10 +225,13 @@ export const BoardFormModal: React.FC<BoardFormModalProps> = ({
                   name="visibility"
                   checked={visibility === 'PRIVATE'}
                   onChange={() => setVisibility('PRIVATE')}
-                  className="mt-0.5 w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                  className="mt-0.5 w-4 h-4 text-amber-600 border-slate-300 focus:ring-amber-500"
                 />
+                <Lock className={`w-4 h-4 mt-0.5 shrink-0 ${visibility === 'PRIVATE' ? 'text-amber-600' : 'text-slate-400'}`} />
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Riêng tư</div>
+                  <div className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                    Riêng tư
+                  </div>
                   <div className="text-xs text-slate-500 mt-0.5">
                     Chỉ thành viên mới có thể xem
                   </div>

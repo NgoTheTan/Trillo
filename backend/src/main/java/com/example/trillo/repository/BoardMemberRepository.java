@@ -22,4 +22,7 @@ public interface BoardMemberRepository extends JpaRepository<BoardMember, String
     void deleteByBoardIdAndUserId(String boardId, String userId);
 
     long countByBoardId(String boardId);
+
+    /** Return all board memberships where the user has starred the board. */
+    List<BoardMember> findByUserIdAndStarredTrue(String userId);
 }

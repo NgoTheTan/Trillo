@@ -1074,8 +1074,57 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     const det = (detail || '').toLowerCase()
     const rawText = detail || action || ''
 
-    // 1. Move logs: "di chuyển từ list nào sang list nào"
-    if (act.includes('move') || det.includes('move') || det.includes('di chuyển') || det.includes('chuyển')) {
+    // 1. Checklist logs (Must be checked BEFORE generic creation/update)
+    if (act.includes('checklist') || det.includes('checklist') || det.includes('danh sách việc cần làm')) {
+      if (act.includes('deleted') || det.includes('removed checklist') || det.includes('xóa danh sách')) {
+        const match = detail?.match(/(?:checklist|danh sách việc cần làm)\s+["']?([^"']+)["']?/i)
+        return match ? `đã xóa danh sách việc cần làm "${match[1]}"` : `đã xóa danh sách việc cần làm`
+      }
+      if (act.includes('created') || det.includes('added checklist') || det.includes('tạo danh sách') || det.includes('thêm danh sách')) {
+        const match = detail?.match(/(?:checklist|danh sách việc cần làm)\s+["']?([^"']+)["']?/i)
+        return match ? `đã thêm danh sách việc cần làm "${match[1]}"` : `đã thêm danh sách việc cần làm`
+      }
+      if (act.includes('item_added') || det.includes('added') || det.includes('thêm mục')) {
+        const match = detail?.match(/added\s+["']?([^"']+)["']?\s+to/i)
+        return match ? `đã thêm mục "${match[1]}" vào danh sách việc cần làm` : `đã thêm mục vào danh sách việc cần làm`
+      }
+      if (act.includes('toggled') || det.includes('completed') || det.includes('marked incomplete') || det.includes('hoàn thành')) {
+        const itemMatch = detail?.match(/(?:completed|incomplete|marked incomplete|hoàn thành)\s+["']?([^"']+)["']?/i)
+        if (det.includes('marked incomplete') || det.includes('chưa hoàn thành') || det.includes('incomplete')) {
+          return itemMatch ? `đã đánh dấu chưa hoàn thành mục "${itemMatch[1]}"` : `đã đánh dấu chưa hoàn thành mục`
+        }
+        return itemMatch ? `đã hoàn thành mục "${itemMatch[1]}"` : `đã hoàn thành mục trong danh sách việc cần làm`
+      }
+      return `đã cập nhật danh sách việc cần làm`
+    }
+
+    // 2. Attachment logs
+    if (act.includes('attach') || det.includes('attachment') || det.includes('attached') || det.includes('đính kèm')) {
+      if (act.includes('deleted') || det.includes('removed') || det.includes('xóa')) {
+        const match = detail?.match(/(?:attachment|đính kèm)\s+["']?([^"']+)["']?/i)
+        return match ? `đã xóa tệp đính kèm "${match[1]}"` : `đã xóa tệp đính kèm`
+      }
+      if (act.includes('attached_link') || det.includes('attached link') || det.includes('gắn liên kết')) {
+        const match = detail?.match(/(?:link|liên kết)\s+["']?([^"']+)["']?/i)
+        return match ? `đã gắn liên kết "${match[1]}"` : `đã gắn liên kết`
+      }
+      if (act.includes('attached_file') || det.includes('attached file') || det.includes('đính kèm tệp')) {
+        const match = detail?.match(/(?:file|tệp)\s+["']?([^"']+)["']?/i)
+        return match ? `đã đính kèm tệp "${match[1]}"` : `đã đính kèm tệp`
+      }
+      return `đã thêm tệp đính kèm`
+    }
+
+    // 3. Archive / Restore logs
+    if (act === 'archived' || det.includes('card archived') || det.includes('lưu trữ thẻ') || det.includes('thẻ đã được lưu trữ')) {
+      return 'đã lưu trữ thẻ này'
+    }
+    if (act === 'unarchived' || det.includes('card restored') || det.includes('khôi phục thẻ') || det.includes('khôi phục từ lưu trữ')) {
+      return 'đã khôi phục thẻ này từ mục lưu trữ'
+    }
+
+    // 4. Move logs
+    if (act.includes('move') || det.includes('moved') || det.includes('di chuyển') || det.includes('chuyển')) {
       const fromToMatch = detail?.match(/(?:from|từ)\s+["']?([^"']+)["']?\s+(?:to|sang)\s+["']?([^"']+)["']?/i)
       if (fromToMatch) {
         return `đã di chuyển thẻ từ danh sách "${fromToMatch[1]}" sang "${fromToMatch[2]}"`
@@ -1083,12 +1132,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       return `đã di chuyển thẻ sang danh sách mới`
     }
 
-    // 2. Creation logs
-    if (act.includes('create') || det.includes('create') || act.includes('tạo') || det.includes('tạo') || det.includes('added card')) {
-      return 'đã tạo thẻ này'
-    }
-
-    // 3. Copy logs
+    // 5. Copy logs
     if (act.includes('copy') || det.includes('copy') || det.includes('sao chép')) {
       const copyMatch = detail?.match(/(?:from|từ)\s+["']?([^"']+)["']?/i)
       if (copyMatch) {
@@ -1097,15 +1141,15 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       return 'đã sao chép thẻ này'
     }
 
-    // 4. Completion logs
-    if (det.includes('marked complete') || det.includes('đánh dấu hoàn thành') || (act.includes('complete') && !det.includes('incomplete'))) {
+    // 6. Completion logs
+    if (det.includes('marked complete') || det.includes('marked as completed') || det.includes('đánh dấu hoàn thành') || (act.includes('complete') && !det.includes('incomplete'))) {
       return 'đã đánh dấu hoàn thành thẻ'
     }
-    if (det.includes('marked incomplete') || det.includes('chưa hoàn thành')) {
+    if (det.includes('marked incomplete') || det.includes('marked as incomplete') || det.includes('chưa hoàn thành')) {
       return 'đã đánh dấu chưa hoàn thành thẻ'
     }
 
-    // 5. Member logs
+    // 7. Member logs
     if (det.includes('assigned') || act.includes('assign')) {
       const memberMatch = detail?.match(/assigned\s+(.+)/i)
       if (memberMatch) {
@@ -1127,7 +1171,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       return 'đã rời khỏi thẻ'
     }
 
-    // 6. Deadline logs
+    // 8. Deadline logs
     if (det.includes('deadline') || det.includes('due date') || det.includes('ngày đến hạn') || det.includes('hạn chót')) {
       if (det.includes('removed') || det.includes('deleted') || det.includes('xóa')) {
         return 'đã xóa ngày đến hạn của thẻ'
@@ -1135,26 +1179,18 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       return 'đã cập nhật ngày đến hạn của thẻ'
     }
 
-    // 7. Checklist logs
-    if (det.includes('checklist')) {
-      if (det.includes('removed') || det.includes('deleted') || det.includes('xóa')) {
-        return 'đã xóa danh sách việc cần làm'
-      }
-      if (det.includes('added') || det.includes('created') || det.includes('tạo')) {
-        return 'đã thêm danh sách việc cần làm'
-      }
-      return 'đã cập nhật danh sách việc cần làm'
+    // 9. Card Creation logs (Strict check for Card Creation only)
+    if (
+      act === 'created' ||
+      det.includes('was created') ||
+      det.includes('thẻ được tạo') ||
+      det.includes('tạo thẻ') ||
+      det.includes('added card')
+    ) {
+      return 'đã tạo thẻ này'
     }
 
-    // 8. Attachment logs
-    if (det.includes('attachment') || det.includes('đính kèm')) {
-      if (det.includes('removed') || det.includes('deleted') || det.includes('xóa')) {
-        return 'đã xóa tệp đính kèm'
-      }
-      return 'đã thêm tệp đính kèm mới'
-    }
-
-    // 9. Generic updates
+    // 10. Generic Card Updates
     if (det.includes('card updated') || act.includes('update')) {
       return 'đã cập nhật thông tin thẻ'
     }
@@ -1172,13 +1208,12 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     const act = (item.action || '').toLowerCase()
     const det = (item.detail || '').toLowerCase()
     return (
-      act.includes('create') ||
-      act.includes('tạo') ||
-      det.includes('create') ||
-      det.includes('tạo') ||
-      det.includes('thêm thẻ') ||
-      det.includes('thẻ được tạo') ||
-      det.includes('added card')
+      act === 'created' ||
+      (act.includes('create') && !act.includes('checklist')) ||
+      (det.includes('card') && (det.includes('was created') || det.includes('được tạo'))) ||
+      det.includes('added card') ||
+      det.includes('tạo thẻ') ||
+      det.includes('thẻ được tạo')
     )
   }
 

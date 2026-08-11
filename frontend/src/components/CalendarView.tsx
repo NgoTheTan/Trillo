@@ -256,8 +256,8 @@ export default function CalendarView() {
           dateClick={handleDateClick}
           eventClick={handleEventClick}
           height="70vh"
-          slotMinTime="06:00:00"
-          slotMaxTime="23:00:00"
+          slotMinTime="00:00:00"
+          slotMaxTime="24:00:00"
         />
       </div>
     </div>

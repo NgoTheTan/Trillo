@@ -52,7 +52,7 @@ public class CardService {
                 .build();
 
         Card saved = cardRepository.save(card);
-        logActivity(saved, currentUser, "created", "Card '" + saved.getTitle() + "' was created");
+        logActivity(saved, currentUser, "created", "Thẻ '" + saved.getTitle() + "' đã được tạo");
         broadcastBoardEvent(list.getBoard().getId(), "CARD_CREATED");
 
         return toCardSummaryResponse(saved);
@@ -224,7 +224,7 @@ public class CardService {
         cardMemberRepository.deleteByCardIdAndUserId(cardId, userId);
 
         Card saved = cardRepository.save(card);
-        logActivity(saved, currentUser, "unassigned", "Member removed from card");
+        logActivity(saved, currentUser, "unassigned", "Thành viên đã bị xóa khỏi thẻ");
         broadcastBoardEvent(saved.getList().getBoard().getId(), "CARD_UPDATED");
         return toCardResponse(saved);
     }
@@ -262,7 +262,7 @@ public class CardService {
         Card saved = cardRepository.save(card);
 
         logActivity(saved, currentUser, archived ? "archived" : "unarchived",
-                archived ? "Card archived" : "Card restored from archive");
+                archived ? "Thẻ đã được lưu trữ" : "Thẻ đã được khôi phục từ lưu trữ");
         broadcastBoardEvent(card.getList().getBoard().getId(), "CARD_UPDATED");
 
         return toCardSummaryResponse(saved);

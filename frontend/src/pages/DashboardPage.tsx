@@ -90,6 +90,15 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
   const maxMemberWorkload = Math.max(1, ...memberWorkload.map(item => item.count))
   const displayedMembers = memberWorkload.slice(0, 6)
 
+  const maxDeadlineDate = useMemo(() => {
+    const deadlines = filteredCards
+      .map(card => card.deadline ? new Date(card.deadline) : null)
+      .filter((d): d is Date => d instanceof Date && !Number.isNaN(d.getTime()))
+
+    if (deadlines.length === 0) return null
+    return new Date(Math.max(...deadlines.map(d => d.getTime())))
+  }, [filteredCards])
+
   const burndownSeries = useMemo(() => {
     const values = filteredCards
       .map(card => card.createdAt ? new Date(card.createdAt) : null)
@@ -97,15 +106,25 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
 
     const now = new Date()
     const pointCount = 7
-    const firstPoint = values.length > 0
-      ? new Date(Math.min(...values.map(value => value.getTime())))
-      : new Date(now.getTime() - (pointCount - 1) * 24 * 60 * 60 * 1000)
     const dayMs = 24 * 60 * 60 * 1000
+
+    const startTime = values.length > 0
+      ? Math.min(...values.map(value => value.getTime()))
+      : now.getTime() - (pointCount - 1) * dayMs
+
+    const maxDeadlineTime = maxDeadlineDate ? maxDeadlineDate.getTime() : null
+    let endTime = Math.max(now.getTime(), startTime + (pointCount - 1) * dayMs)
+    if (maxDeadlineTime && maxDeadlineTime > endTime) {
+      endTime = maxDeadlineTime
+    }
+
     const currentRemaining = pendingCards
+    const totalTimeSpan = Math.max(1, endTime - startTime)
 
     return Array.from({ length: pointCount }, (_, index) => {
       const progress = index / Math.max(1, pointCount - 1)
-      const day = new Date(firstPoint.getTime() + index * dayMs)
+      const timestamp = startTime + progress * totalTimeSpan
+      const day = new Date(timestamp)
       const estimatedRemaining = Math.max(
         currentRemaining,
         Math.round(totalCards - ((totalCards - currentRemaining) * progress))
@@ -113,10 +132,11 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
 
       return {
         label: formatDashboardDate(day),
+        timestamp,
         value: estimatedRemaining,
       }
     })
-  }, [filteredCards, pendingCards, totalCards])
+  }, [filteredCards, pendingCards, totalCards, maxDeadlineDate])
 
   const burndownMax = Math.max(1, ...burndownSeries.map(point => point.value))
   const chartWidth = 320
@@ -127,6 +147,18 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
     const y = chartPadding + ((chartHeight - chartPadding * 2) * (1 - (point.value / burndownMax)))
     return { ...point, x, y }
   })
+
+  const finalDeadlineX = useMemo(() => {
+    if (!maxDeadlineDate || burndownSeries.length < 2) return null
+    const firstTime = burndownSeries[0].timestamp
+    const lastTime = burndownSeries.at(-1)!.timestamp
+    if (lastTime <= firstTime) return null
+
+    const deadlineTime = maxDeadlineDate.getTime()
+    const ratio = Math.max(0, Math.min(1, (deadlineTime - firstTime) / (lastTime - firstTime)))
+    return chartPadding + (chartWidth - chartPadding * 2) * ratio
+  }, [maxDeadlineDate, burndownSeries])
+
   const burndownPath = chartPoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
   const burndownAreaPath = [
     `M ${chartPoints[0]?.x ?? chartPadding} ${chartHeight - chartPadding}`,
@@ -171,19 +203,41 @@ function DashboardAnalyticsPanel(props: DashboardAnalyticsPanelProps) {
               </defs>
               <path d={burndownAreaPath} fill="url(#burndownFill)" />
               <path d={burndownPath} fill="none" stroke="#0b5bd3" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              {chartPoints.map(point => (
-                <circle key={point.label} cx={point.x} cy={point.y} r="4" fill="#0b5bd3" />
+              {chartPoints.map((point, i) => (
+                <circle key={point.label + i} cx={point.x} cy={point.y} r="4" fill="#0b5bd3" />
               ))}
+
+              {/* Red Line for Final Deadline */}
+              {finalDeadlineX !== null && (
+                <g key="final-deadline">
+                  <line
+                    x1={finalDeadlineX}
+                    y1={chartPadding}
+                    x2={finalDeadlineX}
+                    y2={chartHeight - chartPadding}
+                    stroke="#ef4444"
+                    strokeWidth="2"
+                    strokeDasharray="4 3"
+                  />
+                  <circle cx={finalDeadlineX} cy={chartPadding} r="4" fill="#ef4444" />
+                </g>
+              )}
             </svg>
             <div className="dashboard-burndown-chart__axis">
-              {burndownSeries.map(point => (
-                <span key={point.label}>{point.label}</span>
+              {burndownSeries.map((point, i) => (
+                <span key={point.label + i}>{point.label}</span>
               ))}
             </div>
           </div>
 
-          <div className="dashboard-chart-card__footnote">
-            Bắt đầu từ tổng số thẻ và giảm dần theo số thẻ đang chờ.
+          <div className="dashboard-chart-card__footnote flex items-center justify-between flex-wrap gap-2">
+            <span>Bắt đầu từ tổng số thẻ và giảm dần theo số thẻ đang chờ.</span>
+            {maxDeadlineDate && (
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                <span className="inline-block w-2 h-2 bg-red-500 rounded-full"></span>
+                Hạn cuối: {formatDashboardDate(maxDeadlineDate)}
+              </span>
+            )}
           </div>
         </article>
 

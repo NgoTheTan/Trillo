@@ -3,6 +3,7 @@ package com.example.trillo.entity;
 import com.example.trillo.enums.BoardRole;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -48,7 +49,8 @@ public class BoardMember {
      * This is per-user — each BoardMember row tracks the star independently.
      */
     @Builder.Default
-    @Column(nullable = false, columnDefinition = "boolean default false")
+    @Column(nullable = false)
+    @ColumnDefault("false")
     private boolean starred = false;
 
     @CreationTimestamp

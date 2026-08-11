@@ -2,6 +2,7 @@ package com.example.trillo.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -36,11 +37,13 @@ public class Card {
     private LocalDateTime deadline;
 
     @Builder.Default
-    @Column(name = "reminder", columnDefinition = "VARCHAR(50) DEFAULT '1_day_before'")
+    @Column(name = "reminder", length = 50)
+    @ColumnDefault("'1_day_before'")
     private String reminder = "1_day_before";
 
     @Builder.Default
-    @Column(name = "reminder_sent", nullable = false, columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
+    @Column(name = "reminder_sent", nullable = false)
+    @ColumnDefault("false")
     private boolean reminderSent = false;
 
     @Column(nullable = false)

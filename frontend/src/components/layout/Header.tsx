@@ -222,6 +222,11 @@ export const Header: React.FC<HeaderProps> = ({
                                                 {icon}
                                             </div>
                                             <div className="flex-1 text-xs sm:text-sm">
+                                                {notif.title && (
+                                                    <p className={`text-slate-900 leading-snug font-semibold mb-0.5`}>
+                                                        {notif.title}
+                                                    </p>
+                                                )}
                                                 <p className={`text-slate-800 leading-snug ${!notif.read ? 'font-medium' : ''}`}>
                                                     {notif.message}
                                                 </p>

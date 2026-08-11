@@ -12,6 +12,7 @@ export type NotificationType =
 export interface NotificationResponse {
   id: string;
   type: NotificationType;
+  title?: string;
   message: string;
   referenceId?: string;
   referenceType?: 'BOARD' | 'CARD' | string;
@@ -52,7 +53,9 @@ export const useNotificationsQuery = () => {
   return useQuery({
     queryKey: ['notifications'],
     queryFn: getAllNotifications,
-    refetchInterval: 60000, // Background refresh every 60s as fallback
+    staleTime: 0,              // Always refetch when invalidated by WebSocket
+    refetchInterval: 30_000,   // Fallback polling every 30s in case WS drops
+    refetchIntervalInBackground: false,
   });
 };
 

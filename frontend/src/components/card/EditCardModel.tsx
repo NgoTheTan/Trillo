@@ -467,7 +467,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   const isArchived = cardDetail?.archived || card?.archived || false
 
   const handleArchiveCard = async () => {
-    if (!card?.id) return
+    if (!card?.id || !canArchiveItem) return
     try {
       await archiveCardMutation.mutateAsync({ cardId: card.id, archived: true, boardId })
       onOpenChange(false)
@@ -569,6 +569,13 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   const permissions = boardDetailQuery.data?.currentUserPermissions || []
 
   const canEditCard = isOwner || permissions.includes('EDIT_CARD')
+  const canMoveCard = isOwner || permissions.includes('MOVE_CARD')
+  const canManageLabels = isOwner || permissions.includes('MANAGE_LABELS')
+  const canAddComment = isOwner || permissions.includes('ADD_COMMENT')
+  const canManageChecklist = isOwner || permissions.includes('MANAGE_CHECKLIST')
+  const canUploadAttachment = isOwner || permissions.includes('UPLOAD_ATTACHMENT')
+  const canArchiveItem = isOwner || permissions.includes('ARCHIVE_ITEM')
+  const canCreateCard = isOwner || permissions.includes('CREATE_CARD')
 
   const { data: boardLabelsData } = useBoardLabelsQuery(boardId)
   const createBoardLabelMutation = useCreateBoardLabelMutation()
@@ -796,7 +803,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
   // Labels & Members handlers
   const handleToggleSelectLabel = async (lbl: CardLabel) => {
-    if (!card?.id) return
+    if (!card?.id || !canManageLabels) return
     if (selectedLabels.some(l => l.id === lbl.id)) {
       await removeLabelFromCardMutation.mutateAsync({ cardId: card.id, labelId: lbl.id })
       setSelectedLabels(prev => prev.filter(l => l.id !== lbl.id))
@@ -808,7 +815,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
   const handleCreateOrUpdateLabel = () => {
     const trimmed = newLabelText.trim()
-    if (!trimmed) return
+    if (!trimmed || !canManageLabels) return
 
     if (editingLabelId) {
       updateBoardLabelMutation.mutateAsync({
@@ -827,7 +834,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleToggleMember = async (member: MemberItem) => {
-    if (!card?.id) return
+    if (!card?.id || !canEditCard) return
     if (selectedMembers.some(m => m.id === member.id)) {
       await unassignMemberMutation.mutateAsync({ cardId: card.id, userId: member.id })
       setSelectedMembers(prev => prev.filter(m => m.id !== member.id))
@@ -838,7 +845,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleToggleCurrentMemberJoin = async () => {
-    if (!card?.id || !currentUser) return
+    if (!card?.id || !currentUser || !canEditCard) return
     const isJoined = selectedMembers.some(m => m.id === currentUser.id)
     if (isJoined) {
       await unassignMemberMutation.mutateAsync({ cardId: card.id, userId: currentUser.id })
@@ -876,7 +883,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
   // Move & Copy actions
   const handleExecuteMoveCard = async () => {
-    if (!card?.id || !selectedTargetListId) return
+    if (!card?.id || !selectedTargetListId || !canMoveCard) return
     try {
       await moveCardMutation.mutateAsync({
         cardId: card.id,
@@ -895,7 +902,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleExecuteCopyCard = async () => {
-    if (!copyCardTitle.trim() || !selectedTargetListId) return
+    if (!copyCardTitle.trim() || !selectedTargetListId || !canCreateCard) return
     try {
       await createCardMutation.mutateAsync({
         listId: selectedTargetListId,
@@ -912,14 +919,14 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
 
   // Checklist Actions
   const handleCreateChecklist = async () => {
-    if (!card?.id || !newChecklistTitle.trim()) return
+    if (!card?.id || !newChecklistTitle.trim() || !canManageChecklist) return
     await createChecklistMutation.mutateAsync({ cardId: card.id, title: newChecklistTitle.trim() })
     setNewChecklistTitle('Việc cần làm')
     setActivePopover(null)
   }
 
   const handleSaveChecklistTitle = async (checklistId: string) => {
-    if (!card?.id || !editingChecklistTitleText.trim()) return
+    if (!card?.id || !editingChecklistTitleText.trim() || !canManageChecklist) return
     await updateChecklistMutation.mutateAsync({
       checklistId,
       title: editingChecklistTitleText.trim(),
@@ -929,12 +936,12 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleDeleteChecklist = async (checklistId: string) => {
-    if (!card?.id) return
+    if (!card?.id || !canManageChecklist) return
     await deleteChecklistMutation.mutateAsync({ checklistId, cardId: card.id })
   }
 
   const handleAddChecklistItem = async (checklistId: string) => {
-    if (!card?.id || !newItemText.trim()) return
+    if (!card?.id || !newItemText.trim() || !canManageChecklist) return
     await addChecklistItemMutation.mutateAsync({
       checklistId,
       content: newItemText.trim(),
@@ -944,12 +951,12 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleToggleItem = async (itemId: string) => {
-    if (!card?.id) return
+    if (!card?.id || !canManageChecklist) return
     await toggleChecklistItemMutation.mutateAsync({ itemId, cardId: card.id })
   }
 
   const handleSaveItemContent = async (itemId: string) => {
-    if (!card?.id || !editingItemText.trim()) return
+    if (!card?.id || !editingItemText.trim() || !canManageChecklist) return
     await updateChecklistItemMutation.mutateAsync({
       itemId,
       content: editingItemText.trim(),
@@ -959,19 +966,19 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!card?.id) return
+    if (!card?.id || !canManageChecklist) return
     await deleteChecklistItemMutation.mutateAsync({ itemId, cardId: card.id })
   }
 
   // Comment Actions
   const handleAddComment = async () => {
-    if (!card?.id || !newCommentText.trim()) return
+    if (!card?.id || !newCommentText.trim() || !canAddComment) return
     await addCommentMutation.mutateAsync({ cardId: card.id, content: newCommentText.trim() })
     setNewCommentText('')
   }
 
   const handleSaveComment = async (commentId: string) => {
-    if (!card?.id || !editingCommentText.trim()) return
+    if (!card?.id || !editingCommentText.trim() || !canAddComment) return
     await updateCommentMutation.mutateAsync({
       commentId,
       content: editingCommentText.trim(),
@@ -981,13 +988,13 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!card?.id) return
+    if (!card?.id || !canAddComment) return
     await deleteCommentMutation.mutateAsync({ commentId, cardId: card.id })
   }
 
   // Attachment Actions
   const handleAddAttachment = async () => {
-    if (!card?.id) return
+    if (!card?.id || !canUploadAttachment) return
     if (attachmentType === 'link') {
       if (!attachmentUrl.trim()) return
       let finalUrl = attachmentUrl.trim()
@@ -1013,7 +1020,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!card?.id) return
+    if (!card?.id || !canUploadAttachment) return
     await deleteAttachmentMutation.mutateAsync({ attachmentId, cardId: card.id })
   }
 
@@ -1335,58 +1342,66 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                           </div>
 
                           <div className="space-y-1 text-xs font-medium">
-                            <button
-                              type="button"
-                              onClick={handleToggleCurrentMemberJoin}
-                              className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
-                            >
-                              {isCurrentMemberJoined ? (
-                                <>
-                                  <UserMinus className="w-4 h-4 text-red-500" />
-                                  <span>Rời khỏi thẻ</span>
-                                </>
-                              ) : (
-                                <>
-                                  <UserPlus className="w-4 h-4 text-blue-600" />
-                                  <span>Tham gia thẻ</span>
-                                </>
-                              )}
-                            </button>
+                            {canEditCard && (
+                              <button
+                                type="button"
+                                onClick={handleToggleCurrentMemberJoin}
+                                className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
+                              >
+                                {isCurrentMemberJoined ? (
+                                  <>
+                                    <UserMinus className="w-4 h-4 text-red-500" />
+                                    <span>Rời khỏi thẻ</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserPlus className="w-4 h-4 text-blue-600" />
+                                    <span>Tham gia thẻ</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
 
-                            <button
-                              type="button"
-                              onClick={() => setOptionsSubView('move')}
-                              className="w-full flex items-center justify-between px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <ArrowRight className="w-4 h-4 text-slate-500" />
-                                <span>Di chuyển</span>
-                              </div>
-                              <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
-                            </button>
+                            {canMoveCard && (
+                              <button
+                                type="button"
+                                onClick={() => setOptionsSubView('move')}
+                                className="w-full flex items-center justify-between px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <ArrowRight className="w-4 h-4 text-slate-500" />
+                                  <span>Di chuyển</span>
+                                </div>
+                                <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
+                              </button>
+                            )}
 
-                            <button
-                              type="button"
-                              onClick={() => setOptionsSubView('copy')}
-                              className="w-full flex items-center justify-between px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <Copy className="w-4 h-4 text-slate-500" />
-                                <span>Copy (Tạo bản sao)</span>
-                              </div>
-                              <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
-                            </button>
+                            {canCreateCard && (
+                              <button
+                                type="button"
+                                onClick={() => setOptionsSubView('copy')}
+                                className="w-full flex items-center justify-between px-2.5 py-2 hover:bg-slate-50 rounded-lg transition-colors text-slate-700 cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <Copy className="w-4 h-4 text-slate-500" />
+                                  <span>Copy (Tạo bản sao)</span>
+                                </div>
+                                <ChevronDown className="w-3.5 h-3.5 -rotate-90 text-slate-400" />
+                              </button>
+                            )}
 
-                            <button
-                              type="button"
-                              onClick={handleArchiveCard}
-                              disabled={archiveCardMutation.isPending}
-                              className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-amber-50 rounded-lg transition-colors text-amber-800 font-medium cursor-pointer"
-                              title="Lưu trữ thẻ này"
-                            >
-                              <Archive className="w-4 h-4 text-amber-600" />
-                              <span>Lưu trữ thẻ</span>
-                            </button>
+                            {canArchiveItem && (
+                              <button
+                                type="button"
+                                onClick={handleArchiveCard}
+                                disabled={archiveCardMutation.isPending}
+                                className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-amber-50 rounded-lg transition-colors text-amber-800 font-medium cursor-pointer"
+                                title="Lưu trữ thẻ này"
+                              >
+                                <Archive className="w-4 h-4 text-amber-600" />
+                                <span>Lưu trữ thẻ</span>
+                              </button>
+                            )}
                           </div>
                         </>
                       )}
@@ -1566,7 +1581,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
               {/* Action Pills Bar Directly Below Title */}
               <div className="flex items-center gap-2 flex-wrap pl-8">
                 {/* Dedicated Member Pill - Hidden if hasMembers */}
-                {!hasMembers && (
+                {canEditCard && !hasMembers && (
                   <div className="relative popover-container">
                     <button
                       type="button"
@@ -1577,7 +1592,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                       <span>Thành viên</span>
                     </button>
 
-                    {activePopover === 'member' && canEditCard && (
+                    {activePopover === 'member' && (
                       <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                           <span className="text-xs font-bold text-slate-800">Thành viên</span>
@@ -1633,7 +1648,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                 )}
 
                 {/* Labels Pill - Hidden if hasLabels */}
-                {!hasLabels && (
+                {canManageLabels && !hasLabels && (
                   <div className="relative popover-container">
                     <button
                       type="button"
@@ -1714,7 +1729,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                 )}
 
                 {/* Dates Pill - Hidden if hasDate */}
-                {!hasDate && (
+                {canEditCard && !hasDate && (
                   <div className="relative popover-container">
                     <button
                       type="button"
@@ -1756,140 +1771,144 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                 )}
 
                 {/* Checklist Pill */}
-                <div className="relative popover-container">
-                  <button
-                    type="button"
-                    onClick={() => togglePopover('checklist')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
-                  >
-                    <CheckSquare className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Việc cần làm</span>
-                  </button>
+                {canManageChecklist && (
+                  <div className="relative popover-container">
+                    <button
+                      type="button"
+                      onClick={() => togglePopover('checklist')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Việc cần làm</span>
+                    </button>
 
-                  {activePopover === 'checklist' && (
-                    <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <span className="text-xs font-bold text-slate-800">Thêm danh sách công việc</span>
-                        <button type="button" onClick={() => setActivePopover(null)}>
-                          <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
-                        </button>
-                      </div>
+                    {activePopover === 'checklist' && (
+                      <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <span className="text-xs font-bold text-slate-800">Thêm danh sách công việc</span>
+                          <button type="button" onClick={() => setActivePopover(null)}>
+                            <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                          </button>
+                        </div>
 
-                      <div className="space-y-2">
-                        <label className="block text-xs font-semibold text-slate-600">Tiêu đề danh sách</label>
-                        <input
-                          type="text"
-                          value={newChecklistTitle}
-                          onChange={e => setNewChecklistTitle(e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
-                          placeholder="Việc cần làm..."
-                        />
-                        <button
-                          type="button"
-                          onClick={handleCreateChecklist}
-                          className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
-                        >
-                          Thêm
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Attachment Pill */}
-                <div className="relative popover-container">
-                  <button
-                    type="button"
-                    onClick={() => togglePopover('attachment')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
-                  >
-                    <Paperclip className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Đính kèm</span>
-                  </button>
-
-                  {activePopover === 'attachment' && (
-                    <div className="absolute left-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-4 space-y-4 text-slate-800">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <span className="text-xs font-bold text-slate-800">Đính kèm tệp hoặc link</span>
-                        <button type="button" onClick={() => setActivePopover(null)}>
-                          <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
-                        </button>
-                      </div>
-
-                      {/* Mode Toggle Tabs */}
-                      <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200">
-                        <button
-                          type="button"
-                          onClick={() => setAttachmentType('file')}
-                          className={`flex-1 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
-                            attachmentType === 'file' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
-                          }`}
-                        >
-                          Tệp máy tính
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAttachmentType('link')}
-                          className={`flex-1 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
-                            attachmentType === 'link' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
-                          }`}
-                        >
-                          Đường dẫn (URL)
-                        </button>
-                      </div>
-
-                      {attachmentType === 'file' ? (
-                        <div className="space-y-3">
-                          <label className="block text-xs font-semibold text-slate-600">Chọn tệp để tải lên</label>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-slate-600">Tiêu đề danh sách</label>
                           <input
-                            type="file"
-                            onChange={e => setSelectedFile(e.target.files?.[0] || null)}
-                            className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                            type="text"
+                            value={newChecklistTitle}
+                            onChange={e => setNewChecklistTitle(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
+                            placeholder="Việc cần làm..."
                           />
                           <button
                             type="button"
-                            disabled={!selectedFile}
-                            onClick={handleAddAttachment}
-                            className="w-full py-1.5 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                            onClick={handleCreateChecklist}
+                            className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
                           >
-                            Tải tệp lên
+                            Thêm
                           </button>
                         </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Dán liên kết (URL)</label>
-                            <input
-                              type="text"
-                              value={attachmentUrl}
-                              onChange={e => setAttachmentUrl(e.target.value)}
-                              placeholder="https://..."
-                              className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Tên hiển thị (tùy chọn)</label>
-                            <input
-                              type="text"
-                              value={attachmentName}
-                              onChange={e => setAttachmentName(e.target.value)}
-                              placeholder="Tên tài liệu..."
-                              className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
-                            />
-                          </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Attachment Pill */}
+                {canUploadAttachment && (
+                  <div className="relative popover-container">
+                    <button
+                      type="button"
+                      onClick={() => togglePopover('attachment')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                    >
+                      <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Đính kèm</span>
+                    </button>
+
+                    {activePopover === 'attachment' && (
+                      <div className="absolute left-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-4 space-y-4 text-slate-800">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <span className="text-xs font-bold text-slate-800">Đính kèm tệp hoặc link</span>
+                          <button type="button" onClick={() => setActivePopover(null)}>
+                            <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                          </button>
+                        </div>
+
+                        {/* Mode Toggle Tabs */}
+                        <div className="flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200">
                           <button
                             type="button"
-                            disabled={!attachmentUrl.trim()}
-                            onClick={handleAddAttachment}
-                            className="w-full py-1.5 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                            onClick={() => setAttachmentType('file')}
+                            className={`flex-1 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+                              attachmentType === 'file' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
+                            }`}
                           >
-                            Gắn đường dẫn
+                            Tệp máy tính
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAttachmentType('link')}
+                            className={`flex-1 py-1 text-xs font-semibold rounded transition-all cursor-pointer ${
+                              attachmentType === 'link' ? 'bg-white text-blue-600 shadow-2xs' : 'text-slate-500'
+                            }`}
+                          >
+                            Đường dẫn (URL)
                           </button>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+
+                        {attachmentType === 'file' ? (
+                          <div className="space-y-3">
+                            <label className="block text-xs font-semibold text-slate-600">Chọn tệp để tải lên</label>
+                            <input
+                              type="file"
+                              onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+                              className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                            />
+                            <button
+                              type="button"
+                              disabled={!selectedFile}
+                              onClick={handleAddAttachment}
+                              className="w-full py-1.5 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                            >
+                              Tải tệp lên
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 mb-1">Dán liên kết (URL)</label>
+                              <input
+                                type="text"
+                                value={attachmentUrl}
+                                onChange={e => setAttachmentUrl(e.target.value)}
+                                placeholder="https://..."
+                                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 mb-1">Tên hiển thị (tùy chọn)</label>
+                              <input
+                                type="text"
+                                value={attachmentName}
+                                onChange={e => setAttachmentName(e.target.value)}
+                                placeholder="Tên tài liệu..."
+                                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 text-slate-800"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              disabled={!attachmentUrl.trim()}
+                              onClick={handleAddAttachment}
+                              className="w-full py-1.5 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                            >
+                              Gắn đường dẫn
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Waterfall Section: Members, Labels, Dates */}
@@ -1914,70 +1933,72 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             )}
                           </div>
                         ))}
-                        <div className="relative popover-container">
-                          <button
-                            type="button"
-                            onClick={() => togglePopover('member')}
-                            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
-                            title="Thêm thành viên"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                        {canEditCard && (
+                          <div className="relative popover-container">
+                            <button
+                              type="button"
+                              onClick={() => togglePopover('member')}
+                              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                              title="Thêm thành viên"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
 
-                          {/* Member Popover inside Waterfall */}
-                          {activePopover === 'member' && canEditCard && (
-                            <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
-                              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                <span className="text-xs font-bold text-slate-800">Thành viên</span>
-                                <button type="button" onClick={() => setActivePopover(null)}>
-                                  <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
-                                </button>
-                              </div>
+                            {/* Member Popover inside Waterfall */}
+                            {activePopover === 'member' && (
+                              <div className="absolute left-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 p-3 space-y-3 text-slate-800">
+                                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                  <span className="text-xs font-bold text-slate-800">Thành viên</span>
+                                  <button type="button" onClick={() => setActivePopover(null)}>
+                                    <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                                  </button>
+                                </div>
 
-                              <div className="relative">
-                                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                                <input
-                                  type="text"
-                                  value={memberSearchQuery}
-                                  onChange={e => setMemberSearchQuery(e.target.value)}
-                                  placeholder="Tìm thành viên..."
-                                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
-                                />
-                              </div>
+                                <div className="relative">
+                                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                                  <input
+                                    type="text"
+                                    value={memberSearchQuery}
+                                    onChange={e => setMemberSearchQuery(e.target.value)}
+                                    placeholder="Tìm thành viên..."
+                                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+                                  />
+                                </div>
 
-                              <div className="space-y-1 max-h-48 overflow-y-auto">
-                                {filteredMembers.map(member => {
-                                  const isSelected = selectedMembers.some(m => m.id === member.id)
-                                  return (
-                                    <div
-                                      key={member.id}
-                                      onClick={() => handleToggleMember(member)}
-                                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
-                                        isSelected ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        {member.avatarUrl ? (
-                                          <img
-                                            src={getAvatarUrl(member.avatarUrl)}
-                                            alt={member.fullName}
-                                            className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
-                                          />
-                                        ) : (
-                                          <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0">
-                                            {getInitials(member.fullName)}
-                                          </div>
-                                        )}
-                                        <span className="text-xs font-medium truncate">{member.fullName}</span>
+                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                  {filteredMembers.map(member => {
+                                    const isSelected = selectedMembers.some(m => m.id === member.id)
+                                    return (
+                                      <div
+                                        key={member.id}
+                                        onClick={() => handleToggleMember(member)}
+                                        className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
+                                          isSelected ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          {member.avatarUrl ? (
+                                            <img
+                                              src={getAvatarUrl(member.avatarUrl)}
+                                              alt={member.fullName}
+                                              className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-slate-200"
+                                            />
+                                          ) : (
+                                            <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0">
+                                              {getInitials(member.fullName)}
+                                            </div>
+                                          )}
+                                          <span className="text-xs font-medium truncate">{member.fullName}</span>
+                                        </div>
+                                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 font-bold" />}
                                       </div>
-                                      {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 font-bold" />}
-                                    </div>
-                                  )
-                                })}
+                                    )
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1997,15 +2018,16 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             {lbl.name}
                           </span>
                         ))}
-                        <div className="relative popover-container">
-                          <button
-                            type="button"
-                            onClick={() => togglePopover('label')}
-                            className="w-7 h-7 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
-                            title="Thêm nhãn"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                        {canManageLabels && (
+                          <div className="relative popover-container">
+                            <button
+                              type="button"
+                              onClick={() => togglePopover('label')}
+                              className="w-7 h-7 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                              title="Thêm nhãn"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
 
                           {/* Label Popover inside Waterfall */}
                           {activePopover === 'label' && (
@@ -2075,6 +2097,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             </div>
                           )}
                         </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -2184,13 +2207,15 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                     <Paperclip className="w-4 h-4 text-slate-500" />
                     <h3 className="text-sm font-bold text-slate-800">Tệp đính kèm</h3>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => togglePopover('attachment')}
-                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                  >
-                    Thêm
-                  </button>
+                  {canUploadAttachment && (
+                    <button
+                      type="button"
+                      onClick={() => togglePopover('attachment')}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                    >
+                      Thêm
+                    </button>
+                  )}
                 </div>
 
                 <div className="pl-6 space-y-2">
@@ -2218,14 +2243,16 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAttachment(att.id)}
-                        className="p-1 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        title="Xóa đính kèm"
-                      >
-                        <Trash className="w-4 h-4" />
-                      </button>
+                      {canUploadAttachment && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAttachment(att.id)}
+                          className="p-1 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          title="Xóa đính kèm"
+                        >
+                          <Trash className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2260,7 +2287,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             Lưu
                           </button>
                         </div>
-                      ) : (
+                      ) : canManageChecklist ? (
                         <h3
                           onClick={() => {
                             setEditingChecklistId(ck.id)
@@ -2270,16 +2297,20 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                         >
                           {ck.title}
                         </h3>
+                      ) : (
+                        <h3 className="text-sm font-bold text-slate-800 truncate">{ck.title}</h3>
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteChecklist(ck.id)}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
-                    >
-                      Xóa
-                    </button>
+                    {canManageChecklist && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteChecklist(ck.id)}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200/60"
+                      >
+                        Xóa
+                      </button>
+                    )}
                   </div>
 
                   {/* Progress Bar */}
@@ -2305,8 +2336,11 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                         <div className="flex items-center gap-2.5 flex-1 min-w-0">
                           <button
                             type="button"
+                            disabled={!canManageChecklist}
                             onClick={() => handleToggleItem(item.id)}
-                            className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                            className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${
+                              !canManageChecklist ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                            } ${
                               item.completed
                                 ? 'bg-blue-600 border-blue-600 text-white'
                                 : 'border-slate-300 bg-white hover:border-blue-500'
@@ -2331,7 +2365,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                                 Lưu
                               </button>
                             </div>
-                          ) : (
+                          ) : canManageChecklist ? (
                             <span
                               onClick={() => {
                                 setEditingItemId(item.id)
@@ -2343,63 +2377,75 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                             >
                               {item.content}
                             </span>
+                          ) : (
+                            <span
+                              className={`text-xs text-slate-700 font-medium truncate ${
+                                item.completed ? 'line-through text-slate-400' : ''
+                              }`}
+                            >
+                              {item.content}
+                            </span>
                           )}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="p-1 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                        {canManageChecklist && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="p-1 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     ))}
 
                     {/* Add Item Form */}
-                    {addingItemChecklistId === ck.id ? (
-                      <div className="space-y-2 pt-2">
-                        <textarea
-                          rows={2}
-                          value={newItemText}
-                          onChange={e => setNewItemText(e.target.value)}
-                          placeholder="Thêm việc cần làm..."
-                          className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-blue-500 rounded-xl outline-none resize-none shadow-2xs"
-                        />
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleAddChecklistItem(ck.id)
-                              setAddingItemChecklistId(null)
-                            }}
-                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs"
-                          >
-                            Thêm công việc
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAddingItemChecklistId(null)
-                              setNewItemText('')
-                            }}
-                            className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 font-medium cursor-pointer"
-                          >
-                            Hủy
-                          </button>
+                    {canManageChecklist && (
+                      addingItemChecklistId === ck.id ? (
+                        <div className="space-y-2 pt-2">
+                          <textarea
+                            rows={2}
+                            value={newItemText}
+                            onChange={e => setNewItemText(e.target.value)}
+                            placeholder="Thêm việc cần làm..."
+                            className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-blue-500 rounded-xl outline-none resize-none shadow-2xs"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleAddChecklistItem(ck.id)
+                                setAddingItemChecklistId(null)
+                              }}
+                              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs"
+                            >
+                              Thêm công việc
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingItemChecklistId(null)
+                                setNewItemText('')
+                              }}
+                              className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 font-medium cursor-pointer"
+                            >
+                              Hủy
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAddingItemChecklistId(ck.id)
-                          setNewItemText('')
-                        }}
-                        className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer mt-1 border border-slate-200/60"
-                      >
-                        Thêm việc cần làm
-                      </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddingItemChecklistId(ck.id)
+                            setNewItemText('')
+                          }}
+                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer mt-1 border border-slate-200/60"
+                        >
+                          Thêm việc cần làm
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
@@ -2438,12 +2484,16 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
               <div className="flex-1 space-y-2">
                 <textarea
                   rows={2}
+                  disabled={!canAddComment}
                   value={newCommentText}
-                  onChange={e => setNewCommentText(e.target.value)}
-                  placeholder="Viết bình luận..."
-                  className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none shadow-2xs"
+                  onChange={e => {
+                    if (!canAddComment) return
+                    setNewCommentText(e.target.value)
+                  }}
+                  placeholder={canAddComment ? "Viết bình luận..." : "Bạn không có quyền bình luận"}
+                  className="w-full px-3 py-2 text-xs text-slate-800 bg-white border border-slate-200 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                {newCommentText.trim() && (
+                {canAddComment && newCommentText.trim() && (
                   <button
                     type="button"
                     onClick={handleAddComment}
@@ -2503,7 +2553,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                         ) : (
                           <>
                             <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{item.content}</p>
-                            {item.user?.id === currentUser?.id && (
+                            {canAddComment && item.user?.id === currentUser?.id && (
                               <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium pt-0.5">
                                 <button
                                   type="button"

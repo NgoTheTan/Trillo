@@ -21,6 +21,7 @@ import { getAvatarUrl } from '../../auth/authStorage';
 interface KanbanColumnProps {
   list: BoardList
   allLists?: BoardList[]
+  allCardsMap?: Map<string, ListCardResponse>
   handleDeleteColumn?: (boardId: string, listId: string) => void
   handleUpdateTitleColumn?: (boardId: string, listId: string, title: string) => void
   isOverlay?: boolean
@@ -39,6 +40,7 @@ interface KanbanColumnProps {
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   list,
   allLists = [],
+  allCardsMap,
   handleUpdateTitleColumn,
   handleDeleteColumn,
   isOverlay = false,
@@ -80,11 +82,11 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       const orderedCards = list.cards
         .map((c: any) => {
           if (typeof c === 'string') {
-            return cardsMap.get(c);
+            return cardsMap.get(c) || allCardsMap?.get(c);
           }
           return c;
         })
-        .filter((c): c is ListCardResponse => Boolean(c) && c.listId === list.id);
+        .filter((c): c is ListCardResponse => Boolean(c));
 
       const orderedIds = new Set(orderedCards.map(c => c.id));
       const remainingCards = fetchedCards.filter(c => !orderedIds.has(c.id));
@@ -101,11 +103,13 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     }
 
     return baseCards;
-  }, [list.cards, fetchedCards, cardsMap, list.id, filteredCardIds, isFilterActive, cardFilterFeatures, currentUser?.id]);
+  }, [list.cards, fetchedCards, cardsMap, allCardsMap, filteredCardIds, isFilterActive, cardFilterFeatures, currentUser?.id]);
+
+  const sortableData = React.useMemo(() => ({ ...list }), [list.id, list.title, list.boardId, list.cards]);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
-    data: { ...list },
+    data: sortableData,
     disabled: isOverlay || !canMoveCard,
   });
 

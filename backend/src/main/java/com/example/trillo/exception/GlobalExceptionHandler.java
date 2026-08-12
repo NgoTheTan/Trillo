@@ -66,6 +66,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(400, "Kích thước ảnh vượt quá giới hạn tối đa (10MB)", LocalDateTime.now()));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(409, "Dữ liệu đã tồn tại hoặc có xung đột ràng buộc dữ liệu.", LocalDateTime.now()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);

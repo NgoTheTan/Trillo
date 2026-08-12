@@ -15,7 +15,7 @@ export interface NavItem {
 }
 
 const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Trang chủ', icon: LayoutDashboard, href: '/app' },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/app' },
     { id: 'boards', label: 'Bảng', icon: Columns3, href: '/app/boards' },
     { id: 'schedule', label: 'Lịch biểu', icon: Calendar, href: '/app/schedule' },
 ]

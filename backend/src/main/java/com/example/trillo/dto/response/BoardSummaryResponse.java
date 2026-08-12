@@ -4,6 +4,7 @@ import com.example.trillo.enums.BoardRole;
 import com.example.trillo.enums.Visibility;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record BoardSummaryResponse(
         String id,
@@ -16,5 +17,7 @@ public record BoardSummaryResponse(
         int memberCount,
         int cardCount,
         boolean starred,
+        List<String> memberUserIds,
         LocalDateTime createdAt
 ) {}
+

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppearance } from '../context/AppearanceContext';
 import { Monitor, Moon, Sun, Eye, EyeOff, LogOut, MonitorSmartphone, AlertTriangle } from 'lucide-react';
 import { PasswordChecklist, defaultPasswordRules } from '../components/common/PasswordChecklist';
@@ -18,6 +19,7 @@ api.interceptors.request.use((config) => {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('account');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   // Hook Appearance
   const { theme, setTheme, accentColor, setAccentColor, saveSettings, resetToDefault, isSaving: isAppSaving } = useAppearance();
@@ -106,6 +108,8 @@ export default function SettingsPage() {
       setOriginalProfile(res.data);
       setSuccessMsg("Cập nhật thông tin thành công!");
       window.dispatchEvent(new CustomEvent('profileUpdated', { detail: res.data }));
+      // Invalidate boards cache so member names update in realtime across Dashboard
+      queryClient.invalidateQueries({ queryKey: ['boards'] });
     } catch (err: any) {
       setError(err.response?.data?.message || "Lỗi khi lưu thông tin.");
     } finally {
@@ -139,6 +143,8 @@ export default function SettingsPage() {
       setOriginalProfile(res.data);
       setSuccessMsg("Cập nhật ảnh đại diện thành công!");
       window.dispatchEvent(new CustomEvent('profileUpdated', { detail: res.data }));
+      // Invalidate boards cache so member avatars update in realtime across Dashboard
+      queryClient.invalidateQueries({ queryKey: ['boards'] });
     } catch (err) {
       setError("Lỗi khi tải lên ảnh đại diện.");
     } finally {

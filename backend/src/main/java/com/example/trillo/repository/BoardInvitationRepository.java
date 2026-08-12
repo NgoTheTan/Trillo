@@ -12,6 +12,8 @@ public interface BoardInvitationRepository extends JpaRepository<BoardInvitation
 
     Optional<BoardInvitation> findByBoardIdAndInviteeIdAndStatus(String boardId, String inviteeId, String status);
 
+    Optional<BoardInvitation> findByBoardIdAndInviteeId(String boardId, String inviteeId);
+
     List<BoardInvitation> findByBoardIdAndStatus(String boardId, String status);
 
     List<BoardInvitation> findByInviteeIdAndStatus(String inviteeId, String status);

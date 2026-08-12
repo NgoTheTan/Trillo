@@ -113,6 +113,7 @@ export interface UpdateCardPayload {
     deadline?: string | null;
     reminder?: string | null;
     completed?: boolean;
+    clearDeadline?: boolean;
 }
 
 export interface FilterCardsPayload {
@@ -511,6 +512,16 @@ export const useToggleCardCompletedMutation = () => {
     });
 };
 
+export interface DuplicateCardPayload {
+    title?: string;
+    targetListId?: string;
+    position?: number;
+}
+
+export const duplicateCard = async (cardId: string, payload: DuplicateCardPayload) => {
+    return await Api.post<ListCardResponse>(`/cards/${cardId}/duplicate`, payload);
+};
+
 export const useCreateCardMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
@@ -520,6 +531,20 @@ export const useCreateCardMutation = () => {
             queryClient.invalidateQueries({ queryKey: ['list-cards', variables.listId] });
             queryClient.invalidateQueries({ queryKey: ['board-lists'] });
             queryClient.invalidateQueries({ queryKey: ['boards'] });
+        },
+    });
+};
+
+export const useDuplicateCardMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ cardId, payload }: { cardId: string; payload: DuplicateCardPayload }) =>
+            duplicateCard(cardId, payload),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['list-cards'] });
+            queryClient.invalidateQueries({ queryKey: ['board-lists'] });
+            queryClient.invalidateQueries({ queryKey: ['boards'] });
+            queryClient.invalidateQueries({ queryKey: ['card-detail', variables.cardId] });
         },
     });
 };

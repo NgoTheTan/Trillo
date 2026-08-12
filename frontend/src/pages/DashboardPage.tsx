@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, CircleDot, LayoutGrid, Rocket, Users2, ChevronDown, Star, Lock, Globe } from 'lucide-react'
+import { ArrowRight, BarChart3, CheckSquare2, ChevronRight, LayoutGrid, Users2, ChevronDown, Star, Lock, Globe, Crown } from 'lucide-react'
 import { useQueries } from '@tanstack/react-query'
 import { useBoardDetailQuery, useBoardsQuery, type BoardList, type BoardMember } from '../services/boardServices'
 import { getAllListCards, useListCardsQuery, type ListCardResponse } from '../services/cardService.ts'
 import { getInitials, getAvatarUrl } from '../auth/authStorage'
+import { useAuth } from '../auth/authContext'
 
 type DashboardPageProps = Readonly<{
   variant?: 'overview' | 'pm' | 'team'
@@ -419,21 +420,34 @@ export function DashboardPage({
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all')
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([])
 
+  const { user: currentUser } = useAuth()
   const boards = useMemo(
-    () => [...(boardsQuery.data ?? [])].sort((left, right) => {
-      const leftCards = left.cardCount ?? 0
-      const rightCards = right.cardCount ?? 0
-      if (rightCards !== leftCards) return rightCards - leftCards
+    () =>
+      [...(boardsQuery.data ?? [])]
+        .filter(board => board.currentUserRole === 'OWNER' || (currentUser?.id && board.owner?.id === currentUser.id))
+        .sort((left, right) => {
+          const leftCards = left.cardCount ?? 0
+          const rightCards = right.cardCount ?? 0
+          if (rightCards !== leftCards) return rightCards - leftCards
 
-      const leftMembers = left.memberCount ?? 0
-      const rightMembers = right.memberCount ?? 0
-      return rightMembers - leftMembers
-    }),
-    [boardsQuery.data]
+          const leftMembers = left.memberCount ?? 0
+          const rightMembers = right.memberCount ?? 0
+          return rightMembers - leftMembers
+        }),
+    [boardsQuery.data, currentUser?.id]
   )
 
   const totalBoards = boards.length
-  const totalMembers = boards.reduce((sum, board) => sum + (board.memberCount ?? 0), 0)
+  const totalUniqueMembers = useMemo(() => {
+    const memberSet = new Set<string>()
+    boards.forEach(board => {
+      if (board.memberUserIds && board.memberUserIds.length > 0) {
+        board.memberUserIds.forEach(id => memberSet.add(id))
+      }
+    })
+    if (memberSet.size > 0) return memberSet.size
+    return boards.reduce((sum, board) => sum + (board.memberCount ?? 0), 0)
+  }, [boards])
   const totalCards = boards.reduce((sum, board) => sum + (board.cardCount ?? 0), 0)
   const averageCardsPerBoard = totalBoards > 0 ? totalCards / totalBoards : 0
   const busiestBoard = boards[0]
@@ -467,20 +481,20 @@ export function DashboardPage({
   const variantCopy = {
     overview: {
       eyebrow: 'Tổng quan không gian làm việc',
-      title: 'Bảng của bạn',
-      subtitle: 'Theo dõi tải lượng bảng, thành viên và các thẻ trong một trang.',
+      title: 'Bảng do bạn sở hữu',
+      subtitle: 'Theo dõi tải lượng bảng, thành viên và các thẻ trong một trang (chỉ hiển thị các bảng do bạn làm chủ sở hữu).',
       action: 'Xem danh sách bảng',
     },
     pm: {
       eyebrow: 'Trung tâm PM',
       title: 'Tổng quan quyền sở hữu và khối lượng',
-      subtitle: 'Xem bảng nào cần chú ý, thành viên phân bố ở đâu và cách các thẻ được phân phối.',
+      subtitle: 'Xem các bảng do bạn làm chủ sở hữu cần chú ý, thành viên phân bố ở đâu và cách các thẻ được phân phối.',
       action: 'Xem xét bảng',
     },
     team: {
       eyebrow: 'Không gian làm việc nhóm',
       title: 'Snapshot năng lực nhóm',
-      subtitle: 'Hiểu kích thước bảng, mật độ cộng tác và nơi công việc tập trung.',
+      subtitle: 'Hiểu kích thước bảng, mật độ cộng tác và nơi công việc tập trung trên các bảng bạn sở hữu.',
       action: 'Chuyển đến bảng',
     },
   }[variant]
@@ -532,10 +546,10 @@ export function DashboardPage({
       <section className="panel dashboard-page" style={{ marginTop: '24px' }}>
         <div className="dashboard-empty-state">
           <div>
-            <p className="dashboard-eyebrow">Chưa có bảng nào</p>
-            <h2 className="dashboard-empty-state__title">Tạo bảng đầu tiên để mở khoá bảng điều khiển.</h2>
+            <p className="dashboard-eyebrow">Dành riêng cho chủ sở hữu bảng</p>
+            <h2 className="dashboard-empty-state__title">Bạn chưa làm chủ sở hữu bảng nào.</h2>
             <p className="dashboard-empty-state__copy">
-              Khi có bảng, trang này sẽ hiển thị tổng số bảng, thành viên, thẻ và tải lượng bảng.
+              Tính năng bảng điều khiển trang chủ chỉ hỗ trợ và hiển thị phân tích cho các bảng do bạn trực tiếp sở hữu (Owner). Các bảng bạn chỉ tham gia với vai trò thành viên sẽ không được thống kê tại đây. Hãy tạo bảng mới để mở khoá tính năng này.
             </p>
           </div>
           <button type="button" className="secondary-button" onClick={handleNavigateToBoards}>
@@ -566,15 +580,19 @@ export function DashboardPage({
           <div className="dashboard-hero__meta">
             <span className="dashboard-chip">
               <LayoutGrid size={14} />
-              {formatCount(totalBoards)} bảng
+              {formatCount(totalBoards)} bảng sở hữu
             </span>
             <span className="dashboard-chip dashboard-chip--soft">
               <Users2 size={14} />
-              {formatCount(totalMembers)} thành viên
+              {formatCount(totalUniqueMembers)} thành viên
             </span>
             <span className="dashboard-chip dashboard-chip--soft">
               <CheckSquare2 size={14} />
               {formatCount(totalCards)} thẻ
+            </span>
+            <span className="dashboard-chip dashboard-chip--soft" title="Chỉ hiển thị dữ liệu cho các bảng mà bạn làm chủ sở hữu (Owner)">
+              <Crown size={14} />
+              Chỉ chủ sở hữu
             </span>
           </div>
         </div>
@@ -615,7 +633,7 @@ export function DashboardPage({
           <div className="dashboard-stat-card__icon dashboard-stat-card__icon--cyan">
             <Users2 size={18} />
           </div>
-          <p className="stat-card__value">{formatCount(totalMembers)}</p>
+          <p className="stat-card__value">{formatCount(totalUniqueMembers)}</p>
           <p className="stat-card__label">Tổng số thành viên</p>
         </article>
         <article className="stat-card dashboard-stat-card">
@@ -636,8 +654,8 @@ export function DashboardPage({
 
       <div className="dashboard-section-head">
         <div>
-          <p className="panel__title">Các bảng công việc</p>
-          <p className="panel__subtitle">Mỗi thẻ bên dưới hiển thị kích thước bảng, số thành viên và tải lượng tương đối.</p>
+          <p className="panel__title">Các bảng công việc do bạn sở hữu</p>
+          <p className="panel__subtitle">Chỉ hiển thị các bảng do bạn làm chủ sở hữu (Owner). Bạn phải sở hữu bảng mới có tính năng theo dõi và phân tích này.</p>
         </div>
         <button type="button" className="secondary-button" onClick={handleNavigateToBoards}>
           Quản lý bảng <ArrowRight size={16} />
@@ -860,22 +878,6 @@ export function DashboardPage({
         )}
       </div>
 
-      <div className="task-list dashboard-note-list" style={{ marginTop: '24px' }}>
-        <div className="task-item">
-          <div>
-            <p className="task-item__title">Số liệu lấy từ dữ liệu tổng quan bảng</p>
-            <p className="task-item__meta">Trang tổng quan sử dụng lại số lượng thành viên và thẻ từ API bảng.</p>
-          </div>
-          <CircleDot size={18} />
-        </div>
-        <div className="task-item">
-          <div>
-            <p className="task-item__title">Khối lượng sắp xếp theo số lượng thẻ</p>
-            <p className="task-item__meta">Bảng bận rộn nhất xuất hiện đầu tiên để dễ dàng nhìn thấy ngay.</p>
-          </div>
-          <Rocket size={18} />
-        </div>
-      </div>
     </section>
   )
 }

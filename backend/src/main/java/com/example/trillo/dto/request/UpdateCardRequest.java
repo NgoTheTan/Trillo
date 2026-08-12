@@ -7,5 +7,6 @@ public record UpdateCardRequest(
         String description,
         LocalDateTime deadline,
         String reminder,
-        Boolean completed
+        Boolean completed,
+        Boolean clearDeadline
 ) {}

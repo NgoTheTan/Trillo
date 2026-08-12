@@ -58,7 +58,7 @@ import {
   useUploadFileAttachmentMutation,
   useDeleteAttachmentMutation,
   useMoveCardMutation,
-  useCreateCardMutation,
+  useDuplicateCardMutation,
   useArchiveCardMutation,
   deleteCard,
 } from '../../services/cardService.ts'
@@ -461,7 +461,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   const updateCardMutation = useUpdateCardMutation()
   const toggleCompletedMutation = useToggleCardCompletedMutation()
   const moveCardMutation = useMoveCardMutation()
-  const createCardMutation = useCreateCardMutation()
+  const duplicateCardMutation = useDuplicateCardMutation()
   const archiveCardMutation = useArchiveCardMutation()
 
   const isArchived = cardDetail?.archived || card?.archived || false
@@ -541,7 +541,12 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
     try {
       await updateCardMutation.mutateAsync({
         cardId: targetCardId,
-        cardData: { description: draftDescription },
+        cardData: {
+          description: draftDescription,
+          // Always include deadline and title to prevent backend from nullifying them
+          title: title.trim() || undefined,
+          deadline: formatDeadlineForApi(deadline),
+        },
       })
       setDescription(draftDescription)
       lastSavedRef.current.description = draftDescription
@@ -759,6 +764,8 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
       try {
         const payload = {
           title: title.trim(),
+          // Always include description to prevent backend from nullifying it
+          description: lastSavedRef.current.description,
           deadline: formatDeadlineForApi(deadline),
           completed,
         }
@@ -902,12 +909,15 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
   }
 
   const handleExecuteCopyCard = async () => {
-    if (!copyCardTitle.trim() || !selectedTargetListId || !canCreateCard) return
+    const targetCardId = cardDetail?.id || card?.id
+    if (!targetCardId || !copyCardTitle.trim() || !selectedTargetListId || !canCreateCard) return
     try {
-      await createCardMutation.mutateAsync({
-        listId: selectedTargetListId,
+      await duplicateCardMutation.mutateAsync({
+        cardId: targetCardId,
         payload: {
           title: copyCardTitle.trim(),
+          targetListId: selectedTargetListId,
+          position: Math.max(0, selectedTargetPosition - 1),
         },
       })
       setActivePopover(null)
@@ -1794,7 +1804,7 @@ export const EditCardModel: React.FC<EditCardModelProps> = ({
                           if (card?.id && canEditCard) {
                             await updateCardMutation.mutateAsync({
                               cardId: card.id,
-                              cardData: { deadline: null },
+                              cardData: { clearDeadline: true },
                             })
                             lastSavedRef.current.deadline = ''
                           }

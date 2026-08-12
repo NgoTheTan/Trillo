@@ -37,9 +37,11 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ card, isOverlay = false,
     setExpandedChecklists(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
+  const sortableData = React.useMemo(() => ({ ...card }), [card.id, card.listId, card.title]);
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
-    data: { ...card },
+    data: sortableData,
     disabled: isOverlay || openEditCardModal || openDeleteModal || !canMoveCard,
   })
 

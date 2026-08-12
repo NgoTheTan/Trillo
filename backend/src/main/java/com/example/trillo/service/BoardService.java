@@ -203,26 +203,36 @@ public class BoardService {
                 throw new DuplicateResourceException("User is already a member of this board");
             }
 
-            // Check for existing pending invitation
-            if (boardInvitationRepository.existsByBoardIdAndInviteeIdAndStatus(boardId, invitee.getId(), "PENDING")) {
-                throw new DuplicateResourceException("An invitation is already pending for this user");
+            // Check for existing invitation (pending or previous)
+            Optional<BoardInvitation> existingInvOpt = boardInvitationRepository.findByBoardIdAndInviteeId(boardId, invitee.getId());
+            BoardInvitation invitation;
+
+            if (existingInvOpt.isPresent()) {
+                invitation = existingInvOpt.get();
+                if ("PENDING".equals(invitation.getStatus())) {
+                    throw new DuplicateResourceException("An invitation is already pending for this user");
+                }
+                // Re-open previous invitation
+                invitation.setStatus("PENDING");
+                invitation.setInviter(currentUser);
+                invitation.setRespondedAt(null);
+            } else {
+                invitation = BoardInvitation.builder()
+                        .board(board)
+                        .inviter(currentUser)
+                        .invitee(invitee)
+                        .status("PENDING")
+                        .build();
             }
 
-            // Create invitation (PENDING — user must accept)
-            BoardInvitation invitation = BoardInvitation.builder()
-                    .board(board)
-                    .inviter(currentUser)
-                    .invitee(invitee)
-                    .status("PENDING")
-                    .build();
-            boardInvitationRepository.save(invitation);
+            BoardInvitation savedInvitation = boardInvitationRepository.save(invitation);
 
             // Notify invitee
             notificationService.createNotification(
                     invitee,
                     NotificationType.BOARD_INVITATION,
                     currentUser.getFullName() + " đã mời bạn tham gia bảng: " + board.getTitle(),
-                    invitation.getId(),
+                    savedInvitation.getId(),
                     "INVITATION",
                     boardId,
                     null
@@ -277,23 +287,32 @@ public class BoardService {
             throw new DuplicateResourceException("You are already a member of this board");
         }
 
-        // Check for existing pending join request
-        if (joinRequestRepository.existsByBoardIdAndRequesterIdAndStatus(board.getId(), currentUser.getId(), "PENDING")) {
-            throw new DuplicateResourceException("You already have a pending join request for this board");
+        // Check for existing join request
+        Optional<JoinRequest> existingReqOpt = joinRequestRepository.findByBoardIdAndRequesterId(board.getId(), currentUser.getId());
+        JoinRequest joinRequest;
+
+        if (existingReqOpt.isPresent()) {
+            joinRequest = existingReqOpt.get();
+            if ("PENDING".equals(joinRequest.getStatus())) {
+                throw new DuplicateResourceException("You already have a pending join request for this board");
+            }
+            joinRequest.setStatus("PENDING");
+            joinRequest.setSource("LINK");
+            joinRequest.setRespondedAt(null);
+        } else {
+            joinRequest = JoinRequest.builder()
+                    .board(board)
+                    .requester(currentUser)
+                    .status("PENDING")
+                    .source("LINK")
+                    .build();
         }
 
         // Mark token as used
         invite.setUsed(true);
         inviteTokenRepository.save(invite);
 
-        // Create JoinRequest (PENDING — owner must approve)
-        JoinRequest joinRequest = JoinRequest.builder()
-                .board(board)
-                .requester(currentUser)
-                .status("PENDING")
-                .source("LINK")
-                .build();
-        joinRequestRepository.save(joinRequest);
+        JoinRequest savedJoinRequest = joinRequestRepository.save(joinRequest);
 
         // Notify board owner
         if (board.getOwner() != null) {
@@ -301,7 +320,7 @@ public class BoardService {
                     board.getOwner(),
                     NotificationType.JOIN_REQUEST,
                     currentUser.getFullName() + " đã yêu cầu tham gia bảng: " + board.getTitle(),
-                    joinRequest.getId(),
+                    savedJoinRequest.getId(),
                     "JOIN_REQUEST",
                     board.getId(),
                     null
@@ -509,17 +528,27 @@ public class BoardService {
             throw new DuplicateResourceException("You are already a member of this board");
         }
 
-        if (joinRequestRepository.existsByBoardIdAndRequesterIdAndStatus(boardId, currentUser.getId(), "PENDING")) {
-            throw new DuplicateResourceException("You already have a pending join request");
+        Optional<JoinRequest> existingReqOpt = joinRequestRepository.findByBoardIdAndRequesterId(boardId, currentUser.getId());
+        JoinRequest joinRequest;
+
+        if (existingReqOpt.isPresent()) {
+            joinRequest = existingReqOpt.get();
+            if ("PENDING".equals(joinRequest.getStatus())) {
+                throw new DuplicateResourceException("You already have a pending join request");
+            }
+            joinRequest.setStatus("PENDING");
+            joinRequest.setSource("PUBLIC");
+            joinRequest.setRespondedAt(null);
+        } else {
+            joinRequest = JoinRequest.builder()
+                    .board(board)
+                    .requester(currentUser)
+                    .status("PENDING")
+                    .source("PUBLIC")
+                    .build();
         }
 
-        JoinRequest joinRequest = JoinRequest.builder()
-                .board(board)
-                .requester(currentUser)
-                .status("PENDING")
-                .source("PUBLIC")
-                .build();
-        joinRequestRepository.save(joinRequest);
+        JoinRequest savedJoinRequest = joinRequestRepository.save(joinRequest);
 
         // Notify board owner
         if (board.getOwner() != null) {
@@ -527,7 +556,7 @@ public class BoardService {
                     board.getOwner(),
                     NotificationType.JOIN_REQUEST,
                     currentUser.getFullName() + " đã yêu cầu tham gia bảng: " + board.getTitle(),
-                    joinRequest.getId(),
+                    savedJoinRequest.getId(),
                     "JOIN_REQUEST",
                     boardId,
                     null
@@ -536,7 +565,7 @@ public class BoardService {
 
         messagingTemplate.convertAndSend("/topic/board/" + boardId + "/join-requests", "JOIN_REQUEST_CREATED");
 
-        return JoinRequestResponse.from(joinRequest, authService.toUserResponse(currentUser));
+        return JoinRequestResponse.from(savedJoinRequest, authService.toUserResponse(currentUser));
     }
 
     // ── Update Member Permissions ─────────────────────────────────────────────
@@ -686,7 +715,12 @@ public class BoardService {
             }
         }
 
-        int memberCount = (int) boardMemberRepository.countByBoardId(board.getId());
+        List<BoardMember> members = boardMemberRepository.findByBoardId(board.getId());
+        int memberCount = members.size();
+        List<String> memberUserIds = members.stream()
+                .map(bm -> bm.getUser().getId())
+                .toList();
+
         int cardCount = board.getLists().stream()
                 .mapToInt(list -> list.getCards().size())
                 .sum();
@@ -695,7 +729,7 @@ public class BoardService {
                 board.getId(), board.getTitle(), board.getDescription(),
                 board.getVisibility(), board.getCoverColor(),
                 authService.toUserResponse(board.getOwner()),
-                role, memberCount, cardCount, starred, board.getCreatedAt()
+                role, memberCount, cardCount, starred, memberUserIds, board.getCreatedAt()
         );
     }
 

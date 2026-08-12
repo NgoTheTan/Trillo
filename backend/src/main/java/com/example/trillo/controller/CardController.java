@@ -1,6 +1,7 @@
 package com.example.trillo.controller;
 
 import com.example.trillo.dto.request.CreateCardRequest;
+import com.example.trillo.dto.request.DuplicateCardRequest;
 import com.example.trillo.dto.request.MoveCardRequest;
 import com.example.trillo.dto.request.ReorderRequest;
 import com.example.trillo.dto.request.UpdateCardRequest;
@@ -39,6 +40,14 @@ public class CardController {
             @Valid @RequestBody CreateCardRequest request,
             @AuthenticationPrincipal User user) {
         return ResponseEntity.status(HttpStatus.CREATED).body(cardService.createCard(listId, request, user));
+    }
+
+    @PostMapping("/api/cards/{cardId}/duplicate")
+    public ResponseEntity<CardSummaryResponse> duplicateCard(
+            @PathVariable String cardId,
+            @RequestBody DuplicateCardRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(cardService.duplicateCard(cardId, request, user));
     }
 
     // ── Card operations ────────────────────────────────────────────────────

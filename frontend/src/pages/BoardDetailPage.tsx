@@ -37,6 +37,8 @@ import {
     useSensors,
     pointerWithin,
     closestCenter,
+    closestCorners,
+    MeasuringStrategy,
     type CollisionDetection,
     type DragStartEvent,
     type DragEndEvent,
@@ -74,14 +76,6 @@ class SmartPointerSensor extends PointerSensor {
     ];
 }
 
-const customCollisionDetection: CollisionDetection = (args) => {
-    const pointerCollisions = pointerWithin(args);
-    if (pointerCollisions.length > 0) {
-        return pointerCollisions;
-    }
-    return closestCenter(args);
-};
-
 const ACTIVE_DRAG_ITEM_TYPE = {
     LIST: 'ACTIVE_DRAG_ITEM_TYPE_LIST',
     CARD: 'ACTIVE_DRAG_ITEM_TYPE_CARD'
@@ -96,6 +90,8 @@ export const BoardDetailPage: React.FC = () => {
     const [isInviteOpen, setIsInviteOpen] = useState(false)
     const [inviteModalTab, setInviteModalTab] = useState<'members' | 'requests'>('members')
     const [orderedLists, setOrderedLists] = useState<BoardList[]>([]);
+    const orderedListsRef = React.useRef<BoardList[]>([]);
+    const lastOverIdRef = React.useRef<string | null>(null);
     const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false)
     const [editTitle, setEditTitle] = useState<string>('')
     const updateBoardTitleMutation = useUpdateBoardTitleMutation()
@@ -263,18 +259,24 @@ export const BoardDetailPage: React.FC = () => {
     useEffect(() => {
         if (listsQuery.data) {
             setOrderedLists(listsQuery.data);
+            orderedListsRef.current = listsQuery.data;
         }
     }, [listsQuery.data]);
+
+    useEffect(() => {
+        orderedListsRef.current = orderedLists;
+    }, [orderedLists]);
 
     const sensors = useSensors(
         useSensor(SmartPointerSensor, { activationConstraint: { distance: 5 } }),
     );
 
     const findListByCardId = (cardOrListId: string) => {
-        const directList = orderedLists.find(list => list.id === cardOrListId);
+        const lists = orderedListsRef.current.length > 0 ? orderedListsRef.current : orderedLists;
+        const directList = lists.find(list => list.id === cardOrListId);
         if (directList) return directList;
 
-        return orderedLists.find(list =>
+        return lists.find(list =>
             list.cards?.some((card: any) =>
                 typeof card === 'string' ? card === cardOrListId : card?.id === cardOrListId
             )
@@ -334,6 +336,27 @@ export const BoardDetailPage: React.FC = () => {
 
     const queryClient = useQueryClient();
 
+    const customCollisionDetection: CollisionDetection = React.useCallback(
+        (args) => {
+            if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST) {
+                return closestCenter({
+                    ...args,
+                    droppableContainers: args.droppableContainers.filter(
+                        (container) => container.data.current?.boardId !== undefined
+                    ),
+                });
+            }
+
+            const pointerCollisions = pointerWithin(args);
+            if (pointerCollisions.length > 0) {
+                return pointerCollisions;
+            }
+
+            return closestCorners(args);
+        },
+        [activeDraggingItemType]
+    );
+
     const moveCardBetweenDifferentLists = (
         _bId: string,
         sourceListId: string,
@@ -341,45 +364,38 @@ export const BoardDetailPage: React.FC = () => {
         newIndex: number,
         cardId: string
     ) => {
-        // Optimistic UI update — NO API call here (API is called in handleDragEnd)
-        const sourceCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', sourceListId]) || [];
-        const movingCard = sourceCards.find(c => c.id === cardId);
+        const currentLists = orderedListsRef.current.length > 0 ? orderedListsRef.current : orderedLists;
+        const sourceList = currentLists.find(l => l.id === sourceListId);
+        const destList = currentLists.find(l => l.id === destinationListId);
 
-        if (movingCard) {
-            queryClient.setQueryData<ListCardResponse[]>(['list-cards', sourceListId], (old = []) =>
-                old.filter(c => c.id !== cardId)
-            );
+        if (!sourceList || !destList) return;
 
-            queryClient.setQueryData<ListCardResponse[]>(['list-cards', destinationListId], (old = []) => {
-                const filtered = old.filter(c => c.id !== cardId);
-                const targetIdx = Math.max(0, Math.min(newIndex, filtered.length));
-                const updatedCard = { ...movingCard, listId: destinationListId };
-                filtered.splice(targetIdx, 0, updatedCard);
-                return filtered;
-            });
-        }
+        const sourceCards = (sourceList.cards || []).filter((c: any) =>
+            typeof c === 'string' ? c !== cardId : c?.id !== cardId
+        );
 
-        setOrderedLists(prevLists => {
-            return prevLists.map(list => {
-                if (list.id === sourceListId) {
-                    const newReOrdered = (list.cards || []).filter((c: any) =>
-                        typeof c === 'string' ? c !== cardId : c.id !== cardId
-                    )
-                    return { ...list, cards: newReOrdered };
-                }
-                if (list.id === destinationListId) {
-                    const currentCards = [...(list.cards || [])];
-                    const existingIndex = currentCards.findIndex((c: any) =>
-                        typeof c === 'string' ? c === cardId : c.id === cardId
-                    );
-                    if (existingIndex !== -1) currentCards.splice(existingIndex, 1);
-                    const targetIndex = Math.max(0, Math.min(newIndex, currentCards.length));
-                    currentCards.splice(targetIndex, 0, cardId as any);
-                    return { ...list, cards: currentCards };
-                }
-                return list;
-            });
+        const destCards = [...(destList.cards || [])];
+        const existingIndex = destCards.findIndex((c: any) =>
+            typeof c === 'string' ? c === cardId : c?.id === cardId
+        );
+        if (existingIndex !== -1) destCards.splice(existingIndex, 1);
+
+        const targetIndex = Math.max(0, Math.min(newIndex, destCards.length));
+        destCards.splice(targetIndex, 0, cardId as any);
+
+        const nextLists = currentLists.map(list => {
+            if (list.id === sourceListId) {
+                return { ...list, cards: sourceCards };
+            }
+            if (list.id === destinationListId) {
+                return { ...list, cards: destCards };
+            }
+            return list;
         });
+
+        // Synchronously update ref FIRST to block re-entrant calls
+        orderedListsRef.current = nextLists;
+        setOrderedLists(nextLists);
     };
 
     // trigger trong quá trình kéo 1 phần tử card/list vào column khác hoặc trong cùng column
@@ -425,42 +441,35 @@ export const BoardDetailPage: React.FC = () => {
                 activeCardId as string
             );
         } else {
-            // Cập nhật vị trí kéo trong cùng cột thời gian thực
-            const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', activeList.id]) || [];
-            const oldIndex = cachedCards.findIndex(c => c.id === activeCardId);
-            let newIndex = cachedCards.findIndex(c => c.id === overCardId);
+            const currentLists = orderedListsRef.current.length > 0 ? orderedListsRef.current : orderedLists;
+            const currentActiveList = currentLists.find(l => l.id === activeList.id);
+            if (!currentActiveList) return;
 
-            if (newIndex === -1 && overCardId === activeList.id) {
-                newIndex = cachedCards.length > 0 ? cachedCards.length - 1 : 0;
-            }
-
-            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-                const reordered = arrayMove(cachedCards, oldIndex, newIndex);
-                queryClient.setQueryData(['list-cards', activeList.id], reordered);
-            }
-
-            const oldStateIndex = activeList.cards?.findIndex((c: any) =>
+            const oldStateIndex = currentActiveList.cards?.findIndex((c: any) =>
                 typeof c === 'string' ? c === activeCardId : c?.id === activeCardId
             ) ?? -1;
-            let newStateIndex = activeList.cards?.findIndex((c: any) =>
+            let newStateIndex = currentActiveList.cards?.findIndex((c: any) =>
                 typeof c === 'string' ? c === overCardId : c?.id === overCardId
             ) ?? -1;
 
             if (newStateIndex === -1 && overCardId === activeList.id) {
-                newStateIndex = activeList.cards?.length ? activeList.cards.length - 1 : 0;
+                newStateIndex = currentActiveList.cards?.length ? currentActiveList.cards.length - 1 : 0;
             }
 
             if (oldStateIndex !== -1 && newStateIndex !== -1 && oldStateIndex !== newStateIndex) {
-                const newCards = arrayMove(activeList.cards || [], oldStateIndex, newStateIndex);
-                setOrderedLists(prev =>
-                    prev.map(l => (l.id === activeList.id ? { ...l, cards: newCards } : l))
-                );
+                const newCards = arrayMove(currentActiveList.cards || [], oldStateIndex, newStateIndex);
+                const nextLists = currentLists.map(l => (l.id === activeList.id ? { ...l, cards: newCards } : l));
+
+                orderedListsRef.current = nextLists;
+                setOrderedLists(nextLists);
             }
         }
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
+        lastOverIdRef.current = null;
+
         if (!over) {
             setActiveDraggingId(null);
             setActiveDraggingItemType(null);
@@ -470,12 +479,13 @@ export const BoardDetailPage: React.FC = () => {
 
         // Dragging Column
         if (activeDraggingItemType === ACTIVE_DRAG_ITEM_TYPE.LIST) {
-            notifyColumnDragEnd(active.id as string); // Thông báo đã thả column
+            notifyColumnDragEnd(active.id as string);
             if (active.id !== over.id) {
                 setOrderedLists(prev => {
                     const oldIndex = prev.findIndex(list => list.id === active.id);
                     const newIndex = prev.findIndex(list => list.id === over.id);
                     const newList = arrayMove(prev, oldIndex, newIndex);
+                    orderedListsRef.current = newList;
                     const orderedIds = newList.map(list => list.id);
                     if (boardId) reorderBoardLists(boardId, { orderedIds });
                     return newList;
@@ -488,17 +498,18 @@ export const BoardDetailPage: React.FC = () => {
             const activeCardId = active.id as string;
             const originalCardData = activeDraggingData as ListCardResponse;
             const originalListId = originalCardData?.listId;
-            notifyCardDragEnd(activeCardId); // Thông báo đã thả card
+            notifyCardDragEnd(activeCardId);
 
             const currentList = findListByCardId(activeCardId);
             if (currentList) {
                 const currentListId = currentList.id;
-                const cachedCards = queryClient.getQueryData<ListCardResponse[]>(['list-cards', currentListId]) || [];
-                const finalIndex = cachedCards.findIndex(c => c.id === activeCardId);
+                const cardIndexInList = (currentList.cards || []).findIndex((c: any) =>
+                    typeof c === 'string' ? c === activeCardId : c?.id === activeCardId
+                );
 
                 if (originalListId !== currentListId) {
                     // Di chuyển sang cột khác — gọi API di chuyển
-                    const destPosition = finalIndex !== -1 ? finalIndex : 0;
+                    const destPosition = cardIndexInList !== -1 ? cardIndexInList : 0;
                     moveCard(activeCardId, currentListId, destPosition)
                         .then(() => {
                             queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
@@ -512,8 +523,10 @@ export const BoardDetailPage: React.FC = () => {
                 } else {
                     // Sắp xếp trong cùng cột — gọi API sắp xếp lại nếu vị trí thay đổi
                     const originalIndex = originalCardData?.position ?? -1;
-                    if (finalIndex !== -1 && finalIndex !== originalIndex) {
-                        const cardIds = cachedCards.map(c => c.id);
+                    if (cardIndexInList !== -1 && cardIndexInList !== originalIndex) {
+                        const cardIds = (currentList.cards || []).map((c: any) =>
+                            typeof c === 'string' ? c : c?.id
+                        ).filter(Boolean);
                         reorderCards(currentListId, cardIds)
                             .then(() => {
                                 queryClient.invalidateQueries({ queryKey: ['board-lists', boardId] });
@@ -610,6 +623,14 @@ export const BoardDetailPage: React.FC = () => {
         });
         return result;
     }, [orderedLists, queryClient]);
+
+    const allCardsMap = React.useMemo(() => {
+        const map = new Map<string, ListCardResponse>();
+        allCards.forEach(c => {
+            if (c?.id) map.set(c.id, c);
+        });
+        return map;
+    }, [allCards]);
 
     const filteredCardIds = React.useMemo(() => {
         if (!hasActiveFilter) return null;
@@ -959,6 +980,11 @@ export const BoardDetailPage: React.FC = () => {
                 <DndContext
                     sensors={sensors}
                     collisionDetection={customCollisionDetection}
+                    measuring={{
+                        droppable: {
+                            strategy: MeasuringStrategy.Always,
+                        },
+                    }}
                     onDragOver={handleDragOver}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
@@ -972,6 +998,7 @@ export const BoardDetailPage: React.FC = () => {
                                 key={list.id}
                                 list={list}
                                 allLists={orderedLists}
+                                allCardsMap={allCardsMap}
                                 filteredCardIds={filteredCardIds}
                                 cardFilterFeatures={cardFilterFeatures}
                                 handleDeleteColumn={canDeleteList ? handleDeleteColumn : undefined}

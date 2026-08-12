@@ -140,6 +140,7 @@ export interface BoardSummaryResponse {
   memberCount?: number
   cardCount?: number
   starred?: boolean
+  memberUserIds?: string[]
   createdAt?: string
   updatedAt?: string
 }

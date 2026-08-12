@@ -1,6 +1,7 @@
 package com.example.trillo.service;
 
 import com.example.trillo.dto.request.CreateCardRequest;
+import com.example.trillo.dto.request.DuplicateCardRequest;
 import com.example.trillo.dto.request.MoveCardRequest;
 import com.example.trillo.dto.request.ReorderRequest;
 import com.example.trillo.dto.request.UpdateCardRequest;
@@ -32,6 +33,9 @@ public class CardService {
     private final BoardListRepository boardListRepository;
     private final UserRepository userRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final ChecklistRepository checklistRepository;
+    private final ChecklistItemRepository checklistItemRepository;
+    private final AttachmentRepository attachmentRepository;
     private final NotificationService notificationService;
     private final BoardService boardService;
     private final AuthService authService;
@@ -59,19 +63,134 @@ public class CardService {
     }
 
     @Transactional
+    public CardSummaryResponse duplicateCard(String cardId, DuplicateCardRequest request, User currentUser) {
+        Card sourceCard = findCardOrThrow(cardId);
+        boardService.checkAccess(sourceCard.getList().getBoard(), currentUser);
+
+        String targetListId = (request != null && request.targetListId() != null && !request.targetListId().isBlank())
+                ? request.targetListId()
+                : sourceCard.getList().getId();
+
+        BoardList targetList = findListOrThrow(targetListId);
+        boardService.requirePermission(targetList.getBoard(), currentUser, BoardPermission.CREATE_CARD);
+
+        int targetPos;
+        if (request != null && request.position() != null && request.position() >= 0) {
+            targetPos = request.position();
+            cardRepository.incrementPositionsFrom(targetListId, targetPos);
+        } else {
+            targetPos = cardRepository.findMaxPositionByListId(targetListId) + 1;
+        }
+
+        String newTitle = (request != null && request.title() != null && !request.title().isBlank())
+                ? request.title().trim()
+                : sourceCard.getTitle() + " (Bản sao)";
+
+        Card newCard = Card.builder()
+                .list(targetList)
+                .title(newTitle)
+                .description(sourceCard.getDescription())
+                .deadline(sourceCard.getDeadline())
+                .reminder(sourceCard.getReminder())
+                .completed(sourceCard.isCompleted())
+                .position(targetPos)
+                .build();
+
+        Card savedCard = cardRepository.save(newCard);
+
+        // 1. Copy assigned members
+        if (sourceCard.getAssignedMembers() != null) {
+            for (CardMember cm : sourceCard.getAssignedMembers()) {
+                CardMember newCm = CardMember.builder()
+                        .card(savedCard)
+                        .user(cm.getUser())
+                        .build();
+                savedCard.getAssignedMembers().add(newCm);
+                cardMemberRepository.save(newCm);
+            }
+        }
+
+        // 2. Copy labels
+        if (sourceCard.getLabels() != null) {
+            for (CardLabel cl : sourceCard.getLabels()) {
+                CardLabel newCl = CardLabel.builder()
+                        .card(savedCard)
+                        .label(cl.getLabel())
+                        .build();
+                savedCard.getLabels().add(newCl);
+                cardLabelRepository.save(newCl);
+            }
+        }
+
+        // 3. Copy checklists & items
+        if (sourceCard.getChecklists() != null) {
+            for (Checklist cl : sourceCard.getChecklists()) {
+                Checklist newCl = Checklist.builder()
+                        .card(savedCard)
+                        .title(cl.getTitle())
+                        .build();
+                Checklist savedCl = checklistRepository.save(newCl);
+
+                if (cl.getItems() != null) {
+                    for (ChecklistItem item : cl.getItems()) {
+                        ChecklistItem newItem = ChecklistItem.builder()
+                                .checklist(savedCl)
+                                .content(item.getContent())
+                                .completed(item.isCompleted())
+                                .position(item.getPosition())
+                                .build();
+                        savedCl.getItems().add(newItem);
+                        checklistItemRepository.save(newItem);
+                    }
+                }
+                savedCard.getChecklists().add(savedCl);
+            }
+        }
+
+        // 4. Copy attachments
+        if (sourceCard.getAttachments() != null) {
+            for (Attachment att : sourceCard.getAttachments()) {
+                Attachment newAtt = Attachment.builder()
+                        .card(savedCard)
+                        .uploadedBy(currentUser)
+                        .fileName(att.getFileName())
+                        .fileUrl(att.getFileUrl())
+                        .fileType(att.getFileType())
+                        .fileSize(att.getFileSize())
+                        .build();
+                savedCard.getAttachments().add(newAtt);
+                attachmentRepository.save(newAtt);
+            }
+        }
+
+        logActivity(savedCard, currentUser, "copied", "Thẻ được sao chép từ '" + sourceCard.getTitle() + "'");
+        broadcastBoardEvent(targetList.getBoard().getId(), "CARD_CREATED");
+
+        return toCardSummaryResponse(savedCard);
+    }
+
+    @Transactional
     public CardResponse updateCard(String cardId, UpdateCardRequest request, User currentUser) {
         Card card = findCardOrThrow(cardId);
         boardService.requirePermission(card.getList().getBoard(), currentUser, BoardPermission.EDIT_CARD);
 
         StringBuilder changes = new StringBuilder("Card updated: ");
         if (request.title() != null && !request.title().isBlank()) { changes.append("title, "); card.setTitle(request.title()); }
-        card.setDescription(request.description());
+        // Only update description if it is explicitly provided in the request (not null).
+        // An empty string means "clear description"; null means "not provided – keep existing".
+        if (request.description() != null) {
+            card.setDescription(request.description().isBlank() ? null : request.description());
+        }
 
         boolean deadlineOrReminderChanged = false;
-        if (request.deadline() != null || card.getDeadline() != null) {
-            if (request.deadline() == null ? card.getDeadline() != null : !request.deadline().equals(card.getDeadline())) {
-                deadlineOrReminderChanged = true;
-            }
+        // Only touch deadline when the request actually carries a deadline value.
+        // null in the request means "not provided", so we leave the existing deadline intact.
+        // To explicitly clear the deadline the client must send clearDeadline=true via the boolean flag.
+        if (request.clearDeadline() != null && request.clearDeadline()) {
+            if (card.getDeadline() != null) deadlineOrReminderChanged = true;
+            card.setDeadline(null);
+        } else if (request.deadline() != null) {
+            if (!request.deadline().equals(card.getDeadline())) deadlineOrReminderChanged = true;
             card.setDeadline(request.deadline());
         }
         if (request.reminder() != null) {
